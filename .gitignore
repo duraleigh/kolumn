@@ -1,0 +1,7 @@
+.env*
+*.keystore
+key.properties
+local.properties
+google-services.json
+service-account*.json
+.DS_Store

@@ -1,0 +1,1075 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Kolumn board</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wght@8..144,400;8..144,500;8..144,600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div ref="{{rootRef}}" style="{{rootStyle}}" onPointerMove="{{onMove}}" onPointerUp="{{onUp}}" onPointerCancel="{{onCancel}}" onPointerDown="{{onRootDown}}">
+
+<sc-if value="{{showTopBar}}" hint-placeholder-val="{{ true }}">
+<div style="position: absolute; left: 0; right: 0; top: 0; height: 60px; display: flex; align-items: center; gap: 10px; padding: 0 14px; box-sizing: border-box; background: var(--bg)">
+<div style="width: 32px; height: 32px; border-radius: 11px; background: var(--accent); color: var(--onAccent); display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 15px; flex: none; box-shadow: 0 4px 10px var(--accentShadow)">K</div>
+<div style="display: flex; flex-direction: column; min-width: 0; flex: 1">
+<div style="font-size: 18px; font-weight: 600; letter-spacing: -0.2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{topTitle}}</div>
+<div style="font-size: 11px; color: var(--ink2)">{{syncText}}</div>
+</div>
+<button type="button" onClick="{{doSync}}" aria-label="Check for changes now" style="width: 44px; height: 44px; border: 0; border-radius: 14px; background: transparent; color: var(--ink2); display: flex; align-items: center; justify-content: center; cursor: pointer">
+<svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" aria-hidden="true" style="{{syncIconStyle}}"><path d="{{ic.refresh}}" style="stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round"></path></svg>
+</button>
+<button type="button" onClick="{{goSearch}}" aria-label="Search" style="width: 44px; height: 44px; border: 0; border-radius: 14px; background: transparent; color: var(--ink2); display: flex; align-items: center; justify-content: center; cursor: pointer">
+<svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" aria-hidden="true"><path d="{{ic.search}}" style="stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round"></path></svg>
+</button>
+</div>
+</sc-if>
+
+<sc-if value="{{isBoard}}" hint-placeholder-val="{{ true }}">
+<div ref="{{rowRef}}" style="{{rowStyle}}">
+<sc-for list="{{cols}}" as="col" hint-placeholder-count="6">
+<sc-if value="{{col.isOpen}}" hint-placeholder-val="{{ false }}">
+<div data-drop="{{col.id}}" data-col="{{col.id}}" style="{{col.openStyle}}">
+<div style="display: flex; align-items: center; gap: 8px; padding: 12px 12px 8px">
+<span style="{{col.dotStyle}}"></span>
+<span style="font-size: 15px; font-weight: 600">{{col.name}}</span>
+<span style="font-size: 13px; color: var(--ink2)">{{col.count}}</span>
+<sc-if value="{{col.canFold}}" hint-placeholder-val="{{ false }}">
+<button type="button" onClick="{{col.fold}}" aria-label="Fold this column" style="margin-left: auto; width: 36px; height: 36px; border: 0; border-radius: 12px; background: transparent; color: var(--ink2); display: flex; align-items: center; justify-content: center; cursor: pointer">
+<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" aria-hidden="true"><path d="{{ic.fold}}" style="stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round"></path></svg>
+</button>
+</sc-if>
+</div>
+<sc-if value="{{col.isTodo}}" hint-placeholder-val="{{ true }}">
+<button type="button" onClick="{{openNew}}" style="margin: 0 10px 10px; min-height: 44px; border-radius: 14px; border: 1.5px dashed var(--dash); background: transparent; color: var(--accentText); font: inherit; font-size: 14px; font-weight: 500; display: flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer">
+<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" aria-hidden="true"><path d="{{ic.plus}}" style="stroke-width: 2; stroke-linecap: round"></path></svg>
+Add a card
+</button>
+</sc-if>
+<div style="flex: 1; overflow-y: auto; padding: 2px 10px 14px; display: flex; flex-direction: column; gap: 10px; scrollbar-width: none">
+<sc-for list="{{col.cards}}" as="cd" hint-placeholder-count="3">
+<button type="button" data-card="{{cd.id}}" onPointerDown="{{cd.down}}" onClick="{{cd.keyOpen}}" onContextMenu="{{noCtx}}" style="{{cd.style}}">
+<div style="display: flex; gap: 6px; align-items: flex-start">
+<sc-if value="{{cd.priority}}" hint-placeholder-val="{{ false }}">
+<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" aria-hidden="true" style="color: var(--accentText); flex: none; margin-top: 1px"><path d="{{ic.star}}" style="stroke-width: 1.8; stroke-linejoin: round"></path></svg>
+</sc-if>
+<span style="font-size: 14px; line-height: 1.35; flex: 1">{{cd.title}}</span>
+</div>
+<div style="display: flex; gap: 5px; flex-wrap: wrap; align-items: center; margin-top: 9px">
+<sc-for list="{{cd.pills}}" as="p" hint-placeholder-count="2">
+<span style="{{p.style}}">{{p.text}}</span>
+</sc-for>
+<span style="margin-left: auto; display: flex">
+<sc-for list="{{cd.avs}}" as="a" hint-placeholder-count="1">
+<span style="{{a.style}}">{{a.i}}</span>
+</sc-for>
+</span>
+</div>
+</button>
+</sc-for>
+<sc-if value="{{col.empty}}" hint-placeholder-val="{{ false }}">
+<div style="font-size: 13px; color: var(--ink2); text-align: center; padding: 24px 8px">Nothing here. Drag a card in.</div>
+</sc-if>
+</div>
+</div>
+</sc-if>
+<sc-if value="{{col.isStrip}}" hint-placeholder-val="{{ true }}">
+<button type="button" data-drop="{{col.id}}" data-col="{{col.id}}" onClick="{{col.open}}" aria-label="{{col.label}}" style="{{col.stripStyle}}">
+<span style="{{col.countStyle}}">{{col.count}}</span>
+<span style="{{col.barStyle}}"></span>
+<span style="writing-mode: vertical-rl; font-size: 13px; font-weight: 500; white-space: nowrap">{{col.name}}</span>
+</button>
+</sc-if>
+</sc-for>
+</div>
+</sc-if>
+
+<sc-if value="{{isCard}}" hint-placeholder-val="{{ false }}">
+<div style="position: absolute; inset: 0; background: var(--bg); display: flex; flex-direction: column">
+<div style="height: 60px; display: flex; align-items: center; gap: 6px; padding: 0 8px; flex: none">
+<button type="button" onClick="{{goBoard}}" aria-label="Back to the board" style="width: 44px; height: 44px; border: 0; border-radius: 14px; background: transparent; color: var(--ink); display: flex; align-items: center; justify-content: center; cursor: pointer">
+<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" aria-hidden="true"><path d="{{ic.back}}" style="stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round"></path></svg>
+</button>
+<span style="font-size: 13px; color: var(--ink2)">#{{card.number}} · Fall tour prep</span>
+<button type="button" onClick="{{togglePriority}}" aria-label="Priority" style="{{card.prioBtnStyle}}">
+<svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" aria-hidden="true"><path d="{{ic.star}}" style="stroke-width: 1.8; stroke-linejoin: round"></path></svg>
+</button>
+</div>
+<div style="flex: 1; overflow-y: auto; padding: 4px 18px 120px; scrollbar-width: none">
+<button type="button" onClick="{{openMove}}" style="{{card.colChipStyle}}">
+<span style="{{card.colDotStyle}}"></span>{{card.colName}}
+<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" aria-hidden="true"><path d="{{ic.chevD}}" style="stroke-width: 2; stroke-linecap: round; stroke-linejoin: round"></path></svg>
+</button>
+<h1 style="font-size: 24px; line-height: 1.25; font-weight: 600; letter-spacing: -0.3px; margin: 14px 0 6px">{{card.title}}</h1>
+<sc-if value="{{card.priority}}" hint-placeholder-val="{{ false }}">
+<div style="display: inline-flex; font-size: 12px; font-weight: 500; padding: 3px 10px; border-radius: 999px; background: var(--accentC); color: var(--onAccentC); margin-bottom: 8px">Priority</div>
+</sc-if>
+<div style="background: var(--card); border-radius: 20px; padding: 6px 14px; box-shadow: var(--shadowCard); margin: 10px 0 16px">
+<div style="display: flex; align-items: center; gap: 12px; min-height: 48px; border-bottom: 1px solid var(--line)">
+<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" aria-hidden="true" style="color: var(--ink2)"><path d="{{ic.calendar}}" style="stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round"></path></svg>
+<span style="font-size: 14px; color: var(--ink2); width: 76px">Due</span>
+<span style="{{card.dueStyle}}">{{card.dueText}}</span>
+</div>
+<div style="display: flex; align-items: center; gap: 12px; min-height: 48px; border-bottom: 1px solid var(--line)">
+<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" aria-hidden="true" style="color: var(--ink2)"><path d="{{ic.user}}" style="stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round"></path></svg>
+<span style="font-size: 14px; color: var(--ink2); width: 76px">Assigned</span>
+<span style="display: flex; gap: 6px; align-items: center; font-size: 14px">
+<sc-for list="{{card.people}}" as="a" hint-placeholder-count="1">
+<span style="{{a.style}}">{{a.i}}</span><span>{{a.name}}</span>
+</sc-for>
+<sc-if value="{{card.nobody}}" hint-placeholder-val="{{ false }}"><span style="color: var(--ink2)">Nobody yet</span></sc-if>
+</span>
+</div>
+<div style="display: flex; align-items: center; gap: 12px; min-height: 48px; border-bottom: 1px solid var(--line)">
+<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" aria-hidden="true" style="color: var(--ink2)"><path d="{{ic.tag}}" style="stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round"></path></svg>
+<span style="font-size: 14px; color: var(--ink2); width: 76px">Tags</span>
+<span style="display: flex; gap: 6px; flex-wrap: wrap">
+<sc-for list="{{card.tags}}" as="t" hint-placeholder-count="1">
+<span style="font-size: 12px; padding: 3px 10px; border-radius: 999px; background: var(--chip); color: var(--ink2)">{{t}}</span>
+</sc-for>
+</span>
+</div>
+<div style="display: flex; align-items: center; gap: 12px; min-height: 48px">
+<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" aria-hidden="true" style="color: var(--ink2)"><path d="{{ic.eye}}" style="stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round"></path></svg>
+<span style="font-size: 14px; color: var(--ink2); flex: 1">Following this card</span>
+<button type="button" onClick="{{toggleWatch}}" aria-label="Following" style="{{card.watchTrackStyle}}"><span style="{{card.watchKnobStyle}}"></span></button>
+</div>
+</div>
+<p style="font-size: 15px; line-height: 1.55; margin: 0 0 18px">{{card.desc}}</p>
+<sc-if value="{{card.hasSteps}}" hint-placeholder-val="{{ true }}">
+<div style="font-size: 13px; font-weight: 600; color: var(--ink2); margin: 0 0 6px">Steps · {{card.stepsDone}} of {{card.stepsTotal}}</div>
+<div style="background: var(--card); border-radius: 20px; padding: 4px 6px; box-shadow: var(--shadowCard); margin-bottom: 18px">
+<sc-for list="{{card.steps}}" as="s" hint-placeholder-count="3">
+<button type="button" onClick="{{s.toggle}}" style="width: 100%; display: flex; align-items: center; gap: 12px; min-height: 46px; border: 0; background: transparent; color: var(--ink); font: inherit; font-size: 14px; text-align: left; padding: 0 8px; cursor: pointer">
+<span style="{{s.boxStyle}}"><sc-if value="{{s.done}}" hint-placeholder-val="{{ false }}"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" aria-hidden="true"><path d="{{ic.check}}" style="stroke-width: 3; stroke-linecap: round; stroke-linejoin: round"></path></svg></sc-if></span>
+<span style="{{s.textStyle}}">{{s.t}}</span>
+</button>
+</sc-for>
+</div>
+</sc-if>
+<div style="font-size: 13px; font-weight: 600; color: var(--ink2); margin: 0 0 8px">Comments</div>
+<sc-for list="{{card.comments}}" as="cm" hint-placeholder-count="2">
+<div style="display: flex; gap: 10px; margin-bottom: 14px">
+<span style="{{cm.avStyle}}">{{cm.i}}</span>
+<div style="flex: 1; min-width: 0">
+<div style="font-size: 13px"><span style="font-weight: 600">{{cm.who}}</span> <span style="color: var(--ink2)">· {{cm.when}}</span></div>
+<div style="background: var(--card); border-radius: 4px 18px 18px 18px; padding: 10px 12px; margin-top: 4px; font-size: 14px; line-height: 1.45; box-shadow: var(--shadowCard)">{{cm.text}}</div>
+<sc-if value="{{cm.hasReact}}" hint-placeholder-val="{{ false }}"><div style="display: inline-flex; margin-top: 6px; font-size: 12px; padding: 2px 9px; border-radius: 999px; background: var(--chip); color: var(--ink2)">{{cm.react}}</div></sc-if>
+</div>
+</div>
+</sc-for>
+<div style="font-size: 12px; color: var(--ink2); line-height: 1.7; margin-top: 6px">
+<sc-for list="{{card.history}}" as="h" hint-placeholder-count="2"><div>{{h}}</div></sc-for>
+</div>
+</div>
+<div style="position: absolute; left: 0; right: 0; bottom: 0; padding: 10px 12px 16px; background: var(--bg); display: flex; gap: 8px; box-shadow: 0 -8px 20px var(--barShadow)">
+<label style="flex: 1; display: flex"><span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Write a comment</span>
+<input value="{{draft}}" onChange="{{onDraft}}" placeholder="Write a comment…" style="flex: 1; min-height: 46px; border-radius: 16px; border: 1px solid var(--line); background: var(--card); color: var(--ink); font: inherit; font-size: 14px; padding: 0 14px; outline-color: var(--accent)">
+</label>
+<button type="button" onClick="{{sendComment}}" style="min-height: 46px; padding: 0 16px; border-radius: 16px; border: 0; background: var(--accent); color: var(--onAccent); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; box-shadow: 0 4px 12px var(--accentShadow)">Send</button>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{isActivity}}" hint-placeholder-val="{{ false }}">
+<div style="position: absolute; left: 0; right: 0; top: 60px; bottom: 72px; overflow-y: auto; padding: 4px 14px 20px; scrollbar-width: none">
+<div style="display: flex; align-items: center; gap: 6px; margin-bottom: 12px">
+<button type="button" onClick="{{dayPrev}}" aria-label="Earlier day" style="width: 44px; height: 44px; border: 0; border-radius: 14px; background: var(--surface); color: var(--ink); display: flex; align-items: center; justify-content: center; cursor: pointer"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" aria-hidden="true"><path d="{{ic.chevL}}" style="stroke-width: 2; stroke-linecap: round; stroke-linejoin: round"></path></svg></button>
+<div style="flex: 1; text-align: center"><div style="font-size: 17px; font-weight: 600">{{day.label}}</div><div style="font-size: 12px; color: var(--ink2)">{{day.date}}</div></div>
+<button type="button" onClick="{{dayNext}}" aria-label="Later day" style="{{dayNextStyle}}"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" aria-hidden="true"><path d="{{ic.chevR}}" style="stroke-width: 2; stroke-linecap: round; stroke-linejoin: round"></path></svg></button>
+</div>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; padding: 4px; border-radius: 18px; background: var(--surface); margin-bottom: 14px">
+<sc-for list="{{actTabs}}" as="tb" hint-placeholder-count="3">
+<button type="button" onClick="{{tb.pick}}" style="{{tb.style}}">{{tb.name}} <span style="opacity: 0.75">{{tb.count}}</span></button>
+</sc-for>
+</div>
+<sc-for list="{{actItems}}" as="ev" hint-placeholder-count="4">
+<div style="display: flex; gap: 12px; align-items: flex-start; background: var(--card); border-radius: 18px; padding: 12px 14px; margin-bottom: 10px; box-shadow: var(--shadowCard)">
+<span style="{{ev.avStyle}}">{{ev.i}}</span>
+<div style="flex: 1; min-width: 0"><div style="font-size: 14px; line-height: 1.4">{{ev.text}}</div><div style="font-size: 12px; color: var(--ink2); margin-top: 3px">{{ev.when}}</div></div>
+</div>
+</sc-for>
+<sc-if value="{{actEmpty}}" hint-placeholder-val="{{ false }}"><div style="font-size: 14px; color: var(--ink2); text-align: center; padding: 30px 0">Nothing here on this day.</div></sc-if>
+</div>
+</sc-if>
+
+<sc-if value="{{isCalendar}}" hint-placeholder-val="{{ false }}">
+<div style="position: absolute; left: 0; right: 0; top: 60px; bottom: 72px; overflow-y: auto; padding: 4px 14px 20px; scrollbar-width: none">
+<div style="background: var(--card); border-radius: 22px; padding: 12px 10px 10px; box-shadow: var(--shadowCard); margin-bottom: 16px">
+<div style="font-size: 16px; font-weight: 600; padding: 0 6px 8px">November 2026</div>
+<div style="display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 2px; text-align: center; font-size: 11px; color: var(--ink2); margin-bottom: 4px">
+<span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span>
+</div>
+<div style="display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 2px">
+<sc-for list="{{calDays}}" as="d" hint-placeholder-count="35">
+<button type="button" onClick="{{d.pick}}" aria-label="{{d.label}}" style="{{d.style}}">{{d.n}}<span style="{{d.dotStyle}}"></span></button>
+</sc-for>
+</div>
+</div>
+<sc-if value="{{hasOverdue}}" hint-placeholder-val="{{ true }}">
+<div style="font-size: 13px; font-weight: 600; color: var(--dangerText); margin: 0 4px 8px">Overdue</div>
+<sc-for list="{{overdue}}" as="cd" hint-placeholder-count="1">
+<button type="button" onClick="{{cd.openIt}}" style="{{cd.rowStyle}}"><span style="{{cd.barStyle}}"></span><span style="flex: 1"><span style="display: block; font-size: 14px">{{cd.title}}</span><span style="display: block; font-size: 12px; color: var(--dangerText); margin-top: 2px">{{cd.when}} · {{cd.colName}}</span></span></button>
+</sc-for>
+</sc-if>
+<div style="font-size: 13px; font-weight: 600; color: var(--ink2); margin: 10px 4px 8px">{{calDayTitle}}</div>
+<sc-for list="{{calList}}" as="cd" hint-placeholder-count="2">
+<button type="button" onClick="{{cd.openIt}}" style="{{cd.rowStyle}}"><span style="{{cd.barStyle}}"></span><span style="flex: 1"><span style="display: block; font-size: 14px">{{cd.title}}</span><span style="display: block; font-size: 12px; color: var(--ink2); margin-top: 2px">{{cd.when}} · {{cd.colName}}</span></span></button>
+</sc-for>
+<sc-if value="{{calEmpty}}" hint-placeholder-val="{{ false }}"><div style="font-size: 14px; color: var(--ink2); padding: 8px 4px">Nothing due on this day.</div></sc-if>
+</div>
+</sc-if>
+
+<sc-if value="{{isAlerts}}" hint-placeholder-val="{{ false }}">
+<div style="position: absolute; left: 0; right: 0; top: 60px; bottom: 72px; overflow-y: auto; padding: 4px 14px 20px; scrollbar-width: none">
+<div style="display: flex; align-items: center; margin: 0 4px 10px"><span style="font-size: 13px; color: var(--ink2); flex: 1">{{unreadText}}</span>
+<button type="button" onClick="{{readAll}}" style="min-height: 40px; border: 0; background: transparent; color: var(--accentText); font: inherit; font-size: 14px; font-weight: 500; cursor: pointer">Mark all read</button></div>
+<sc-for list="{{alerts}}" as="al" hint-placeholder-count="4">
+<button type="button" onClick="{{al.openIt}}" style="{{al.style}}">
+<span style="{{al.avStyle}}">{{al.i}}</span>
+<span style="flex: 1; min-width: 0; text-align: left"><span style="display: block; font-size: 14px; line-height: 1.4">{{al.text}}</span><span style="display: block; font-size: 12px; color: var(--ink2); margin-top: 3px">{{al.when}}</span></span>
+<span style="{{al.dotStyle}}"></span>
+</button>
+</sc-for>
+</div>
+</sc-if>
+
+<sc-if value="{{isSearch}}" hint-placeholder-val="{{ false }}">
+<div style="position: absolute; inset: 0; background: var(--bg); display: flex; flex-direction: column">
+<div style="display: flex; align-items: center; gap: 6px; padding: 10px 8px">
+<button type="button" onClick="{{goBoard}}" aria-label="Close search" style="width: 44px; height: 44px; border: 0; border-radius: 14px; background: transparent; color: var(--ink); display: flex; align-items: center; justify-content: center; cursor: pointer"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" aria-hidden="true"><path d="{{ic.back}}" style="stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round"></path></svg></button>
+<label style="flex: 1; display: flex"><span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Search cards</span>
+<input value="{{query}}" onChange="{{onQuery}}" placeholder="Search cards and comments" style="flex: 1; min-height: 48px; border-radius: 16px; border: 1px solid var(--line); background: var(--card); color: var(--ink); font: inherit; font-size: 15px; padding: 0 14px; outline-color: var(--accent)">
+</label>
+</div>
+<div style="flex: 1; overflow-y: auto; padding: 6px 14px 20px">
+<div style="font-size: 12px; color: var(--ink2); margin: 0 4px 8px">{{searchNote}}</div>
+<sc-for list="{{results}}" as="cd" hint-placeholder-count="4">
+<button type="button" onClick="{{cd.openIt}}" style="{{cd.rowStyle}}"><span style="{{cd.barStyle}}"></span><span style="flex: 1"><span style="display: block; font-size: 14px">{{cd.title}}</span><span style="display: block; font-size: 12px; color: var(--ink2); margin-top: 2px">{{cd.colName}}</span></span></button>
+</sc-for>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{showNav}}" hint-placeholder-val="{{ true }}">
+<div style="position: absolute; left: 0; right: 0; bottom: 0; height: 72px; background: var(--nav); display: flex; justify-content: space-around; align-items: center; padding: 0 6px 6px; box-sizing: border-box">
+<sc-for list="{{navItems}}" as="n" hint-placeholder-count="4">
+<button type="button" onClick="{{n.go}}" style="{{n.style}}">
+<span style="{{n.pillStyle}}"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" aria-hidden="true"><path d="{{n.icon}}" style="stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round"></path></svg><sc-if value="{{n.badge}}" hint-placeholder-val="{{ false }}"><span style="position: absolute; top: 2px; right: 12px; min-width: 16px; height: 16px; border-radius: 8px; background: var(--danger); color: #fff; font-size: 10px; font-weight: 600; display: flex; align-items: center; justify-content: center">{{n.badgeText}}</span></sc-if></span>
+<span>{{n.name}}</span>
+</button>
+</sc-for>
+</div>
+</sc-if>
+
+<sc-if value="{{showHint}}" hint-placeholder-val="{{ false }}">
+<div style="position: absolute; left: 50%; bottom: 84px; transform: translateX(-50%); background: var(--inkBox); color: var(--onInkBox); font-size: 12px; padding: 8px 14px; border-radius: 999px; white-space: nowrap; box-shadow: 0 6px 16px var(--barShadow); pointer-events: none">Hold a card to move it</div>
+</sc-if>
+
+<sc-if value="{{showEdges}}" hint-placeholder-val="{{ false }}">
+<div style="{{edgeLStyle}}"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" aria-hidden="true"><path d="{{ic.chevL}}" style="stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round"></path></svg></div>
+<div style="{{edgeRStyle}}"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" aria-hidden="true"><path d="{{ic.chevR}}" style="stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round"></path></svg></div>
+</sc-if>
+
+<div style="{{trayStyle}}">
+<div style="width: 40px; height: 4px; border-radius: 2px; background: var(--dash); margin: 0 auto 10px"></div>
+<div style="font-size: 13px; color: var(--ink2); margin: 0 4px 10px">Drop on a column</div>
+<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(88px, 1fr)); gap: 8px">
+<sc-for list="{{targets}}" as="tg" hint-placeholder-count="6">
+<div data-drop="{{tg.id}}" style="{{tg.style}}"><span style="font-size: 13px; font-weight: 600; line-height: 1.15">{{tg.name}}</span><span style="{{tg.subStyle}}">{{tg.sub}}</span></div>
+</sc-for>
+</div>
+</div>
+
+<sc-if value="{{dragging}}" hint-placeholder-val="{{ false }}">
+<div style="{{ghostStyle}}">
+<div style="display: flex; gap: 6px; align-items: flex-start">
+<sc-if value="{{ghost.priority}}" hint-placeholder-val="{{ false }}"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" aria-hidden="true" style="color: var(--accentText); flex: none; margin-top: 1px"><path d="{{ic.star}}" style="stroke-width: 1.8; stroke-linejoin: round"></path></svg></sc-if>
+<span style="font-size: 14px; line-height: 1.35; flex: 1">{{ghost.title}}</span>
+</div>
+<div style="display: flex; gap: 5px; flex-wrap: wrap; margin-top: 9px">
+<sc-for list="{{ghost.pills}}" as="p" hint-placeholder-count="1"><span style="{{p.style}}">{{p.text}}</span></sc-for>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{showSheet}}" hint-placeholder-val="{{ false }}">
+<button type="button" onClick="{{closeSheet}}" aria-label="Close" style="position: absolute; inset: 0; width: 100%; border: 0; padding: 0; background: var(--scrim); cursor: default"></button>
+<div style="position: absolute; left: 0; right: 0; bottom: 0; background: var(--sheet); border-radius: 28px 28px 0 0; padding: 12px 16px 20px; box-shadow: 0 -12px 30px var(--barShadow)">
+<div style="width: 40px; height: 4px; border-radius: 2px; background: var(--dash); margin: 0 auto 12px"></div>
+<sc-if value="{{isMoveSheet}}" hint-placeholder-val="{{ true }}">
+<div style="font-size: 17px; font-weight: 600; margin: 0 4px 4px">Move to…</div>
+<div style="font-size: 13px; color: var(--ink2); margin: 0 4px 12px">{{card.title}}</div>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<sc-for list="{{moveList}}" as="m" hint-placeholder-count="6">
+<button type="button" onClick="{{m.pick}}" style="{{m.style}}"><span style="{{m.dotStyle}}"></span><span style="flex: 1; text-align: left">{{m.name}}</span><span style="font-size: 12px; color: var(--ink2)">{{m.sub}}</span></button>
+</sc-for>
+</div>
+</sc-if>
+<sc-if value="{{isNewSheet}}" hint-placeholder-val="{{ false }}">
+<div style="font-size: 17px; font-weight: 600; margin: 0 4px 12px">New card in To-do</div>
+<label style="display: flex"><span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Card title</span>
+<input value="{{newTitle}}" onChange="{{onNewTitle}}" placeholder="What needs doing?" style="flex: 1; min-height: 50px; border-radius: 16px; border: 1px solid var(--line); background: var(--card); color: var(--ink); font: inherit; font-size: 15px; padding: 0 14px; outline-color: var(--accent)">
+</label>
+<button type="button" onClick="{{addCard}}" style="width: 100%; margin-top: 12px; min-height: 50px; border-radius: 16px; border: 0; background: var(--accent); color: var(--onAccent); font: inherit; font-size: 15px; font-weight: 600; cursor: pointer; box-shadow: 0 6px 16px var(--accentShadow)">Add card</button>
+</sc-if>
+</div>
+</sc-if>
+
+<sc-if value="{{showToast}}" hint-placeholder-val="{{ false }}">
+<div style="{{toastStyle}}">
+<span style="flex: 1">{{toast.text}}</span>
+<sc-if value="{{toast.canUndo}}" hint-placeholder-val="{{ true }}"><button type="button" onClick="{{undo}}" style="min-height: 36px; border: 0; background: transparent; color: var(--toastAction); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; padding: 0 6px">Undo</button></sc-if>
+</div>
+</sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["light","dark"],"default":"light"},"size":{"editor":"enum","options":["small","regular","large","tablet"],"default":"regular"},"manyColumns":{"editor":"boolean","default":false},"screen":{"editor":"enum","options":["board","card","activity","calendar","alerts","search"],"default":"board"},"demoDrag":{"editor":"boolean","default":false},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    var many = !!props.manyColumns;
+    this.press = null;
+    this.timer = null;
+    this.edgeTimer = null;
+    this.edgeSide = 0;
+    this.toastTimer = null;
+    this.syncTimer = null;
+    this.rowEl = null;
+    this.rootEl = null;
+    this.clock = 100;
+    var dims = this.dims(props.size);
+    var wide = dims.w >= 640;
+    var cards = this.makeCards(many);
+    var drag = null;
+    if (props.demoDrag) {
+      var gw = Math.round(dims.w * 0.7);
+      drag = { id: 'c3', from: 'todo', type: 'touch', x: Math.round(dims.w * 0.52), y: Math.round(dims.h * (many ? 0.3 : 0.4)), offX: Math.round(gw * 0.45), offY: 30, w: gw, over: many ? 'gear' : 'progress', demo: true };
+    }
+    this.state = {
+      cards: cards,
+      open: 'todo',
+      open2: 'progress',
+      screen: props.screen || 'board',
+      cardId: 'c2',
+      sheet: null,
+      drag: drag,
+      toast: null,
+      query: '',
+      draft: '',
+      newTitle: '',
+      dayIdx: 0,
+      actTab: 'updated',
+      calDay: 10,
+      sync: 'idle',
+      synced: 'Updated just now',
+      readAll: false,
+      events: [],
+      hint: !wide && !props.demoDrag && (props.screen || 'board') === 'board'
+    };
+  }
+
+  dims(size) {
+    if (size === 'small') return { w: 320, h: 640 };
+    if (size === 'large') return { w: 430, h: 932 };
+    if (size === 'tablet') return { w: 1024, h: 720 };
+    return { w: 390, h: 844 };
+  }
+
+  makeCards(many) {
+    var list = [
+      { id: 'c1', n: 41, title: 'Confirm hotel block for Raleigh', col: 'todo', due: 9, dueTime: '', who: ['CA'], comments: 2, tags: ['travel'], last: 90 },
+      { id: 'c2', n: 38, title: 'Finalize setlist', col: 'progress', priority: true, due: 12, dueTime: '', who: ['JM'], comments: 3, tags: ['music'], last: 95,
+        steps: [{ t: 'Pick the opener', done: true }, { t: 'Slot the new single', done: true }, { t: 'Decide on the medley', done: true }, { t: 'Choose the encore', done: false }, { t: 'Send to the band', done: false }] },
+      { id: 'c3', n: 44, title: 'Order new in-ear monitors', col: 'todo', due: 18, dueTime: '', who: [], comments: 0, tags: ['gear'], last: 80 },
+      { id: 'c4', n: 46, title: 'Pick the encore song', col: 'todo', who: [], comments: 1, tags: ['music'], last: 85 },
+      { id: 'c5', n: 39, title: 'Merch table restock list', col: 'progress', due: 13, dueTime: '3:00 pm', who: ['RS'], comments: 0, tags: ['merch'], last: 70 },
+      { id: 'c6', n: 31, title: 'Bus parking permit', col: 'waiting', laterSoon: 3, who: [], comments: 0, tags: ['travel'], last: 20 },
+      { id: 'c7', n: 35, title: 'Venue stage plot sign-off', col: 'waiting', who: ['CA'], comments: 4, files: 1, tags: ['venue'], last: 60 },
+      { id: 'c8', n: 33, title: 'Rehearsal studio, Nov 16', col: 'booked', due: 16, dueTime: '10:00 am', who: ['JM'], comments: 0, tags: [], last: 50 },
+      { id: 'c9', n: 30, title: 'Hotel in Durham', col: 'booked', who: ['RS'], comments: 1, tags: ['travel'], last: 40 },
+      { id: 'c10', n: 22, title: 'New tour poster ideas', col: 'later', who: [], comments: 2, tags: [], last: 10 },
+      { id: 'c11', n: 25, title: 'Fan meet-and-greet format', col: 'later', who: [], comments: 0, tags: [], last: 12 },
+      { id: 'c12', n: 28, title: 'Sound check checklist', col: 'done', who: ['RS'], comments: 0, tags: [], last: 30 },
+      { id: 'c13', n: 27, title: 'Update the website tour dates', col: 'done', who: ['CA'], comments: 1, tags: [], last: 25 },
+      { id: 'c14', n: 26, title: 'Band photos for the program', col: 'done', who: ['JM'], comments: 0, tags: [], last: 24 }
+    ];
+    if (many) {
+      list.push({ id: 'c15', n: 47, title: 'Load-in times for each venue', col: 'venue', who: ['CA'], comments: 0, tags: [], last: 55 });
+      list.push({ id: 'c16', n: 48, title: 'Rental van pickup', col: 'travel', due: 15, dueTime: '', who: ['RS'], comments: 0, tags: [], last: 52 });
+      list.push({ id: 'c17', n: 49, title: 'Spare cables and strings', col: 'gear', who: [], comments: 0, tags: [], last: 51 });
+      list.push({ id: 'c18', n: 50, title: 'T-shirt size counts', col: 'merch', who: ['JM'], comments: 0, tags: [], last: 49 });
+    }
+    return list;
+  }
+
+  theme() {
+    if (this.props.theme === 'dark') {
+      return {
+        '--bg': '#111318', '--surface': '#181B22', '--chip': '#2C313C', '--card': '#21252E', '--nav': '#0B0D11', '--sheet': '#181B22',
+        '--ink': '#F1F3F7', '--ink2': '#A3AAB8', '--line': '#2C313C', '--dash': '#4B5160',
+        '--accent': '#7C3AED', '--onAccent': '#FFFFFF', '--accentText': '#C4B5FD', '--accentC': '#2E2350', '--onAccentC': '#DDD6FE', '--accentShadow': 'rgba(124,58,237,0.45)',
+        '--danger': '#EF4444', '--dangerBg': '#3B1D22', '--dangerText': '#FCA5A5',
+        '--shadowCard': 'inset 0 1px 0 rgba(255,255,255,0.05), 0 8px 18px rgba(0,0,0,0.42)',
+        '--shadowLift': '0 26px 48px rgba(0,0,0,0.65), 0 0 0 2px #8B5CF6',
+        '--scrim': 'rgba(0,0,0,0.55)', '--barShadow': 'rgba(0,0,0,0.45)', '--inkBox': '#F1F3F7', '--onInkBox': '#111318', '--toastAction': '#6D28D9',
+        '--navOn': '#2E2350', '--navOnText': '#DDD6FE'
+      };
+    }
+    return {
+      '--bg': '#FBF8FF', '--surface': '#F2EFF8', '--chip': '#EAE7F2', '--card': '#FFFFFF', '--nav': '#EFEDF4', '--sheet': '#FFFFFF',
+      '--ink': '#1B1B21', '--ink2': '#5B5D72', '--line': '#E4E1EC', '--dash': '#C5C7EE',
+      '--accent': '#4653D0', '--onAccent': '#FFFFFF', '--accentText': '#3442B8', '--accentC': '#DFE0FF', '--onAccentC': '#0B1A7A', '--accentShadow': 'rgba(70,83,208,0.35)',
+      '--danger': '#BA1A1A', '--dangerBg': '#FFDAD6', '--dangerText': '#93000A',
+      '--shadowCard': '0 1px 2px rgba(27,27,33,0.07), 0 6px 16px rgba(70,83,208,0.10)',
+      '--shadowLift': '0 26px 44px rgba(27,27,33,0.30), 0 8px 14px rgba(70,83,208,0.25), 0 0 0 2px #4653D0',
+      '--scrim': 'rgba(27,27,33,0.38)', '--barShadow': 'rgba(70,83,208,0.14)', '--inkBox': '#2F3036', '--onInkBox': '#FFFFFF', '--toastAction': '#BCC2FF',
+      '--navOn': '#DFE0FF', '--navOnText': '#0B1A7A'
+    };
+  }
+
+  columns() {
+    var dark = this.props.theme === 'dark';
+    var cols = [
+      { id: 'later', name: 'Later', color: dark ? '#6B7280' : '#8E8CA3', side: 'left' },
+      { id: 'todo', name: 'To-do', color: dark ? '#A78BFA' : '#4653D0', side: 'mid' },
+      { id: 'booked', name: 'Booked', color: dark ? '#34D399' : '#1D9E75' },
+      { id: 'progress', name: 'In progress', color: dark ? '#A78BFA' : '#4653D0' },
+      { id: 'waiting', name: 'Waiting on', color: dark ? '#FBBF24' : '#BA7517' }
+    ];
+    if (this.props.manyColumns) {
+      cols.push({ id: 'venue', name: 'Venue', color: dark ? '#F472B6' : '#B83280' });
+      cols.push({ id: 'travel', name: 'Travel', color: dark ? '#60A5FA' : '#1F6FC5' });
+      cols.push({ id: 'gear', name: 'Gear', color: dark ? '#FB923C' : '#C2410C' });
+      cols.push({ id: 'merch', name: 'Merch', color: dark ? '#2DD4BF' : '#0F766E' });
+    }
+    cols.push({ id: 'done', name: 'Done', color: dark ? '#6B7280' : '#8E8CA3' });
+    return cols;
+  }
+
+  colById(id) {
+    var cs = this.columns();
+    for (var i = 0; i < cs.length; i++) if (cs[i].id === id) return cs[i];
+    return cs[1];
+  }
+
+  people() {
+    return {
+      CA: { name: 'Clay', bg: '#4653D0' },
+      JM: { name: 'Jamie', bg: '#77536D' },
+      RS: { name: 'Riley', bg: '#0F6E56' }
+    };
+  }
+
+  avatar(i, size) {
+    var p = this.people()[i] || { bg: '#5B5D72' };
+    var s = size || 22;
+    return { width: s + 'px', height: s + 'px', borderRadius: '50%', background: p.bg, color: '#fff', fontSize: (s > 26 ? 12 : 10) + 'px', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none', boxShadow: '0 0 0 2px var(--card)' };
+  }
+
+  pill(text, kind) {
+    var base = { fontSize: '11px', fontWeight: 500, padding: '3px 8px', borderRadius: '999px', background: 'var(--chip)', color: 'var(--ink2)', whiteSpace: 'nowrap' };
+    if (kind === 'danger') { base.background = 'var(--dangerBg)'; base.color = 'var(--dangerText)'; }
+    if (kind === 'accent') { base.background = 'var(--accentC)'; base.color = 'var(--onAccentC)'; }
+    if (kind === 'later') { base.background = 'var(--accentC)'; base.color = 'var(--onAccentC)'; }
+    return { text: text, style: base };
+  }
+
+  dueLabel(c) {
+    if (!c.due) return '';
+    var names = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    var dow = names[(c.due - 1) % 7];
+    if (c.due === 10) return 'Today' + (c.dueTime ? ' ' + c.dueTime : '');
+    if (c.due === 11) return 'Tomorrow' + (c.dueTime ? ' ' + c.dueTime : '');
+    if (c.due > 10 && c.due < 17) return dow + (c.dueTime ? ' ' + c.dueTime : '');
+    return 'Nov ' + c.due + (c.dueTime ? ', ' + c.dueTime : '');
+  }
+
+  pillsFor(c) {
+    var out = [];
+    if (c.priority) out.push(this.pill('Priority', 'accent'));
+    if (c.due && c.due < 10 && c.col !== 'done') out.push(this.pill('Overdue · Nov ' + c.due, 'danger'));
+    else if (c.due) out.push(this.pill(this.dueLabel(c)));
+    if (c.steps) {
+      var d = 0; for (var i = 0; i < c.steps.length; i++) if (c.steps[i].done) d++;
+      out.push(this.pill(d + '/' + c.steps.length + ' steps'));
+    }
+    if (c.comments) out.push(this.pill(c.comments + (c.comments === 1 ? ' comment' : ' comments')));
+    if (c.files) out.push(this.pill(c.files + ' file'));
+    if (c.laterSoon && !c.due && c.col !== 'later' && c.col !== 'done') out.push(this.pill('Moves to Later in ' + c.laterSoon + ' days', 'later'));
+    if (c.tags) for (var j = 0; j < c.tags.length && out.length < 4; j++) out.push(this.pill(c.tags[j]));
+    return out;
+  }
+
+  sorted(list) {
+    return list.slice().sort(function (a, b) {
+      var pa = a.priority ? 1 : 0, pb = b.priority ? 1 : 0;
+      if (pa !== pb) return pb - pa;
+      return b.last - a.last;
+    });
+  }
+
+  cardById(id) {
+    var cs = this.state.cards;
+    for (var i = 0; i < cs.length; i++) if (cs[i].id === id) return cs[i];
+    return cs[0];
+  }
+
+  scale() {
+    if (!this.rootEl) return 1;
+    var r = this.rootEl.getBoundingClientRect();
+    return (r.width / this.rootEl.offsetWidth) || 1;
+  }
+
+  local(e) {
+    var r = this.rootEl.getBoundingClientRect();
+    var s = this.scale();
+    return { x: (e.clientX - r.left) / s, y: (e.clientY - r.top) / s };
+  }
+
+  onCardDown(card, e) {
+    if (e.button && e.button > 0) return;
+    if (this.state.sheet) return;
+    var el = e.currentTarget;
+    var p = this.local(e);
+    var s = this.scale();
+    var rr = el.getBoundingClientRect();
+    this.press = {
+      id: card.id, x0: e.clientX, y0: e.clientY, pointerId: e.pointerId, type: e.pointerType || 'mouse', el: el, started: false,
+      offX: (e.clientX - rr.left) / s, offY: (e.clientY - rr.top) / s, w: rr.width / s, startX: p.x, startY: p.y
+    };
+    var self = this;
+    clearTimeout(this.timer);
+    if (this.press.type !== 'mouse') {
+      this.timer = setTimeout(function () { self.beginDrag(); }, 380);
+    }
+  }
+
+  beginDrag() {
+    var pr = this.press;
+    if (!pr || pr.started) return;
+    pr.started = true;
+    try { pr.el.setPointerCapture(pr.pointerId); } catch (err) {}
+    if (navigator.vibrate) { try { navigator.vibrate(15); } catch (err2) {} }
+    this.setState({ hint: false, drag: { id: pr.id, type: pr.type, x: pr.startX, y: pr.startY, offX: pr.offX, offY: pr.offY, w: pr.w, over: null, from: this.cardById(pr.id).col } });
+  }
+
+  moveDrag(e) {
+    var pr = this.press;
+    if (!pr) return;
+    var dx = e.clientX - pr.x0, dy = e.clientY - pr.y0;
+    var dist = Math.sqrt(dx * dx + dy * dy);
+    if (!pr.started) {
+      if (pr.type === 'mouse') { if (dist > 5) this.beginDrag(); else return; }
+      else { if (dist > 10) { clearTimeout(this.timer); this.press = null; } return; }
+    }
+    var p = this.local(e);
+    var over = null;
+    var hit = document.elementFromPoint(e.clientX, e.clientY);
+    if (hit && hit.closest) { var t = hit.closest('[data-drop]'); if (t && this.rootEl.contains(t)) over = t.getAttribute('data-drop'); }
+    this.edgeCheck(p, over);
+    this.setState({ drag: Object.assign({}, this.state.drag, { x: p.x, y: p.y, over: over }) });
+  }
+
+  edgeCheck(p, over) {
+    var d = this.dims(this.props.size);
+    var narrow = d.w < 640;
+    var side = 0;
+    var inTray = this.state.drag && this.state.drag.type !== 'mouse' && p.y > d.h - this.trayHeight();
+    if (narrow && !inTray) { if (p.x < 30) side = -1; else if (p.x > d.w - 30) side = 1; }
+    if (side !== this.edgeSide) {
+      clearTimeout(this.edgeTimer);
+      this.edgeSide = side;
+      if (side !== 0) this.armEdge();
+    }
+    void over;
+  }
+
+  armEdge() {
+    var self = this;
+    this.edgeTimer = setTimeout(function () {
+      if (!self.press || !self.press.started || self.edgeSide === 0) return;
+      var cs = self.columns();
+      var idx = 0;
+      for (var i = 0; i < cs.length; i++) if (cs[i].id === self.state.open) idx = i;
+      var ni = Math.max(0, Math.min(cs.length - 1, idx + self.edgeSide));
+      if (ni !== idx) {
+        if (navigator.vibrate) { try { navigator.vibrate(8); } catch (err) {} }
+        self.setState({ open: cs[ni].id });
+      }
+      self.armEdge();
+    }, 650);
+  }
+
+  trayHeight() {
+    var d = this.dims(this.props.size);
+    var n = this.columns().length;
+    var perRow = Math.max(1, Math.floor((d.w - 32 + 8) / (88 + 8)));
+    var rows = Math.ceil(n / perRow);
+    return 64 + rows * 60 + (rows - 1) * 8 + 18;
+  }
+
+  endDrag(e, cancelled) {
+    clearTimeout(this.timer);
+    clearTimeout(this.edgeTimer);
+    this.edgeSide = 0;
+    var pr = this.press;
+    this.press = null;
+    if (!pr) return;
+    if (!pr.started) {
+      if (!cancelled) this.openCard(pr.id);
+      return;
+    }
+    var dr = this.state.drag;
+    if (!cancelled && dr && dr.over) {
+      this.moveCard(dr.id, dr.over);
+    }
+    this.setState({ drag: null });
+  }
+
+  moveCard(id, colId, quiet) {
+    var c = this.cardById(id);
+    if (!c || c.col === colId) return;
+    var prev = c.col;
+    this.clock += 1;
+    var now = this.clock;
+    var cards = this.state.cards.map(function (x) { return x.id === id ? Object.assign({}, x, { col: colId, last: 1000 + now, laterSoon: 0 }) : x; });
+    var name = this.colById(colId).name;
+    var events = this.state.events.concat([{ who: 'CA', text: 'You moved ' + c.title + ' to ' + name, when: 'Just now', kind: colId === 'done' ? 'done' : 'updated' }]);
+    if (navigator.vibrate) { try { navigator.vibrate(10); } catch (err) {} }
+    this.setState({ cards: cards, events: events });
+    if (!quiet) this.showToast('Moved to ' + name, { id: id, col: prev });
+  }
+
+  showToast(text, undo) {
+    var self = this;
+    clearTimeout(this.toastTimer);
+    this.setState({ toast: { text: text, undo: undo || null } });
+    this.toastTimer = setTimeout(function () { self.setState({ toast: null }); }, 4000);
+  }
+
+  openCard(id) {
+    this.setState({ screen: 'card', cardId: id, hint: false, drag: null });
+  }
+
+  componentWillUnmount() {
+    clearTimeout(this.timer); clearTimeout(this.edgeTimer); clearTimeout(this.toastTimer); clearTimeout(this.syncTimer);
+  }
+
+  centerOpen(smooth) {
+    var row = this.rowEl;
+    if (!row) return;
+    var el = row.querySelector('[data-col="' + this.state.open + '"]');
+    if (!el) return;
+    var left = el.offsetLeft - (row.clientWidth - el.offsetWidth) / 2;
+    try { row.scrollTo({ left: Math.max(0, left), behavior: smooth ? 'smooth' : 'auto' }); } catch (err) { row.scrollLeft = left; }
+  }
+
+  componentDidUpdate(prevProps, prevState) {
+    if (prevState.open !== this.state.open || (prevState.screen !== this.state.screen && this.state.screen === 'board')) {
+      var self = this;
+      setTimeout(function () { self.centerOpen(prevState.screen === self.state.screen); }, 30);
+    }
+  }
+
+  renderVals() {
+    var self = this;
+    var st = this.state;
+    var d = this.dims(this.props.size);
+    var W = d.w, H = d.h;
+    var wide = W >= 640;
+    var dark = this.props.theme === 'dark';
+    var tv = this.theme();
+    var ic = {
+      search: 'M4 11a7 7 0 1 0 14 0a7 7 0 1 0 -14 0 M20 20l-4.2-4.2',
+      refresh: 'M20 12a8 8 0 1 1-2.4-5.7 M20 4v5h-5',
+      plus: 'M12 5v14 M5 12h14',
+      star: 'M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z',
+      check: 'M5 12.5l4.5 4.5L19 7.5',
+      chevL: 'M15 6l-6 6 6 6', chevR: 'M9 6l6 6-6 6', chevD: 'M6 9l6 6 6-6',
+      back: 'M19 12H5 M11 6l-6 6 6 6',
+      calendar: 'M4 6.5h16V20H4z M4 10.5h16 M8.5 3.5v4 M15.5 3.5v4',
+      user: 'M12 12a4 4 0 1 0 0-8a4 4 0 0 0 0 8z M4.5 20a7.5 7.5 0 0 1 15 0',
+      tag: 'M3.5 12.2V4h8.2l8.8 8.8-8.2 8.2z M8 8h.01',
+      eye: 'M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6z M12 9.5a2.5 2.5 0 1 0 0 5a2.5 2.5 0 0 0 0-5z',
+      board: 'M4 4.5h5v15H4z M10.5 4.5h5v10h-5z M17 4.5h3v7h-3z',
+      activity: 'M3 12h4l3-7.5 4 15 3-7.5h4',
+      bell: 'M6 16.5V11a6 6 0 1 1 12 0v5.5l1.8 1.8H4.2z M10 20.5a2 2 0 0 0 4 0',
+      fold: 'M9 4v16 M15 4v16 M4 12h2 M18 12h2'
+    };
+
+    var cols = this.columns();
+    var counts = {};
+    cols.forEach(function (c) { counts[c.id] = 0; });
+    st.cards.forEach(function (c) { if (counts[c.col] !== undefined) counts[c.col]++; });
+
+    var dr = st.drag;
+    var touchDrag = !!(dr && dr.type !== 'mouse');
+    var openW = wide ? 0 : Math.max(220, W - 92);
+
+    var colVals = cols.map(function (c) {
+      var isOpen = wide ? (c.id === 'todo' || c.id === st.open2) : c.id === st.open;
+      var over = !!(dr && dr.over === c.id && dr.from !== c.id);
+      var cardsHere = self.sorted(st.cards.filter(function (x) { return x.col === c.id; }));
+      var cardVals = cardsHere.map(function (x) {
+        var beingDragged = !!(dr && dr.id === x.id);
+        var style = {
+          display: 'block', width: '100%', textAlign: 'left', font: 'inherit', color: 'var(--ink)', border: '0', cursor: 'grab',
+          background: 'var(--card)', borderRadius: '18px', padding: '12px 13px', boxShadow: x.priority ? '0 0 0 2px var(--accent), var(--shadowCard)' : 'var(--shadowCard)',
+          userSelect: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none', touchAction: 'pan-x pan-y',
+          opacity: beingDragged ? 0.35 : 1, transition: 'opacity .15s, transform .15s', flex: 'none'
+        };
+        if (beingDragged) { style.boxShadow = 'none'; style.outline = '2px dashed var(--dash)'; style.outlineOffset = '-2px'; }
+        return {
+          id: x.id, title: x.title, priority: !!x.priority, style: style, pills: self.pillsFor(x),
+          avs: (x.who || []).map(function (i) { return { i: i, style: self.avatar(i, 22) }; }),
+          down: function (e) { self.onCardDown(x, e); },
+          keyOpen: function (e) { if (e && e.detail === 0) self.openCard(x.id); }
+        };
+      });
+      var openStyle = {
+        flex: wide ? '1 1 0' : 'none', width: wide ? 'auto' : openW + 'px', minWidth: wide ? '250px' : openW + 'px', height: '100%',
+        display: 'flex', flexDirection: 'column', boxSizing: 'border-box', borderRadius: '24px',
+        background: c.id === 'todo' ? 'var(--surface)' : (dark ? 'rgba(124,58,237,0.10)' : '#ECEEFF'),
+        boxShadow: over ? '0 0 0 3px ' + c.color + ', 0 12px 28px var(--barShadow)' : (c.id === 'todo' ? '0 0 0 1px var(--line)' : 'none'),
+        transition: 'box-shadow .15s'
+      };
+      if (c.id !== 'todo' && c.id !== 'later' && c.id !== 'done') openStyle.background = dark ? '#1B1E27' : 'color-mix(in srgb, ' + c.color + ' 7%, #F5F2FA)';
+      var bar = Math.min(counts[c.id], 15) * 5 + 6;
+      var stripStyle = {
+        flex: 'none', width: '40px', height: '100%', boxSizing: 'border-box', border: '0', borderRadius: '18px', padding: '14px 0', cursor: 'pointer',
+        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', font: 'inherit', color: 'var(--ink)',
+        background: over ? c.color : 'var(--surface)', transform: over ? 'scale(1.06)' : 'none', transition: 'transform .15s, background .15s',
+        boxShadow: over ? '0 10px 22px var(--barShadow)' : 'none'
+      };
+      if (over) stripStyle.color = '#fff';
+      return {
+        id: c.id, name: c.name, count: counts[c.id], isOpen: isOpen, isStrip: !isOpen, isTodo: c.id === 'todo',
+        canFold: wide ? c.id !== 'todo' : false, empty: cardVals.length === 0,
+        label: 'Open ' + c.name + ', ' + counts[c.id] + ' cards',
+        cards: cardVals, openStyle: openStyle, stripStyle: stripStyle,
+        dotStyle: { width: '10px', height: '10px', borderRadius: '50%', background: c.color, flex: 'none' },
+        countStyle: { fontSize: '13px', fontWeight: 600, color: over ? '#fff' : c.color },
+        barStyle: { width: '4px', height: bar + 'px', borderRadius: '2px', background: over ? '#fff' : c.color, opacity: 0.8 },
+        open: function () { if (wide) self.setState({ open2: c.id === 'todo' ? st.open2 : c.id }); else self.setState({ open: c.id }); },
+        fold: function () { self.setState({ open2: null }); }
+      };
+    });
+
+    var rowStyle = {
+      position: 'absolute', left: '0', right: '0', top: '60px', bottom: '72px', display: 'flex', gap: '8px', padding: '4px 10px 12px',
+      boxSizing: 'border-box', overflowX: dr ? 'hidden' : 'auto', overflowY: 'hidden', scrollbarWidth: 'none'
+    };
+
+    var current = this.cardById(st.cardId);
+    var curCol = this.colById(current.col);
+    var steps = (current.steps || []).map(function (s, i) {
+      return {
+        t: s.t, done: s.done,
+        toggle: function () {
+          var cards = st.cards.map(function (x) {
+            if (x.id !== current.id) return x;
+            var ns = x.steps.map(function (y, j) { return j === i ? Object.assign({}, y, { done: !y.done }) : y; });
+            return Object.assign({}, x, { steps: ns });
+          });
+          self.setState({ cards: cards });
+        },
+        boxStyle: { width: '22px', height: '22px', borderRadius: '8px', flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', background: s.done ? 'var(--accent)' : 'transparent', color: 'var(--onAccent)', boxShadow: s.done ? 'none' : 'inset 0 0 0 2px var(--dash)' },
+        textStyle: { flex: 1, textDecoration: s.done ? 'line-through' : 'none', color: s.done ? 'var(--ink2)' : 'var(--ink)' }
+      };
+    });
+    var stepsDone = steps.filter(function (s) { return s.done; }).length;
+    var comments = [
+      { who: 'Jamie', i: 'JM', when: 'Yesterday 4:12 pm', text: 'I think the medley should close the main set, not open it.', react: 'Liked by Clay and Riley', hasReact: true },
+      { who: 'Riley', i: 'RS', when: 'Today 9:40 am', text: 'Agreed. Can we decide the encore by Thursday?', react: '', hasReact: false }
+    ].concat(current.myComments || []).map(function (c) { return Object.assign({}, c, { avStyle: self.avatar(c.i, 32) }); });
+    var watching = current.watch !== false;
+    var cardVals = {
+      number: current.n, title: current.title, priority: !!current.priority,
+      colName: curCol.name,
+      colChipStyle: { display: 'inline-flex', alignItems: 'center', gap: '8px', minHeight: '40px', padding: '0 14px', borderRadius: '999px', border: '0', background: 'var(--surface)', color: 'var(--ink)', font: 'inherit', fontSize: '14px', fontWeight: 500, cursor: 'pointer', boxShadow: 'var(--shadowCard)' },
+      colDotStyle: { width: '10px', height: '10px', borderRadius: '50%', background: curCol.color },
+      prioBtnStyle: { marginLeft: 'auto', width: '44px', height: '44px', border: '0', borderRadius: '14px', background: current.priority ? 'var(--accentC)' : 'transparent', color: current.priority ? 'var(--onAccentC)' : 'var(--ink2)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' },
+      dueText: current.due ? (current.due < 10 ? 'Overdue · Nov ' + current.due : this.dueLabel(current) + (current.due > 10 && current.due < 17 ? ', Nov ' + current.due : '')) : 'No due date',
+      dueStyle: { fontSize: '14px', fontWeight: 500, color: current.due && current.due < 10 ? 'var(--dangerText)' : (current.due ? 'var(--ink)' : 'var(--ink2)') },
+      people: (current.who || []).map(function (i) { return { i: i, name: self.people()[i].name, style: self.avatar(i, 26) }; }),
+      nobody: !(current.who && current.who.length),
+      tags: current.tags && current.tags.length ? current.tags : ['No tags'],
+      desc: current.id === 'c2' ? 'Lock the running order for the fall run. Keep it under 95 minutes with the encore, and leave room for one acoustic song mid-set.' : 'Add notes, links and photos here.',
+      hasSteps: steps.length > 0, steps: steps, stepsDone: stepsDone, stepsTotal: steps.length,
+      comments: comments,
+      history: ['Jamie added this card · Nov 2', 'Riley moved it to In progress · Nov 6', 'Jamie made it Priority · Nov 8'],
+      watchTrackStyle: { width: '52px', height: '32px', borderRadius: '16px', border: '0', padding: '0', cursor: 'pointer', background: watching ? 'var(--accent)' : 'var(--chip)', position: 'relative', transition: 'background .15s' },
+      watchKnobStyle: { position: 'absolute', top: '4px', left: watching ? '24px' : '4px', width: '24px', height: '24px', borderRadius: '50%', background: '#fff', boxShadow: '0 2px 4px rgba(0,0,0,0.25)', transition: 'left .15s' }
+    };
+
+    var days = [
+      { label: 'Today', date: 'Tuesday, November 10' },
+      { label: 'Yesterday', date: 'Monday, November 9' },
+      { label: 'Sunday', date: 'November 8' }
+    ];
+    var dayEvents = [
+      [
+        { who: 'JM', text: 'Jamie added Pick the encore song', when: '9:12 am', kind: 'added' },
+        { who: 'CA', text: 'You added Order new in-ear monitors', when: '8:47 am', kind: 'added' },
+        { who: 'RS', text: 'Riley commented on Finalize setlist', when: '9:40 am', kind: 'updated' },
+        { who: 'RS', text: 'Riley moved Merch table restock list to In progress', when: '8:05 am', kind: 'updated' },
+        { who: 'RS', text: 'Riley moved Sound check checklist to Done', when: '7:58 am', kind: 'done' }
+      ],
+      [
+        { who: 'JM', text: 'Jamie commented on Finalize setlist', when: '4:12 pm', kind: 'updated' },
+        { who: 'CA', text: 'You assigned yourself to Venue stage plot sign-off', when: '2:30 pm', kind: 'updated' },
+        { who: 'CA', text: 'You moved Update the website tour dates to Done', when: '11:02 am', kind: 'done' },
+        { who: 'JM', text: 'Jamie moved Band photos for the program to Done', when: '10:15 am', kind: 'done' }
+      ],
+      [
+        { who: 'JM', text: 'Jamie made Finalize setlist Priority', when: '6:20 pm', kind: 'updated' },
+        { who: 'RS', text: 'Riley added Hotel in Durham', when: '1:45 pm', kind: 'added' }
+      ]
+    ];
+    var todays = dayEvents[st.dayIdx].concat(st.dayIdx === 0 ? st.events.slice().reverse() : []);
+    var tabNames = [['added', 'Added'], ['updated', 'Updated'], ['done', 'Done']];
+    var actTabs = tabNames.map(function (t) {
+      var on = st.actTab === t[0];
+      return {
+        name: t[1], count: todays.filter(function (e) { return e.kind === t[0]; }).length,
+        pick: function () { self.setState({ actTab: t[0] }); },
+        style: { minHeight: '42px', border: '0', borderRadius: '14px', font: 'inherit', fontSize: '14px', fontWeight: on ? 600 : 500, cursor: 'pointer', background: on ? 'var(--card)' : 'transparent', color: on ? 'var(--ink)' : 'var(--ink2)', boxShadow: on ? 'var(--shadowCard)' : 'none' }
+      };
+    });
+    var actItems = todays.filter(function (e) { return e.kind === st.actTab; }).map(function (e) { return Object.assign({}, e, { i: e.who, avStyle: self.avatar(e.who, 32) }); });
+
+    var calDays = [];
+    for (var k = 1; k <= 30; k++) {
+      (function (n) {
+        var due = st.cards.filter(function (x) { return x.due === n && x.col !== 'done'; });
+        var sel = st.calDay === n;
+        var today = n === 10;
+        var od = due.some(function (x) { return n < 10; });
+        calDays.push({
+          n: n, label: 'November ' + n + (due.length ? ', ' + due.length + ' due' : ''),
+          pick: function () { self.setState({ calDay: n }); },
+          style: { position: 'relative', minHeight: '44px', border: '0', borderRadius: '14px', font: 'inherit', fontSize: '14px', fontWeight: today || sel ? 600 : 400, cursor: 'pointer', gridColumnStart: n === 1 ? 1 : 'auto', background: sel ? 'var(--accent)' : (today ? 'var(--accentC)' : 'transparent'), color: sel ? 'var(--onAccent)' : (today ? 'var(--onAccentC)' : 'var(--ink)'), display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '3px', padding: '0' },
+          dotStyle: { width: '5px', height: '5px', borderRadius: '50%', background: due.length ? (sel ? 'var(--onAccent)' : (od ? 'var(--danger)' : 'var(--accent)')) : 'transparent' }
+        });
+      })(k);
+    }
+    var rowFor = function (x, danger) {
+      var c = self.colById(x.col);
+      return {
+        title: x.title, colName: c.name, when: self.dueLabel(x),
+        openIt: function () { self.openCard(x.id); },
+        rowStyle: { width: '100%', display: 'flex', alignItems: 'stretch', gap: '12px', textAlign: 'left', border: '0', font: 'inherit', color: 'var(--ink)', background: 'var(--card)', borderRadius: '18px', padding: '12px 14px', marginBottom: '10px', boxShadow: 'var(--shadowCard)', cursor: 'pointer' },
+        barStyle: { width: '4px', borderRadius: '2px', background: danger ? 'var(--danger)' : c.color, flex: 'none' }
+      };
+    };
+    var overdue = st.cards.filter(function (x) { return x.due && x.due < 10 && x.col !== 'done'; }).map(function (x) { return rowFor(x, true); });
+    var calList = st.cards.filter(function (x) { return x.due === st.calDay && x.col !== 'done'; }).map(function (x) { return rowFor(x, false); });
+
+    var alerts = [
+      { i: 'RS', text: 'Riley @mentioned you on Finalize setlist: "Can we decide the encore by Thursday?"', when: '9:40 am', card: 'c2', unread: true },
+      { i: 'JM', text: 'Jamie assigned you to Venue stage plot sign-off', when: 'Yesterday', card: 'c7', unread: true },
+      { i: 'CA', text: 'Reminder: Confirm hotel block for Raleigh was due yesterday', when: 'Yesterday', card: 'c1', unread: true },
+      { i: 'RS', text: 'Riley moved Merch table restock list to In progress', when: 'Today 8:05 am', card: 'c5', unread: false },
+      { i: 'JM', text: 'Jamie commented on Finalize setlist', when: 'Yesterday', card: 'c2', unread: false }
+    ].map(function (a) {
+      var un = a.unread && !st.readAll;
+      return {
+        i: a.i, text: a.text, when: a.when,
+        openIt: function () { self.openCard(a.card); },
+        avStyle: self.avatar(a.i, 36),
+        dotStyle: { width: '10px', height: '10px', borderRadius: '50%', background: un ? 'var(--accent)' : 'transparent', flex: 'none', alignSelf: 'center' },
+        style: { width: '100%', display: 'flex', gap: '12px', alignItems: 'flex-start', border: '0', font: 'inherit', color: 'var(--ink)', background: un ? 'var(--card)' : 'transparent', borderRadius: '18px', padding: '12px 14px', marginBottom: '8px', boxShadow: un ? 'var(--shadowCard)' : 'none', cursor: 'pointer' }
+      };
+    });
+    var unread = st.readAll ? 0 : 3;
+
+    var q = (st.query || '').trim().toLowerCase();
+    var results = st.cards.filter(function (x) { return !q || x.title.toLowerCase().indexOf(q) >= 0 || (x.tags || []).join(' ').indexOf(q) >= 0; }).map(function (x) { return rowFor(x, false); });
+
+    var navDefs = [['board', 'Boards', ic.board], ['activity', 'Activity', ic.activity], ['calendar', 'Calendar', ic.calendar], ['alerts', 'Alerts', ic.bell]];
+    var navItems = navDefs.map(function (n) {
+      var on = st.screen === n[0];
+      return {
+        name: n[1], icon: n[2], badge: n[0] === 'alerts' && unread > 0, badgeText: String(unread),
+        go: function () { self.setState({ screen: n[0], hint: false }); },
+        style: { flex: 1, minHeight: '60px', border: '0', background: 'transparent', font: 'inherit', fontSize: '12px', fontWeight: on ? 600 : 500, color: on ? 'var(--ink)' : 'var(--ink2)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '4px', cursor: 'pointer' },
+        pillStyle: { position: 'relative', width: '60px', height: '32px', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: on ? 'var(--navOn)' : 'transparent', color: on ? 'var(--navOnText)' : 'inherit', transition: 'background .2s' }
+      };
+    });
+
+    var trayH = this.trayHeight();
+    var showTray = touchDrag;
+    var trayStyle = {
+      position: 'absolute', left: '0', right: '0', bottom: '0', boxSizing: 'border-box', padding: '10px 16px 18px', background: 'var(--sheet)',
+      borderRadius: '28px 28px 0 0', boxShadow: '0 -14px 34px var(--barShadow)', transform: showTray ? 'translateY(0)' : 'translateY(105%)',
+      transition: 'transform .25s cubic-bezier(.2,.9,.3,1.1)', zIndex: 5, pointerEvents: showTray ? 'auto' : 'none', maxHeight: trayH + 'px'
+    };
+    var targets = cols.map(function (c) {
+      var here = dr && dr.from === c.id;
+      var over = dr && dr.over === c.id && !here;
+      var bg = dark ? 'rgba(255,255,255,0.05)' : 'color-mix(in srgb, ' + c.color + ' 10%, #FFFFFF)';
+      return {
+        id: c.id, name: c.name, sub: here ? 'here now' : (over ? 'release to drop' : counts[c.id] + (counts[c.id] === 1 ? ' card' : ' cards')),
+        style: {
+          minHeight: '60px', boxSizing: 'border-box', borderRadius: '18px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '3px', textAlign: 'center', padding: '4px',
+          background: over ? c.color : (here ? 'transparent' : bg), color: over ? '#fff' : 'var(--ink)',
+          border: here ? '2px dashed var(--dash)' : '2px solid ' + (over ? c.color : 'transparent'),
+          transform: over ? 'scale(1.07)' : 'none', boxShadow: over ? '0 10px 22px var(--barShadow)' : 'none', transition: 'transform .12s, background .12s'
+        },
+        subStyle: { fontSize: '11px', color: over ? 'rgba(255,255,255,0.9)' : 'var(--ink2)' }
+      };
+    });
+
+    var ghostCard = dr ? this.cardById(dr.id) : null;
+    var ghostStyle = dr ? {
+      position: 'absolute', left: (dr.x - dr.offX) + 'px', top: (dr.y - dr.offY) + 'px', width: dr.w + 'px', boxSizing: 'border-box',
+      background: 'var(--card)', color: 'var(--ink)', borderRadius: '18px', padding: '12px 13px', boxShadow: 'var(--shadowLift)',
+      transform: 'rotate(-3deg) scale(1.04)', pointerEvents: 'none', zIndex: 8
+    } : {};
+    var edgeBase = { position: 'absolute', top: '40%', width: '26px', height: '120px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--accentC)', color: 'var(--onAccentC)', zIndex: 4, pointerEvents: 'none' };
+    var edgeLStyle = Object.assign({}, edgeBase, { left: '0', borderRadius: '0 16px 16px 0', opacity: this.edgeSide === -1 ? 1 : 0.7 });
+    var edgeRStyle = Object.assign({}, edgeBase, { right: '0', borderRadius: '16px 0 0 16px', opacity: this.edgeSide === 1 ? 1 : 0.7 });
+
+    var moveList = cols.map(function (c) {
+      var here = current.col === c.id;
+      return {
+        name: c.name, sub: here ? 'here now' : counts[c.id] + ' cards',
+        pick: function () { self.moveCard(current.id, c.id); self.setState({ sheet: null }); },
+        dotStyle: { width: '12px', height: '12px', borderRadius: '50%', background: c.color, flex: 'none' },
+        style: { display: 'flex', alignItems: 'center', gap: '12px', minHeight: '50px', padding: '0 14px', borderRadius: '16px', border: here ? '2px solid var(--accent)' : '0', background: here ? 'var(--accentC)' : 'var(--surface)', color: here ? 'var(--onAccentC)' : 'var(--ink)', font: 'inherit', fontSize: '15px', fontWeight: 500, cursor: 'pointer' }
+      };
+    });
+
+    var rootStyle = Object.assign({}, tv, {
+      width: W + 'px', height: H + 'px', position: 'relative', overflow: 'hidden', boxSizing: 'border-box',
+      background: 'var(--bg)', color: 'var(--ink)', fontFamily: '"Roboto Flex", "Segoe UI Variable Text", "Segoe UI", Roboto, system-ui, sans-serif',
+      WebkitTapHighlightColor: 'transparent'
+    });
+
+    var syncing = st.sync === 'checking';
+    var toastStyle = {
+      position: 'absolute', left: '12px', right: '12px', bottom: (st.screen === 'card' ? 84 : 84) + 'px', display: 'flex', alignItems: 'center', gap: '8px',
+      background: 'var(--inkBox)', color: 'var(--onInkBox)', borderRadius: '16px', padding: '6px 8px 6px 16px', minHeight: '48px', boxSizing: 'border-box',
+      fontSize: '14px', boxShadow: '0 10px 24px var(--barShadow)', zIndex: 9
+    };
+
+    return {
+      ic: ic,
+      rootRef: function (el) {
+        if (el && el !== self.rootEl) {
+          self.rootEl = el;
+          el.addEventListener('touchmove', function (ev) { if (self.press && self.press.started) ev.preventDefault(); }, { passive: false });
+        }
+      },
+      rowRef: function (el) {
+        if (el && el !== self.rowEl) { self.rowEl = el; setTimeout(function () { self.centerOpen(false); }, 0); }
+        if (!el) self.rowEl = null;
+      },
+      rootStyle: rootStyle,
+      onMove: function (e) { self.moveDrag(e); },
+      onUp: function (e) { self.endDrag(e, false); },
+      onCancel: function (e) { self.endDrag(e, true); },
+      onRootDown: function () { if (self.state.drag && self.state.drag.demo && !self.press) self.setState({ drag: null }); },
+      noCtx: function (e) { e.preventDefault(); },
+
+      showTopBar: st.screen !== 'card' && st.screen !== 'search',
+      topTitle: st.screen === 'board' ? 'Fall tour prep' : (st.screen === 'activity' ? 'Activity' : (st.screen === 'calendar' ? 'Calendar' : 'Alerts')),
+      syncText: syncing ? 'Checking for changes…' : st.synced,
+      syncIconStyle: { transition: 'transform .8s', transform: syncing ? 'rotate(360deg)' : 'none' },
+      doSync: function () {
+        clearTimeout(self.syncTimer);
+        self.setState({ sync: 'checking' });
+        self.syncTimer = setTimeout(function () { self.setState({ sync: 'idle', synced: 'Up to date · just now' }); }, 900);
+      },
+      goSearch: function () { self.setState({ screen: 'search', hint: false }); },
+      goBoard: function () { self.setState({ screen: 'board' }); },
+
+      isBoard: st.screen === 'board', isCard: st.screen === 'card', isActivity: st.screen === 'activity',
+      isCalendar: st.screen === 'calendar', isAlerts: st.screen === 'alerts', isSearch: st.screen === 'search',
+      rowStyle: rowStyle, cols: colVals,
+      openNew: function () { self.setState({ sheet: 'new', newTitle: '' }); },
+
+      card: cardVals,
+      togglePriority: function () {
+        var cards = st.cards.map(function (x) { return x.id === current.id ? Object.assign({}, x, { priority: !x.priority }) : x; });
+        self.setState({ cards: cards });
+      },
+      toggleWatch: function () {
+        var cards = st.cards.map(function (x) { return x.id === current.id ? Object.assign({}, x, { watch: !(x.watch !== false) }) : x; });
+        self.setState({ cards: cards });
+      },
+      openMove: function () { self.setState({ sheet: 'move' }); },
+      draft: st.draft,
+      onDraft: function (e) { self.setState({ draft: e.target.value }); },
+      sendComment: function () {
+        var t = (st.draft || '').trim();
+        if (!t) return;
+        var cards = st.cards.map(function (x) { return x.id === current.id ? Object.assign({}, x, { myComments: (x.myComments || []).concat([{ who: 'You', i: 'CA', when: 'Just now', text: t, react: '', hasReact: false }]) }) : x; });
+        self.setState({ cards: cards, draft: '' });
+      },
+
+      day: days[st.dayIdx],
+      dayPrev: function () { self.setState({ dayIdx: Math.min(days.length - 1, st.dayIdx + 1) }); },
+      dayNext: function () { self.setState({ dayIdx: Math.max(0, st.dayIdx - 1) }); },
+      dayNextStyle: { width: '44px', height: '44px', border: '0', borderRadius: '14px', background: 'var(--surface)', color: 'var(--ink)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', opacity: st.dayIdx === 0 ? 0.35 : 1 },
+      actTabs: actTabs, actItems: actItems, actEmpty: actItems.length === 0,
+
+      calDays: calDays, overdue: overdue, hasOverdue: overdue.length > 0, calList: calList, calEmpty: calList.length === 0,
+      calDayTitle: st.calDay === 10 ? 'Due today, November 10' : 'Due November ' + st.calDay,
+
+      alerts: alerts, unreadText: unread ? unread + ' new' : 'All caught up',
+      readAll: function () { self.setState({ readAll: true }); },
+
+      query: st.query,
+      onQuery: function (e) { self.setState({ query: e.target.value }); },
+      results: results,
+      searchNote: q ? results.length + (results.length === 1 ? ' card found' : ' cards found') : 'Search works offline too. All cards on this board:',
+
+      showNav: st.screen !== 'card' && st.screen !== 'search',
+      navItems: navItems,
+      showHint: st.hint && st.screen === 'board' && !dr && !st.toast,
+
+      showEdges: touchDrag && !wide,
+      edgeLStyle: edgeLStyle, edgeRStyle: edgeRStyle,
+      trayStyle: trayStyle, targets: targets,
+      dragging: !!dr, ghostStyle: ghostStyle,
+      ghost: ghostCard ? { title: ghostCard.title, priority: !!ghostCard.priority, pills: this.pillsFor(ghostCard).slice(0, 2) } : { title: '', priority: false, pills: [] },
+
+      showSheet: !!st.sheet, isMoveSheet: st.sheet === 'move', isNewSheet: st.sheet === 'new',
+      closeSheet: function () { self.setState({ sheet: null }); },
+      moveList: moveList,
+      newTitle: st.newTitle,
+      onNewTitle: function (e) { self.setState({ newTitle: e.target.value }); },
+      addCard: function () {
+        var t = (st.newTitle || '').trim();
+        if (!t) return;
+        self.clock += 1;
+        var id = 'n' + self.clock;
+        var card = { id: id, n: 50 + self.clock - 100, title: t, col: 'todo', who: [], comments: 0, tags: [], last: 2000 + self.clock };
+        self.setState({ cards: st.cards.concat([card]), sheet: null, newTitle: '', events: st.events.concat([{ who: 'CA', text: 'You added ' + t, when: 'Just now', kind: 'added' }]) });
+        self.showToast('Added to To-do');
+      },
+
+      showToast: !!st.toast && !dr,
+      toast: st.toast ? { text: st.toast.text, canUndo: !!st.toast.undo } : { text: '', canUndo: false },
+      toastStyle: toastStyle,
+      undo: function () {
+        var u = st.toast && st.toast.undo;
+        if (u) self.moveCard(u.id, u.col, true);
+        self.setState({ toast: null });
+      }
+    };
+  }
+}
+</script>
+</body>
+</html>
