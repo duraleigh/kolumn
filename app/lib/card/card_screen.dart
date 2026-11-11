@@ -12,6 +12,10 @@ import 'package:path_provider/path_provider.dart';
 import '../board/board_screen.dart' show moveWithUndo;
 import '../board/lane_info.dart';
 import '../data/database.dart';
+import '../data/tidy.dart';
+import '../planner/days.dart';
+import '../planner/planner_model.dart';
+import '../planner/todo_sheet.dart';
 import '../data/lanes.dart';
 import '../data/repository.dart';
 import '../state/providers.dart';
@@ -224,7 +228,7 @@ class _CardScreenState extends ConsumerState<CardScreen> {
                 }
               },
               itemBuilder: (_) => [
-                if (boards.length > 1) const PopupMenuItem(value: 'board', child: Text('Move to another board')),
+                if (boards.length > 1) const PopupMenuItem(value: 'board', child: Text('Move to another Kolumn')),
                 const PopupMenuItem(value: 'delete', child: Text('Delete card')),
               ],
             ),
@@ -288,6 +292,8 @@ class _CardScreenState extends ConsumerState<CardScreen> {
                     ),
                   ),
                 ),
+                const SizedBox(height: 10),
+                _TimeRow(card: card, readOnly: readOnly),
                 const SizedBox(height: 10),
                 TextField(
                   controller: _title,
@@ -1113,6 +1119,107 @@ class _History extends ConsumerWidget {
           Padding(
             padding: const EdgeInsets.only(left: 2, bottom: 4),
             child: Text(l, style: t.bodySmall),
+          ),
+      ],
+    );
+  }
+}
+
+/// A card's due day (no times), its reminder (this person's own), and the
+/// tidy-up countdown when it is getting close.
+class _TimeRow extends ConsumerWidget {
+  const _TimeRow({required this.card, required this.readOnly});
+  final KCard card;
+  final bool readOnly;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final repo = ref.read(repositoryProvider);
+    final c = context.colors;
+    final p = context.palette;
+    final today = ref.watch(plannerTodayProvider);
+    final due = card.dueAt == null ? null : dueDayOf(card.dueAt!);
+    final late = due != null && card.closedAt == null && due.compareTo(today) < 0;
+    final reminder = ref.watch(reminderMapProvider)[card.id];
+    KBoard? board;
+    for (final b in ref.watch(boardsProvider).value ?? const <KBoard>[]) {
+      if (b.id == card.boardId) board = b;
+    }
+    final left = tidyDaysLeft(card, board, DateTime.now().millisecondsSinceEpoch);
+
+    Widget chip({required IconData icon, required String text, required VoidCallback? onTap, Color? bg, Color? fg, VoidCallback? onClear}) => Material(
+      color: bg ?? p.chip,
+      shape: const StadiumBorder(),
+      child: InkWell(
+        customBorder: const StadiumBorder(),
+        onTap: onTap,
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(12, 8, onClear == null ? 14 : 4, 8),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 17, color: fg ?? c.onSurface),
+              const SizedBox(width: 6),
+              Text(
+                text,
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: fg ?? c.onSurface),
+              ),
+              if (onClear != null)
+                InkResponse(
+                  radius: 16,
+                  onTap: onClear,
+                  child: Padding(
+                    padding: const EdgeInsets.all(4),
+                    child: Icon(Icons.close_rounded, size: 16, color: fg ?? c.onSurfaceVariant),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            chip(
+              icon: Icons.event_outlined,
+              text: due == null
+                  ? (readOnly ? 'No due day' : 'Add a due day')
+                  : (late ? 'Late · ${dayLabel(due, today: today)}' : 'Due ${friendlyDay(due, today: today)}'),
+              bg: late ? p.dangerBg : null,
+              fg: late ? p.dangerText : null,
+              onTap: readOnly
+                  ? null
+                  : () async {
+                      final slot = await pickTodoDay(context, current: TodoSlot.day(due ?? today), allowSomeday: false, today: today);
+                      if (slot?.day != null) await repo.setCardDue(card.id, slot!.day);
+                    },
+              onClear: readOnly || due == null ? null : () => repo.setCardDue(card.id, null),
+            ),
+            chip(
+              icon: Icons.notifications_none_rounded,
+              text: reminder == null ? 'Remind me' : reminderLabel(reminder, today: today),
+              onTap: () async {
+                final r = await pickReminder(context, current: reminder, day: due ?? today);
+                if (r != null) await repo.setReminder(card.id, 'card', r.at);
+              },
+            ),
+          ],
+        ),
+        if (left != null && tidyWarning(card, board, DateTime.now().millisecondsSinceEpoch))
+          Padding(
+            padding: const EdgeInsets.only(top: 8, left: 4),
+            child: Text(
+              left <= 1
+                  ? 'Nobody has touched this card in a while. It moves to Later tomorrow unless someone does.'
+                  : 'Nobody has touched this card in a while. It moves to Later in $left days unless someone does.',
+              style: TextStyle(fontSize: 13, color: c.onSurfaceVariant),
+            ),
           ),
       ],
     );

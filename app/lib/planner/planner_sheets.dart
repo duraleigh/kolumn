@@ -148,7 +148,10 @@ class _PlannerSettings extends ConsumerWidget {
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(6, 16, 6, 6),
-          child: Text(title, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: c.onSurfaceVariant)),
+          child: Text(
+            title,
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: c.onSurfaceVariant),
+          ),
         ),
         Container(
           decoration: BoxDecoration(color: context.palette.chip, borderRadius: BorderRadius.circular(18)),
@@ -168,7 +171,12 @@ class _PlannerSettings extends ConsumerWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              ListTile(title: const Text('Can edit'), subtitle: const Text('Adds, changes and ticks to-dos'), trailing: x.role == 'edit' ? const Icon(Icons.check_rounded) : null, onTap: () => Navigator.pop(context, 'edit')),
+              ListTile(
+                title: const Text('Can edit'),
+                subtitle: const Text('Adds, changes and ticks to-dos'),
+                trailing: x.role == 'edit' ? const Icon(Icons.check_rounded) : null,
+                onTap: () => Navigator.pop(context, 'edit'),
+              ),
               ListTile(
                 title: const Text('Owner'),
                 subtitle: const Text('Also renames, shares and deletes the planner'),
@@ -209,7 +217,11 @@ class _PlannerSettings extends ConsumerWidget {
             shrinkWrap: true,
             children: [
               for (final x in others)
-                ListTile(leading: PersonAvatar(id: x.id, name: x.name, size: 32), title: Text(x.name), onTap: () => Navigator.pop(context, x.id)),
+                ListTile(
+                  leading: PersonAvatar(id: x.id, name: x.name, size: 32),
+                  title: Text(x.name),
+                  onTap: () => Navigator.pop(context, x.id),
+                ),
             ],
           ),
         ),
@@ -252,7 +264,15 @@ class _PlannerSettings extends ConsumerWidget {
                 trailing: Text(x.role == 'owner' ? 'Owner' : 'Can edit', style: TextStyle(color: c.onSurfaceVariant)),
                 onTap: manage ? () => personMenu(x) : null,
               ),
-            if (manage) ListTile(title: Text('Add people', textAlign: TextAlign.center, style: TextStyle(color: context.palette.accentText, fontWeight: FontWeight.w600)), onTap: addPeople),
+            if (manage)
+              ListTile(
+                title: Text(
+                  'Add people',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: context.palette.accentText, fontWeight: FontWeight.w600),
+                ),
+                onTap: addPeople,
+              ),
             if (people.isEmpty && !manage) const ListTile(title: Text('Only you')),
           ]),
           group('Cards from Kolumns', [
@@ -262,9 +282,7 @@ class _PlannerSettings extends ConsumerWidget {
                 title: Text(b.name),
                 subtitle: const Text('Cards with a due day show on that day'),
                 value: shown.contains(b.id),
-                onChanged: readOnly
-                    ? null
-                    : (on) => repo.updatePlanner(planner.id, boardIds: on ? [...shown, b.id] : shown.where((x) => x != b.id).toList()),
+                onChanged: readOnly ? null : (on) => repo.updatePlanner(planner.id, boardIds: on ? [...shown, b.id] : shown.where((x) => x != b.id).toList()),
               ),
           ]),
           group('To-dos', [
@@ -274,8 +292,16 @@ class _PlannerSettings extends ConsumerWidget {
               value: planner.rollOver,
               onChanged: readOnly ? null : (v) => repo.updatePlanner(planner.id, rollOver: v),
             ),
-            SwitchListTile(title: const Text('Sink finished to the bottom'), value: planner.sinkDone, onChanged: readOnly ? null : (v) => repo.updatePlanner(planner.id, sinkDone: v)),
-            SwitchListTile(title: const Text('Hide finished'), value: planner.hideDone, onChanged: readOnly ? null : (v) => repo.updatePlanner(planner.id, hideDone: v)),
+            SwitchListTile(
+              title: const Text('Sink finished to the bottom'),
+              value: planner.sinkDone,
+              onChanged: readOnly ? null : (v) => repo.updatePlanner(planner.id, sinkDone: v),
+            ),
+            SwitchListTile(
+              title: const Text('Hide finished'),
+              value: planner.hideDone,
+              onChanged: readOnly ? null : (v) => repo.updatePlanner(planner.id, hideDone: v),
+            ),
           ]),
           if (manage) ...[
             const SizedBox(height: 18),

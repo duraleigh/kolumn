@@ -146,7 +146,11 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
 
   void _open(PlannerEntry e) {
     if (e.isCard) {
-      Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => CardScreen(cardId: e.card!.id, boardId: e.card!.boardId)));
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => CardScreen(cardId: e.card!.id, boardId: e.card!.boardId),
+        ),
+      );
     } else {
       showTodoSheet(context, ref, todoId: e.todo!.id, day: e.day);
     }
@@ -475,10 +479,7 @@ class _Header extends ConsumerWidget {
                         style: TextStyle(fontSize: wide ? 40 : 34, fontWeight: FontWeight.w700, letterSpacing: -0.8, height: 1.1, color: c.onSurface),
                       ),
                     ),
-                    if (sub != null) ...[
-                      const SizedBox(width: 10),
-                      Text(sub!, style: TextStyle(fontSize: 17, color: c.onSurfaceVariant)),
-                    ],
+                    if (sub != null) ...[const SizedBox(width: 10), Text(sub!, style: TextStyle(fontSize: 17, color: c.onSurfaceVariant))],
                   ],
                 ),
               ),
@@ -655,7 +656,9 @@ class _DayHeading extends StatelessWidget {
     final color = isToday ? c.primary : c.onSurface;
     return Container(
       padding: const EdgeInsets.only(bottom: 7, left: 2, right: 2),
-      decoration: BoxDecoration(border: Border(bottom: BorderSide(color: color, width: 2))),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: color, width: 2)),
+      ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.baseline,
         textBaseline: TextBaseline.alphabetic,
@@ -697,7 +700,9 @@ class _Lines extends StatelessWidget {
       rows.add(
         Container(
           height: ctx.row,
-          decoration: BoxDecoration(border: Border(bottom: BorderSide(color: c.primary, width: 1.5))),
+          decoration: BoxDecoration(
+            border: Border(bottom: BorderSide(color: c.primary, width: 1.5)),
+          ),
           padding: const EdgeInsets.symmetric(horizontal: 2),
           alignment: Alignment.centerLeft,
           child: TextField(
@@ -722,7 +727,10 @@ class _Lines extends StatelessWidget {
           child: InkWell(
             onTap: ctx.readOnly ? null : () => ctx.onAdd(slotKey),
             mouseCursor: ctx.readOnly ? SystemMouseCursors.basic : SystemMouseCursors.text,
-            child: Container(height: ctx.row, decoration: BoxDecoration(border: Border(bottom: line))),
+            child: Container(
+              height: ctx.row,
+              decoration: BoxDecoration(border: Border(bottom: line)),
+            ),
           ),
         ),
       );
@@ -763,8 +771,15 @@ class _EntryRow extends StatelessWidget {
     Widget row(bool ghost) => Container(
       height: ctx.row,
       decoration: ghost
-          ? BoxDecoration(color: p.card, borderRadius: BorderRadius.circular(14), boxShadow: p.liftShadow, border: Border.all(color: c.primary, width: 2))
-          : BoxDecoration(border: Border(bottom: BorderSide(color: c.outlineVariant.withValues(alpha: 0.7)))),
+          ? BoxDecoration(
+              color: p.card,
+              borderRadius: BorderRadius.circular(14),
+              boxShadow: p.liftShadow,
+              border: Border.all(color: c.primary, width: 2),
+            )
+          : BoxDecoration(
+              border: Border(bottom: BorderSide(color: c.outlineVariant.withValues(alpha: 0.7))),
+            ),
       padding: EdgeInsets.symmetric(horizontal: ghost ? 12 : 2),
       child: Row(
         children: [
@@ -799,7 +814,13 @@ class _EntryRow extends StatelessWidget {
               child: InkResponse(
                 radius: 22,
                 onTap: ctx.readOnly ? null : () => ctx.onToggle(e),
-                child: SizedBox(width: ctx.wide ? 30 : 44, height: ctx.row, child: Center(child: CheckCircle(done: e.done, size: ctx.wide ? 18 : 22))),
+                child: SizedBox(
+                  width: ctx.wide ? 30 : 44,
+                  height: ctx.row,
+                  child: Center(
+                    child: CheckCircle(done: e.done, size: ctx.wide ? 18 : 22),
+                  ),
+                ),
               ),
             ),
         ],
@@ -810,7 +831,10 @@ class _EntryRow extends StatelessWidget {
     if (ctx.readOnly) return body;
     final feedback = Material(
       type: MaterialType.transparency,
-      child: Transform.rotate(angle: -0.03, child: SizedBox(width: ctx.wide ? 220 : 280, child: row(true))),
+      child: Transform.rotate(
+        angle: -0.03,
+        child: SizedBox(width: ctx.wide ? 220 : 280, child: row(true)),
+      ),
     );
     final placeholder = Opacity(opacity: 0.3, child: row(false));
     if (ctx.wide) {
@@ -887,10 +911,7 @@ class _PhoneWeek extends StatelessWidget {
               heading: _DayHeading(day: d, today: ctx.today, wide: false),
             ),
           ),
-        Padding(
-          padding: const EdgeInsets.only(top: 30),
-          child: _SomedayHeading(wide: false),
-        ),
+        Padding(padding: const EdgeInsets.only(top: 30), child: _SomedayHeading(wide: false)),
         for (var n = 1; n <= 3; n++)
           Padding(
             padding: EdgeInsets.only(top: n == 1 ? 0 : 14),
@@ -910,8 +931,13 @@ class _SomedayHeading extends StatelessWidget {
     final c = context.colors;
     return Container(
       padding: const EdgeInsets.only(bottom: 7, left: 4),
-      decoration: BoxDecoration(border: Border(bottom: BorderSide(color: c.onSurface, width: 2))),
-      child: Text('Someday', style: TextStyle(fontSize: wide ? 20 : 19, fontWeight: FontWeight.w700, letterSpacing: -0.3, color: c.onSurface)),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: c.onSurface, width: 2)),
+      ),
+      child: Text(
+        'Someday',
+        style: TextStyle(fontSize: wide ? 20 : 19, fontWeight: FontWeight.w700, letterSpacing: -0.3, color: c.onSurface),
+      ),
     );
   }
 }
@@ -957,7 +983,9 @@ class _WideWeek extends StatelessWidget {
             children: [
               for (var n = 1; n <= 3; n++) ...[
                 if (n > 1) const SizedBox(width: 20),
-                Expanded(child: _Lines(ctx: ctx, slotKey: 'someday-$n', minLines: 4)),
+                Expanded(
+                  child: _Lines(ctx: ctx, slotKey: 'someday-$n', minLines: 4),
+                ),
               ],
             ],
           ),
@@ -1070,7 +1098,9 @@ class _MonthCell extends StatelessWidget {
           opacity: inMonth ? 1 : 0.4,
           child: Container(
             height: height,
-            decoration: BoxDecoration(border: Border(top: BorderSide(color: c.outlineVariant.withValues(alpha: 0.7)))),
+            decoration: BoxDecoration(
+              border: Border(top: BorderSide(color: c.outlineVariant.withValues(alpha: 0.7))),
+            ),
             padding: const EdgeInsets.fromLTRB(2, 5, 2, 2),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1083,11 +1113,7 @@ class _MonthCell extends StatelessWidget {
                     decoration: BoxDecoration(shape: BoxShape.circle, color: isToday ? c.primary : Colors.transparent),
                     child: Text(
                       '${parseDay(day).day}',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: isToday ? c.onPrimary : (weekend ? c.onSurfaceVariant : c.onSurface),
-                      ),
+                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: isToday ? c.onPrimary : (weekend ? c.onSurfaceVariant : c.onSurface)),
                     ),
                   ),
                 ),
@@ -1096,10 +1122,7 @@ class _MonthCell extends StatelessWidget {
                   Container(
                     margin: const EdgeInsets.only(bottom: 2),
                     padding: const EdgeInsets.symmetric(horizontal: 3),
-                    decoration: BoxDecoration(
-                      color: e.late ? p.dangerBg : (e.isCard ? c.primaryContainer : p.chip),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
+                    decoration: BoxDecoration(color: e.late ? p.dangerBg : (e.isCard ? c.primaryContainer : p.chip), borderRadius: BorderRadius.circular(4)),
                     child: Text(
                       e.title,
                       maxLines: 1,
@@ -1143,7 +1166,11 @@ class _SearchResults extends StatelessWidget {
         children: [
           Padding(
             padding: const EdgeInsets.all(28),
-            child: Text('Type to find a to-do or a card in this planner.', textAlign: TextAlign.center, style: TextStyle(color: c.onSurfaceVariant)),
+            child: Text(
+              'Type to find a to-do or a card in this planner.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: c.onSurfaceVariant),
+            ),
           ),
         ],
       );
@@ -1153,7 +1180,11 @@ class _SearchResults extends StatelessWidget {
         children: [
           Padding(
             padding: const EdgeInsets.all(28),
-            child: Text('Nothing matches "$query".', textAlign: TextAlign.center, style: TextStyle(color: c.onSurfaceVariant)),
+            child: Text(
+              'Nothing matches "$query".',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: c.onSurfaceVariant),
+            ),
           ),
         ],
       );
@@ -1171,10 +1202,7 @@ class _SearchResults extends StatelessWidget {
             e.title,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: e.late ? context.palette.dangerText : null,
-              decoration: e.done ? TextDecoration.lineThrough : null,
-            ),
+            style: TextStyle(color: e.late ? context.palette.dangerText : null, decoration: e.done ? TextDecoration.lineThrough : null),
           ),
           subtitle: Text(e.isCard ? '$where · card #${e.card!.number}' : where),
           onTap: () => ctx.onOpen(e),

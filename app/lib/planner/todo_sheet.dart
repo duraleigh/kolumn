@@ -40,7 +40,10 @@ Future<void> showTodoSheet(BuildContext context, WidgetRef ref, {required String
     isScrollControlled: true,
     useSafeArea: true,
     showDragHandle: true,
-    builder: (context) => Padding(padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom), child: sheet),
+    builder: (context) => Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+      child: sheet,
+    ),
   );
 }
 
@@ -184,7 +187,8 @@ class _TodoSheetState extends ConsumerState<_TodoSheet> {
                 trailing: t.assigneeId == id ? const Icon(Icons.check_rounded) : null,
                 onTap: () => Navigator.pop(context, id),
               ),
-            if (t.assigneeId != null) ListTile(leading: const Icon(Icons.person_off_outlined), title: const Text('Nobody in particular'), onTap: () => Navigator.pop(context, -1)),
+            if (t.assigneeId != null)
+              ListTile(leading: const Icon(Icons.person_off_outlined), title: const Text('Nobody in particular'), onTap: () => Navigator.pop(context, -1)),
           ],
         ),
       ),
@@ -203,7 +207,12 @@ class _TodoSheetState extends ConsumerState<_TodoSheet> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (planners.length > 1) ListTile(leading: const Icon(Icons.drive_file_move_outline), title: const Text('Move to another planner'), onTap: () => Navigator.pop(context, 'move')),
+            if (planners.length > 1)
+              ListTile(
+                leading: const Icon(Icons.drive_file_move_outline),
+                title: const Text('Move to another planner'),
+                onTap: () => Navigator.pop(context, 'move'),
+              ),
             if (rule != null && widget.day != null)
               ListTile(leading: const Icon(Icons.event_busy_outlined), title: const Text('Delete this day only'), onTap: () => Navigator.pop(context, 'skip')),
             ListTile(
@@ -238,7 +247,8 @@ class _TodoSheetState extends ConsumerState<_TodoSheet> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                for (final p in planners.where((p) => p.id != t.plannerId)) ListTile(leading: const Icon(Icons.calendar_today_outlined), title: Text(p.name), onTap: () => Navigator.pop(context, p.id)),
+                for (final p in planners.where((p) => p.id != t.plannerId))
+                  ListTile(leading: const Icon(Icons.calendar_today_outlined), title: Text(p.name), onTap: () => Navigator.pop(context, p.id)),
               ],
             ),
           ),
@@ -264,8 +274,10 @@ class _TodoSheetState extends ConsumerState<_TodoSheet> {
                 title: Text(s.star ? 'Remove the star' : 'Star it'),
                 onTap: () => Navigator.pop(context, 'star'),
               ),
-            if (!s.heading && s.indent < 3) ListTile(leading: const Icon(Icons.format_indent_increase_rounded), title: const Text('Indent'), onTap: () => Navigator.pop(context, 'in')),
-            if (!s.heading && s.indent > 0) ListTile(leading: const Icon(Icons.format_indent_decrease_rounded), title: const Text('Indent less'), onTap: () => Navigator.pop(context, 'out')),
+            if (!s.heading && s.indent < 3)
+              ListTile(leading: const Icon(Icons.format_indent_increase_rounded), title: const Text('Indent'), onTap: () => Navigator.pop(context, 'in')),
+            if (!s.heading && s.indent > 0)
+              ListTile(leading: const Icon(Icons.format_indent_decrease_rounded), title: const Text('Indent less'), onTap: () => Navigator.pop(context, 'out')),
             ListTile(
               leading: const Icon(Icons.title_rounded),
               title: Text(s.heading ? 'Make it a step' : 'Make it a heading'),
@@ -398,7 +410,14 @@ class _TodoSheetState extends ConsumerState<_TodoSheet> {
                   Semantics(
                     button: true,
                     label: done ? 'Mark not done' : 'Mark done',
-                    child: InkResponse(onTap: readOnly ? null : toggle, radius: 24, child: Padding(padding: const EdgeInsets.all(6), child: CheckCircle(done: done, size: 26))),
+                    child: InkResponse(
+                      onTap: readOnly ? null : toggle,
+                      radius: 24,
+                      child: Padding(
+                        padding: const EdgeInsets.all(6),
+                        child: CheckCircle(done: done, size: 26),
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -424,7 +443,13 @@ class _TodoSheetState extends ConsumerState<_TodoSheet> {
                 decoration: InputDecoration(isCollapsed: true, border: InputBorder.none, hintText: readOnly ? '' : 'Add a note'),
               ),
               const SizedBox(height: 10),
-              for (final s in steps) _StepRow(step: s, readOnly: readOnly, onToggle: () => _repo.updateTodoStep(s, done: !s.done), onMenu: () => _stepMenu(s)),
+              for (final s in steps)
+                _StepRow(
+                  step: s,
+                  readOnly: readOnly,
+                  onToggle: () => _repo.updateTodoStep(s, done: !s.done),
+                  onMenu: () => _stepMenu(s),
+                ),
               if (!readOnly)
                 Row(
                   children: [
@@ -487,7 +512,12 @@ class _TodoSheetState extends ConsumerState<_TodoSheet> {
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
-                                      Text(f.filename, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                                      Text(
+                                        f.filename,
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                                      ),
                                       const SizedBox(height: 3),
                                       Text(sizeText(f.size), style: TextStyle(fontSize: 12, color: c.onSurfaceVariant)),
                                     ],
@@ -592,11 +622,20 @@ class _StepRow extends StatelessWidget {
               Expanded(
                 child: Text(
                   step.content,
-                  style: TextStyle(fontSize: 15, color: step.done ? c.onSurfaceVariant : c.onSurface, decoration: step.done ? TextDecoration.lineThrough : null),
+                  style: TextStyle(
+                    fontSize: 15,
+                    color: step.done ? c.onSurfaceVariant : c.onSurface,
+                    decoration: step.done ? TextDecoration.lineThrough : null,
+                  ),
                 ),
               ),
               if (step.star) Icon(Icons.star_rounded, size: 17, color: context.palette.accentText),
-              if (!readOnly) IconButton(tooltip: 'Step options', onPressed: onMenu, icon: Icon(Icons.more_vert_rounded, size: 18, color: c.onSurfaceVariant)),
+              if (!readOnly)
+                IconButton(
+                  tooltip: 'Step options',
+                  onPressed: onMenu,
+                  icon: Icon(Icons.more_vert_rounded, size: 18, color: c.onSurfaceVariant),
+                ),
             ],
           ),
         ),
@@ -617,7 +656,12 @@ Future<TodoSlot?> pickTodoDay(BuildContext context, {required TodoSlot current, 
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          ListTile(leading: const Icon(Icons.today_outlined), title: const Text('Today'), subtitle: Text(dayLabel(today)), onTap: () => Navigator.pop(context, today)),
+          ListTile(
+            leading: const Icon(Icons.today_outlined),
+            title: const Text('Today'),
+            subtitle: Text(dayLabel(today)),
+            onTap: () => Navigator.pop(context, today),
+          ),
           ListTile(
             leading: const Icon(Icons.wb_sunny_outlined),
             title: const Text('Tomorrow'),
@@ -631,7 +675,13 @@ Future<TodoSlot?> pickTodoDay(BuildContext context, {required TodoSlot current, 
             onTap: () => Navigator.pop(context, nextMonday),
           ),
           ListTile(leading: const Icon(Icons.calendar_month_outlined), title: const Text('Pick a day'), onTap: () => Navigator.pop(context, 'pick')),
-          if (allowSomeday) ListTile(leading: const Icon(Icons.inbox_outlined), title: const Text('Someday'), subtitle: const Text('No day; it waits in your Someday list'), onTap: () => Navigator.pop(context, 'someday')),
+          if (allowSomeday)
+            ListTile(
+              leading: const Icon(Icons.inbox_outlined),
+              title: const Text('Someday'),
+              subtitle: const Text('No day; it waits in your Someday list'),
+              onTap: () => Navigator.pop(context, 'someday'),
+            ),
         ],
       ),
     ),
@@ -680,7 +730,10 @@ Future<RepeatChoice?> pickRepeat(BuildContext context, {required String start, R
                   child: SizedBox(
                     height: 42,
                     child: Center(
-                      child: Text(label, style: TextStyle(fontSize: 15, fontWeight: on ? FontWeight.w700 : FontWeight.w400, color: on ? c.onSurface : c.onSurfaceVariant)),
+                      child: Text(
+                        label,
+                        style: TextStyle(fontSize: 15, fontWeight: on ? FontWeight.w700 : FontWeight.w400, color: on ? c.onSurface : c.onSurfaceVariant),
+                      ),
                     ),
                   ),
                 ),
@@ -716,7 +769,11 @@ Future<RepeatChoice?> pickRepeat(BuildContext context, {required String start, R
                           ),
                           SizedBox(
                             width: 36,
-                            child: Text('${rule.every}', textAlign: TextAlign.center, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
+                            child: Text(
+                              '${rule.every}',
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+                            ),
                           ),
                           IconButton(
                             tooltip: 'More',
@@ -743,10 +800,15 @@ Future<RepeatChoice?> pickRepeat(BuildContext context, {required String start, R
                                     showCheckmark: false,
                                     padding: EdgeInsets.zero,
                                     labelPadding: EdgeInsets.zero,
-                                    label: SizedBox(width: double.infinity, child: Text(weekdayShort[d - 1].substring(0, 2), textAlign: TextAlign.center)),
+                                    label: SizedBox(
+                                      width: double.infinity,
+                                      child: Text(weekdayShort[d - 1].substring(0, 2), textAlign: TextAlign.center),
+                                    ),
                                     selected: (rule.weekdays.isEmpty ? [s.weekday] : rule.weekdays).contains(d),
                                     onSelected: (on) => set(() {
-                                      final now = {...(rule.weekdays.isEmpty ? [s.weekday] : rule.weekdays)};
+                                      final now = {
+                                        ...(rule.weekdays.isEmpty ? [s.weekday] : rule.weekdays),
+                                      };
                                       on ? now.add(d) : now.remove(d);
                                       if (now.isNotEmpty) rule = rule.copyWith(weekdays: now.toList()..sort());
                                     }),
@@ -764,7 +826,15 @@ Future<RepeatChoice?> pickRepeat(BuildContext context, {required String start, R
                           child: Column(
                             children: [
                               RadioListTile<bool>(value: false, title: Text('On the ${ordinal(s.day)}')),
-                              RadioListTile<bool>(value: true, title: Text(const RepeatRule(unit: RepeatUnit.month, monthlyByWeekday: true).describe(start).replaceFirst('Every month on the ', 'On the '))),
+                              RadioListTile<bool>(
+                                value: true,
+                                title: Text(
+                                  const RepeatRule(
+                                    unit: RepeatUnit.month,
+                                    monthlyByWeekday: true,
+                                  ).describe(start).replaceFirst('Every month on the ', 'On the '),
+                                ),
+                              ),
                             ],
                           ),
                         ),
@@ -786,15 +856,18 @@ Future<RepeatChoice?> pickRepeat(BuildContext context, {required String start, R
                     set(() => rule = d == null ? rule.copyWith(clearUntil: true) : rule.copyWith(until: dayKey(d)));
                   },
                 ),
-                Text(rule.describe(start), textAlign: TextAlign.center, style: TextStyle(fontSize: 13, color: c.onSurfaceVariant)),
+                Text(
+                  rule.describe(start),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 13, color: c.onSurfaceVariant),
+                ),
                 const SizedBox(height: 12),
                 FilledButton(
                   style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(50), backgroundColor: c.onSurface, foregroundColor: c.surface),
                   onPressed: () => Navigator.pop(context, RepeatChoice(rule)),
                   child: const Text('Apply'),
                 ),
-                if (current != null)
-                  TextButton(onPressed: () => Navigator.pop(context, const RepeatChoice(null)), child: const Text('Don\'t repeat')),
+                if (current != null) TextButton(onPressed: () => Navigator.pop(context, const RepeatChoice(null)), child: const Text('Don\'t repeat')),
               ],
             ),
           ),
@@ -839,12 +912,19 @@ Future<ReminderChoice?> pickReminder(BuildContext context, {int? current, requir
                 height: 200,
                 decoration: BoxDecoration(color: context.palette.chip, borderRadius: BorderRadius.circular(18)),
                 child: CupertinoTheme(
-                  data: CupertinoThemeData(brightness: Theme.of(context).brightness, textTheme: CupertinoTextThemeData(dateTimePickerTextStyle: TextStyle(fontSize: 19, color: c.onSurface))),
+                  data: CupertinoThemeData(
+                    brightness: Theme.of(context).brightness,
+                    textTheme: CupertinoTextThemeData(dateTimePickerTextStyle: TextStyle(fontSize: 19, color: c.onSurface)),
+                  ),
                   child: CupertinoDatePicker(initialDateTime: picked, minuteInterval: 5, use24hFormat: false, onDateTimeChanged: (v) => picked = v),
                 ),
               ),
               const SizedBox(height: 10),
-              Text('Only you get this reminder. The to-do stays on its day.', textAlign: TextAlign.center, style: TextStyle(fontSize: 13, color: c.onSurfaceVariant)),
+              Text(
+                'Only you get this reminder. The to-do stays on its day.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 13, color: c.onSurfaceVariant),
+              ),
               const SizedBox(height: 12),
               FilledButton(
                 style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(50), backgroundColor: c.onSurface, foregroundColor: c.surface),

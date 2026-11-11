@@ -829,7 +829,9 @@ class KolumnRepository {
       final pos = existing.isEmpty ? 1.0 : existing.map((e) => e.position).reduce((a, b) => a > b ? a : b) + 1;
       await db
           .into(db.kTodoSteps)
-          .insert(KTodoStepsCompanion.insert(id: id, todoId: todoId, content: content.trim(), heading: Value(heading), position: Value(pos), createdAt: _now()));
+          .insert(
+            KTodoStepsCompanion.insert(id: id, todoId: todoId, content: content.trim(), heading: Value(heading), position: Value(pos), createdAt: _now()),
+          );
       await _record('todostep.create', {'id': id, 'todoId': todoId, 'content': content.trim(), 'heading': heading, 'position': pos});
     });
     return id;
@@ -845,14 +847,7 @@ class KolumnRepository {
         indent: Value.absentIfNull(indent),
       ),
     );
-    await _record('todostep.update', {
-      'id': s.id,
-      'content': ?content?.trim(),
-      'done': ?done,
-      'star': ?star,
-      'heading': ?heading,
-      'indent': ?indent,
-    });
+    await _record('todostep.update', {'id': s.id, 'content': ?content?.trim(), 'done': ?done, 'star': ?star, 'heading': ?heading, 'indent': ?indent});
   });
 
   Future<void> deleteTodoStep(KTodoStep s) => db.transaction(() async {
@@ -1315,7 +1310,18 @@ class KolumnRepository {
       await db.delete(t).go();
     }
     _me = null;
-    for (final k in const ['sync.cursor', 'sync.boardIds', 'sync.plannerIds', 'board.current', 'planner.current', 'me.id', 'me.name', 'me.level', 'me.manager', 'sync.last']) {
+    for (final k in const [
+      'sync.cursor',
+      'sync.boardIds',
+      'sync.plannerIds',
+      'board.current',
+      'planner.current',
+      'me.id',
+      'me.name',
+      'me.level',
+      'me.manager',
+      'sync.last',
+    ]) {
       await (db.delete(db.kSettings)..where((s) => s.key.equals(k))).go();
     }
   });
@@ -1337,11 +1343,11 @@ class KolumnRepository {
     final waiting = await addColumn(board, 'Waiting on', 2);
     await addCard(board, 'Cards you\'re not ready for wait here in Later', lane: const Lane.later());
     await addCard(board, 'Finished cards land in Done', lane: const Lane.done());
-    await addCard(board, 'Swipe sideways to see the other columns', lane: Lane.column(waiting));
+    await addCard(board, 'Swipe sideways to see the other kolumns', lane: Lane.column(waiting));
     await addCard(board, 'Priority cards always sit at the top', lane: Lane.column(doing), priority: true);
     await addCard(board, 'Tap a card to open it, rename it, or make it Priority');
-    await addCard(board, 'Tap a thin strip to open that column');
-    await addCard(board, 'Hold a card, then drag it onto a column in the tray');
+    await addCard(board, 'Tap a thin strip to open that kolumn');
+    await addCard(board, 'Hold a card, then drag it onto a kolumn in the tray');
     await setSetting('board.current', board);
     return board;
   }

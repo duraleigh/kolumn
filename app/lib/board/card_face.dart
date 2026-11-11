@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/database.dart';
+import '../data/tidy.dart';
+import '../planner/days.dart';
+import '../planner/planner_model.dart';
 import '../state/providers.dart';
 import '../theme/tokens.dart';
 import '../ui/bits.dart';
@@ -24,8 +27,26 @@ class CardFace extends ConsumerWidget {
     final priority = card.priorityAt != null;
     final done = card.closedAt != null;
     final shadows = lifted ? p.liftShadow : p.cardShadow;
+    final today = ref.watch(plannerTodayProvider);
+    final dueDay = card.dueAt == null ? null : dueDayOf(card.dueAt!);
+    final late = dueDay != null && !done && dueDay.compareTo(today) < 0;
+    KBoard? board;
+    for (final b in ref.watch(boardsProvider).value ?? const <KBoard>[]) {
+      if (b.id == card.boardId) board = b;
+    }
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final tidyLeft = tidyWarning(card, board, now) ? tidyDaysLeft(card, board, now) : null;
     final meta = <Widget>[
       if (priority) _Pill(text: 'Priority', bg: c.primaryContainer, fg: c.onPrimaryContainer),
+      if (dueDay != null)
+        _Count(
+          icon: Icons.event_outlined,
+          text: late ? 'Late · ${dayHeading(dueDay)}' : friendlyDay(dueDay, today: today),
+          bg: late ? p.dangerBg : null,
+          fg: late ? p.dangerText : null,
+        ),
+      if (ref.watch(reminderMapProvider).containsKey(card.id)) const _Count(icon: Icons.notifications_none_rounded, text: ''),
+      if (tidyLeft != null) _Count(icon: Icons.hourglass_bottom_rounded, text: tidyLeft <= 1 ? 'To Later soon' : 'To Later in ${tidyLeft}d'),
       if (x != null && x.steps > 0) _Count(icon: Icons.check_box_outlined, text: '${x.stepsDone}/${x.steps}'),
       if (x != null && x.comments > 0) _Count(icon: Icons.chat_bubble_outline_rounded, text: '${x.comments}'),
       if (x != null && x.files > 0) _Count(icon: Icons.attach_file_rounded, text: '${x.files}'),
@@ -116,25 +137,29 @@ class _Pill extends StatelessWidget {
 }
 
 class _Count extends StatelessWidget {
-  const _Count({required this.icon, required this.text});
+  const _Count({required this.icon, required this.text, this.bg, this.fg});
   final IconData icon;
   final String text;
+  final Color? bg;
+  final Color? fg;
 
   @override
   Widget build(BuildContext context) {
-    final c = context.colors;
+    final color = fg ?? context.colors.onSurfaceVariant;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-      decoration: BoxDecoration(color: context.palette.chip, borderRadius: BorderRadius.circular(999)),
+      decoration: BoxDecoration(color: bg ?? context.palette.chip, borderRadius: BorderRadius.circular(999)),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 13, color: c.onSurfaceVariant),
-          const SizedBox(width: 3),
-          Text(
-            text,
-            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: c.onSurfaceVariant),
-          ),
+          Icon(icon, size: 13, color: color),
+          if (text.isNotEmpty) ...[
+            const SizedBox(width: 3),
+            Text(
+              text,
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: color),
+            ),
+          ],
         ],
       ),
     );

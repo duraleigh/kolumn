@@ -69,7 +69,7 @@ class _NoBoardYet extends ConsumerWidget {
                 if (checking) ...[
                   const CircularProgressIndicator(),
                   const SizedBox(height: 16),
-                  Text('Getting your boards…', style: t.titleMedium),
+                  Text('Getting your Kolumns…', style: t.titleMedium),
                 ] else if (noAccess) ...[
                   Icon(Icons.lock_outline_rounded, size: 40, color: c.onSurfaceVariant),
                   const SizedBox(height: 12),
@@ -81,10 +81,10 @@ class _NoBoardYet extends ConsumerWidget {
                     style: t.bodyMedium!.copyWith(color: c.onSurfaceVariant),
                   ),
                 ] else ...[
-                  Text('No boards yet', style: t.titleLarge),
+                  Text('No Kolumns yet', style: t.titleLarge),
                   const SizedBox(height: 6),
                   Text(
-                    status.state == SyncState.offline ? 'Kolumn can\'t reach the hub right now.' : 'Nobody has shared a board with you yet.',
+                    status.state == SyncState.offline ? 'Kolumn can\'t reach the hub right now.' : 'Nobody has shared a Kolumn with you yet.',
                     textAlign: TextAlign.center,
                     style: t.bodyMedium!.copyWith(color: c.onSurfaceVariant),
                   ),
@@ -92,14 +92,14 @@ class _NoBoardYet extends ConsumerWidget {
                   if (!readOnly)
                     FilledButton.icon(
                       onPressed: () async {
-                        final n = await askText(context, title: 'New board', action: 'Create', hint: 'Board name');
+                        final n = await askText(context, title: 'New Kolumn', action: 'Create', hint: 'Kolumn name');
                         if (n == null) return;
                         final repo = ref.read(repositoryProvider);
                         final id = await repo.createBoard(n);
                         await repo.setSetting('board.current', id);
                       },
                       icon: const Icon(Icons.add_rounded),
-                      label: const Text('New board'),
+                      label: const Text('New Kolumn'),
                     ),
                 ],
                 const SizedBox(height: 10),
@@ -588,7 +588,7 @@ class _AddColumnStrip extends ConsumerWidget {
       child: Align(
         alignment: Alignment.topCenter,
         child: Tooltip(
-          message: 'Add a column',
+          message: 'Add a kolumn',
           child: Material(
             color: p.lane,
             borderRadius: BorderRadius.circular(16),
@@ -741,10 +741,10 @@ class _LaneHeader extends ConsumerWidget {
           Text('${info.cards.length}', style: t.bodyMedium!.copyWith(color: context.colors.onSurfaceVariant)),
           const Spacer(),
           if (info.isTodoLane) _DraftsChip(boardId: boardId),
-          if (canFold) IconButton(tooltip: 'Fold this column', onPressed: onFold, icon: const Icon(Icons.unfold_less_rounded, size: 20)),
+          if (canFold) IconButton(tooltip: 'Fold this kolumn', onPressed: onFold, icon: const Icon(Icons.unfold_less_rounded, size: 20)),
           if (col != null && !(ref.watch(readOnlyProvider).value ?? false))
             PopupMenuButton<String>(
-              tooltip: 'Column options',
+              tooltip: 'Options for this kolumn',
               icon: const Icon(Icons.more_horiz_rounded),
               onSelected: (v) async {
                 final repo = ref.read(repositoryProvider);
@@ -760,7 +760,7 @@ class _LaneHeader extends ConsumerWidget {
                       context,
                       title: 'Delete "${col.name}"?',
                       body: 'Its ${info.cards.length == 1 ? 'card goes' : 'cards go'} back to To-do. Nothing else is deleted.',
-                      action: 'Delete column',
+                      action: 'Delete kolumn',
                     );
                     if (ok) await repo.deleteColumn(col.id);
                 }
@@ -769,7 +769,7 @@ class _LaneHeader extends ConsumerWidget {
                 const PopupMenuItem(value: 'edit', child: Text('Rename or recolor')),
                 const PopupMenuItem(value: 'left', child: Text('Move left')),
                 const PopupMenuItem(value: 'right', child: Text('Move right')),
-                const PopupMenuItem(value: 'delete', child: Text('Delete column')),
+                const PopupMenuItem(value: 'delete', child: Text('Delete kolumn')),
               ],
             )
           else
@@ -940,7 +940,7 @@ class DropTray extends StatelessWidget {
           const SizedBox(height: 10),
           Padding(
             padding: const EdgeInsets.only(left: 4, bottom: 10),
-            child: Text('Drop on a column', style: Theme.of(context).textTheme.bodyMedium!.copyWith(color: context.colors.onSurfaceVariant)),
+            child: Text('Drop on a kolumn', style: Theme.of(context).textTheme.bodyMedium!.copyWith(color: context.colors.onSurfaceVariant)),
           ),
           LayoutBuilder(
             builder: (context, box) {

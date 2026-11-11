@@ -13,11 +13,7 @@ import 'repeat.dart';
 class PlannerEntry {
   PlannerEntry.todo(KTodo this.todo, {required this.slotKey, this.day, required this.done, this.rule}) : card = null, late = false;
 
-  PlannerEntry.card(KCard this.card, {required this.slotKey, required this.late})
-    : todo = null,
-      day = slotKey,
-      done = card.closedAt != null,
-      rule = null;
+  PlannerEntry.card(KCard this.card, {required this.slotKey, required this.late}) : todo = null, day = slotKey, done = card.closedAt != null, rule = null;
 
   final KTodo? todo;
   final KCard? card;

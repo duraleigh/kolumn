@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../board/lane_info.dart';
 import '../data/database.dart';
+import '../data/tidy.dart';
 import '../data/lanes.dart';
 import '../state/providers.dart';
 import '../theme/tokens.dart';
@@ -224,7 +225,7 @@ class _ColumnEditorState extends ConsumerState<_ColumnEditor> {
   Future<void> _save() async {
     final n = _name.text.trim();
     if (n.isEmpty) {
-      setState(() => _error = 'Give the column a name');
+      setState(() => _error = 'Give the kolumn a name');
       return;
     }
     final repo = ref.read(repositoryProvider);
@@ -240,7 +241,7 @@ class _ColumnEditorState extends ConsumerState<_ColumnEditor> {
   Widget build(BuildContext context) {
     final b = Theme.of(context).brightness;
     return AlertDialog(
-      title: Text(widget.column == null ? 'New column' : 'Edit column'),
+      title: Text(widget.column == null ? 'New kolumn' : 'Edit kolumn'),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -249,7 +250,7 @@ class _ColumnEditorState extends ConsumerState<_ColumnEditor> {
             controller: _name,
             autofocus: true,
             textCapitalization: TextCapitalization.sentences,
-            decoration: InputDecoration(hintText: 'Column name', errorText: _error),
+            decoration: InputDecoration(hintText: 'Kolumn name', errorText: _error),
             onChanged: (_) {
               if (_error != null) setState(() => _error = null);
             },
@@ -291,7 +292,7 @@ class _ColumnEditorState extends ConsumerState<_ColumnEditor> {
         FilledButton(
           style: FilledButton.styleFrom(minimumSize: const Size(0, 44)),
           onPressed: _save,
-          child: Text(widget.column == null ? 'Add column' : 'Save'),
+          child: Text(widget.column == null ? 'Add kolumn' : 'Save'),
         ),
       ],
     );
@@ -320,7 +321,7 @@ class _BoardsSheet extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('Boards', style: Theme.of(context).textTheme.titleLarge),
+            Text('Kolumns', style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 12),
             for (final b in boards)
               Padding(
@@ -360,19 +361,21 @@ class _BoardsSheet extends ConsumerWidget {
                             ),
                           if (!readOnly && b.canManage)
                             PopupMenuButton<String>(
-                              tooltip: 'Board options',
+                              tooltip: 'Kolumn options',
                               icon: const Icon(Icons.more_horiz_rounded),
                               onSelected: (v) async {
                                 if (v == 'access') {
                                   await showBoardAccessSheet(context, ref, b);
+                                } else if (v == 'tidy') {
+                                  if (context.mounted) await pickTidyDays(context, ref, b);
                                 } else if (v == 'rename') {
-                                  final n = await askText(context, title: 'Rename board', initial: b.name, action: 'Save');
+                                  final n = await askText(context, title: 'Rename Kolumn', initial: b.name, action: 'Save');
                                   if (n != null) await repo.renameBoard(b.id, n);
                                 } else if (v == 'delete') {
                                   if (boards.length < 2) {
                                     if (context.mounted) {
                                       ScaffoldMessenger.of(context)
-                                          .showSnackBar(const SnackBar(content: Text('Make another board first. Kolumn always keeps one.')));
+                                          .showSnackBar(const SnackBar(content: Text('Make another Kolumn first. There is always at least one.')));
                                     }
                                     return;
                                   }
@@ -380,8 +383,8 @@ class _BoardsSheet extends ConsumerWidget {
                                   final ok = await confirm(
                                     context,
                                     title: 'Delete "${b.name}"?',
-                                    body: 'The board and all its cards are removed for everyone who can see it.',
-                                    action: 'Delete board',
+                                    body: 'The Kolumn and all its cards are removed for everyone who can see it.',
+                                    action: 'Delete Kolumn',
                                   );
                                   if (!ok) return;
                                   await repo.deleteBoard(b.id);
@@ -393,8 +396,9 @@ class _BoardsSheet extends ConsumerWidget {
                               },
                               itemBuilder: (_) => const [
                                 PopupMenuItem(value: 'access', child: Text('Who can see it')),
+                                PopupMenuItem(value: 'tidy', child: Text('Tidy-up time')),
                                 PopupMenuItem(value: 'rename', child: Text('Rename')),
-                                PopupMenuItem(value: 'delete', child: Text('Delete board')),
+                                PopupMenuItem(value: 'delete', child: Text('Delete Kolumn')),
                               ],
                             ),
                         ],
@@ -407,14 +411,14 @@ class _BoardsSheet extends ConsumerWidget {
             if (!readOnly)
               FilledButton.icon(
                 onPressed: () async {
-                  final n = await askText(context, title: 'New board', action: 'Create', hint: 'Board name');
+                  final n = await askText(context, title: 'New Kolumn', action: 'Create', hint: 'Kolumn name');
                   if (n == null) return;
                   final id = await repo.createBoard(n);
                   await repo.setSetting('board.current', id);
                   if (context.mounted) Navigator.pop(context);
                 },
                 icon: const Icon(Icons.add_rounded),
-                label: const Text('New board'),
+                label: const Text('New Kolumn'),
               ),
           ],
         ),
@@ -475,8 +479,8 @@ class _SettingsSheet extends ConsumerWidget {
                       context,
                       title: 'Sign out of Kolumn?',
                       body: pending > 0
-                          ? '$pending ${pending == 1 ? 'change hasn\'t' : 'changes haven\'t'} reached the hub yet and will be lost. Your boards stay safe in the hub.'
-                          : 'Your boards stay safe in the hub. Sign in again any time to see them.',
+                          ? '$pending ${pending == 1 ? 'change hasn\'t' : 'changes haven\'t'} reached the hub yet and will be lost. Your Kolumns and planners stay safe in the hub.'
+                          : 'Your Kolumns and planners stay safe in the hub. Sign in again any time to see them.',
                       action: 'Sign out',
                     );
                     if (!ok) return;
@@ -489,7 +493,7 @@ class _SettingsSheet extends ConsumerWidget {
             ),
             const SizedBox(height: 14),
             Text(
-              'Kolumn 0.3, test version. Boards are shared through the hub and saved on this phone, so they work without a connection.',
+              'Kolumn 0.5, test version. Kolumns and planners are shared through the hub and saved on this phone, so they work without a connection.',
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ],
@@ -539,7 +543,7 @@ class _BoardAccessSheetState extends ConsumerState<_BoardAccessSheet> {
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
               title: const Text('Everyone with To-Dos'),
-              subtitle: Text(_all ? 'Anyone the hub lets use To-Dos sees this board.' : 'Only the people ticked below see it.'),
+              subtitle: Text(_all ? 'Anyone the hub lets use To-Dos sees this Kolumn.' : 'Only the people ticked below see it.'),
               value: _all,
               onChanged: (v) => setState(() => _all = v),
             ),
@@ -549,7 +553,7 @@ class _BoardAccessSheetState extends ConsumerState<_BoardAccessSheet> {
                 CheckboxListTile(
                   contentPadding: EdgeInsets.zero,
                   title: Text(p.name),
-                  subtitle: p.id == maker ? const Text('Made this board, always included') : null,
+                  subtitle: p.id == maker ? const Text('Made this Kolumn, always included') : null,
                   value: p.id == maker || _members.contains(p.id),
                   onChanged: p.id == maker ? null : (v) => setState(() => v == true ? _members.add(p.id) : _members.remove(p.id)),
                 ),
@@ -582,7 +586,7 @@ Future<KBoard?> pickBoard(BuildContext context, List<KBoard> boards) => showModa
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text('Move to which board?', style: Theme.of(context).textTheme.titleLarge),
+          Text('Move to which Kolumn?', style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 4),
           Text('The card, its steps, comments and files go with it, into To-do.', style: Theme.of(context).textTheme.bodySmall),
           const SizedBox(height: 12),
@@ -742,3 +746,40 @@ Future<void> showDraftsSheet(BuildContext context, String boardId, void Function
     },
   ),
 );
+
+/// How long a Kolumn's untouched cards wait before moving to Later on their
+/// own. Cards with a due day never move.
+Future<void> pickTidyDays(BuildContext context, WidgetRef ref, KBoard b) async {
+  final current = b.tidyDays ?? tidyDefault;
+  final picked = await showModalBottomSheet<int>(
+    context: context,
+    showDragHandle: true,
+    builder: (context) => SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 4),
+            child: Text('Tidy-up time for "${b.name}"', style: Theme.of(context).textTheme.titleLarge),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+            child: Text(
+              'A card nobody touches for this long moves to Later on its own. Cards with a due day never move.',
+              style: TextStyle(color: context.colors.onSurfaceVariant),
+            ),
+          ),
+          for (final d in tidyChoices)
+            ListTile(
+              title: Text(tidyChoiceLabel(d) + (d == tidyDefault ? ' (usual)' : '')),
+              trailing: d == current ? const Icon(Icons.check_rounded) : null,
+              onTap: () => Navigator.pop(context, d),
+            ),
+        ],
+      ),
+    ),
+  );
+  if (picked == null || picked == current) return;
+  await ref.read(repositoryProvider).setTidyDays(b.id, picked == tidyDefault ? null : picked);
+}

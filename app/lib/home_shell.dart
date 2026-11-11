@@ -30,7 +30,11 @@ class HomeShell extends ConsumerWidget {
                 groupAlignment: -0.9,
                 destinations: const [
                   NavigationRailDestination(icon: Icon(Icons.view_kanban_outlined), selectedIcon: Icon(Icons.view_kanban_rounded), label: Text('Kolumns')),
-                  NavigationRailDestination(icon: Icon(Icons.calendar_today_outlined), selectedIcon: Icon(Icons.calendar_today_rounded), label: Text('Planner')),
+                  NavigationRailDestination(
+                    icon: Icon(Icons.calendar_today_outlined),
+                    selectedIcon: Icon(Icons.calendar_today_rounded),
+                    label: Text('Planner'),
+                  ),
                 ],
               ),
             ),

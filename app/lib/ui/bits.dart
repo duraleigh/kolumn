@@ -2,6 +2,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../planner/days.dart';
 import '../state/providers.dart';
 import '../theme/tokens.dart';
 
@@ -196,7 +197,7 @@ String historyLine(String action, Map<String, dynamic> p, String who) {
     if (to == 'todo') return 'To-do';
     if (to == 'later') return 'Later';
     if (to == 'done') return 'Done';
-    return (p['column'] as String?)?.isNotEmpty == true ? p['column'] as String : 'a column';
+    return (p['column'] as String?)?.isNotEmpty == true ? p['column'] as String : 'a kolumn';
   }
 
   switch (action) {
@@ -217,7 +218,13 @@ String historyLine(String action, Map<String, dynamic> p, String who) {
     case 'comment_created':
       return '$who commented';
     case 'card_board_changed':
-      return '$who moved this from ${p['from'] ?? 'another board'} to ${p['to'] ?? 'this board'}';
+      return '$who moved this from ${p['from'] ?? 'another Kolumn'} to ${p['to'] ?? 'this Kolumn'}';
+    case 'card_due_set':
+      return p['day'] is String ? '$who set the due day to ${dayLabel(p['day'] as String)}' : '$who set a due day';
+    case 'card_due_cleared':
+      return '$who took the due day off';
+    case 'card_auto_later':
+      return 'Moved to Later on its own after ${p['days'] ?? 30} days untouched';
     default:
       return '$who changed this';
   }
