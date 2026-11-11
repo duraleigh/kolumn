@@ -32,8 +32,10 @@ class _PlannersSheet extends ConsumerWidget {
           children: [
             Text('Planners', style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 12),
-            Container(
-              decoration: BoxDecoration(color: context.palette.chip, borderRadius: BorderRadius.circular(18)),
+            Material(
+              color: context.palette.chip,
+              borderRadius: BorderRadius.circular(18),
+              clipBehavior: Clip.antiAlias,
               child: Column(
                 children: [
                   for (final p in planners)
@@ -153,8 +155,9 @@ class _PlannerSettings extends ConsumerWidget {
             style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: c.onSurfaceVariant),
           ),
         ),
-        Container(
-          decoration: BoxDecoration(color: context.palette.chip, borderRadius: BorderRadius.circular(18)),
+        Material(
+          color: context.palette.chip,
+          borderRadius: BorderRadius.circular(18),
           clipBehavior: Clip.antiAlias,
           child: Column(children: rows),
         ),

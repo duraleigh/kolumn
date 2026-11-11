@@ -139,8 +139,9 @@ class SyncService with WidgetsBindingObserver {
         await _pushAll();
         await _pull(full: false);
       }
-      // Everyone gets a planner of their own to start with.
-      if ((await repo.setting('me.level')) != 'read' && (await repo.watchPlanners().first).isEmpty) {
+      // Everyone gets a planner of their own to start with, once the hub has
+      // said it keeps planners (an older hub does not).
+      if ((await repo.setting('me.level')) != 'read' && (await repo.setting('sync.plannerIds')) != null && (await repo.watchPlanners().first).isEmpty) {
         await repo.ensureStarterPlanner();
         await _pushAll();
         await _pull(full: false);

@@ -332,4 +332,15 @@ void main() {
       'members': [7, 9],
     });
   });
+
+  test('a hub that keeps planners gets a starter planner from a first sign-in; an older hub does not', () async {
+    expect(await sync.signIn('clay', 'right'), isNull);
+    expect(hub.received.where((m) => m['name'] == 'planner.create'), isEmpty, reason: 'the stand-in hub here does not know planners');
+    hub.pullBody = {...hub.pullBody, 'plannerIds': <String>[]};
+    await sync.syncNow();
+    final made = hub.received.where((m) => m['name'] == 'planner.create').toList();
+    expect(made, hasLength(1));
+    expect((made.single['args'] as Map)['name'], 'My planner');
+    expect(hub.pulls.last.queryParameters.containsKey('knownPlanners'), isTrue);
+  });
 }

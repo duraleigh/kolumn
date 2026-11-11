@@ -18,7 +18,7 @@ const phone = Size(390, 844);
 const largePhone = Size(430, 932);
 const tablet = Size(1024, 720);
 
-const holdCard = 'Hold a card, then drag it onto a column in the tray';
+const holdCard = 'Hold a card, then drag it onto a kolumn in the tray';
 const priorityCard = 'Priority cards always sit at the top';
 const laterCard = "Cards you're not ready for wait here in Later";
 
@@ -117,7 +117,7 @@ void main() {
     testWidgets('${size.width.toInt()} wide: hold a card, drop it on the tray, it moves', (tester) async {
       final h = await pumpApp(tester, size);
       final g = await holdAndLift(tester, holdCard);
-      expect(find.text('Drop on a column'), findsOneWidget);
+      expect(find.text('Drop on a kolumn'), findsOneWidget);
       expect(trayText('here now'), findsOneWidget, reason: 'the card\'s own column is marked');
       await g.moveTo(tester.getCenter(trayText('Waiting on')));
       await tester.pump(const Duration(milliseconds: 100));
@@ -173,7 +173,7 @@ void main() {
     await g.up();
     await _settle(tester);
     expect(await h.laneOf(tester, holdCard), const Lane.todo());
-    expect(find.text('Drop on a column'), findsOneWidget, reason: 'the tray is still built, just slid away');
+    expect(find.text('Drop on a kolumn'), findsOneWidget, reason: 'the tray is still built, just slid away');
   });
 
   testWidgets('tablet: To-do stays open and at most one more column opens beside it', (tester) async {
@@ -205,7 +205,7 @@ void main() {
 
   testWidgets('Priority from the card screen puts the card on top', (tester) async {
     final h = await pumpApp(tester, phone);
-    const title = 'Tap a thin strip to open that column';
+    const title = 'Tap a thin strip to open that kolumn';
     await tester.tap(find.text(title));
     await _settle(tester);
     await tester.tap(find.byTooltip('Make Priority'));

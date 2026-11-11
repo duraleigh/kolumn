@@ -479,7 +479,12 @@ class _Header extends ConsumerWidget {
                         style: TextStyle(fontSize: wide ? 40 : 34, fontWeight: FontWeight.w700, letterSpacing: -0.8, height: 1.1, color: c.onSurface),
                       ),
                     ),
-                    if (sub != null) ...[const SizedBox(width: 10), Text(sub!, style: TextStyle(fontSize: 17, color: c.onSurfaceVariant))],
+                    if (sub != null) ...[
+                      const SizedBox(width: 10),
+                      Flexible(
+                        child: Text(sub!, maxLines: 1, overflow: TextOverflow.fade, softWrap: false, style: TextStyle(fontSize: 17, color: c.onSurfaceVariant)),
+                      ),
+                    ],
                   ],
                 ),
               ),
