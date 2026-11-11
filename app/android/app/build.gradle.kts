@@ -15,7 +15,8 @@ val keyProps = Properties().apply {
 
 android {
     namespace = "com.duraleigh.kolumn"
-    compileSdk = flutter.compileSdkVersion
+    // The reminders package (flutter_local_notifications 23) needs Android 37 to build against.
+    compileSdk = 37
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
