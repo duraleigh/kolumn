@@ -222,8 +222,149 @@ class KOutbox extends Table {
   IntColumn get clientTs => integer()();
 }
 
+// ---------------------------------------------------------------- schema 4: the Planner (Phase 5)
+
+/// A planner: to-dos for each day, Tweek style. Private to its maker until
+/// shared; shows the dated cards of the Kolumns in [boardIds].
+@DataClassName('KPlanner')
+class KPlanners extends Table {
+  TextColumn get id => text()();
+  TextColumn get name => text()();
+  IntColumn get creatorId => integer().nullable()();
+  BoolColumn get rollOver => boolean().withDefault(const Constant(true))();
+  BoolColumn get sinkDone => boolean().withDefault(const Constant(true))();
+  BoolColumn get hideDone => boolean().withDefault(const Constant(false))();
+  TextColumn get boardIds => text().withDefault(const Constant('[]'))();
+  BoolColumn get canManage => boolean().withDefault(const Constant(true))();
+  IntColumn get createdAt => integer()();
+  IntColumn get updatedAt => integer()();
+  IntColumn get deletedAt => integer().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Who a planner is shared with (its maker is not listed: always the owner).
+@DataClassName('KPlannerPerson')
+class KPlannerPeople extends Table {
+  TextColumn get plannerId => text()();
+  IntColumn get userId => integer()();
+  TextColumn get role => text().withDefault(const Constant('edit'))();
+  IntColumn get deletedAt => integer().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {plannerId, userId};
+}
+
+/// A to-do: on a [day] ("2026-11-11", the phone's own calendar day) or in one
+/// of the Someday lists ([list] 1-3). [repeat] is the rule as JSON.
+@DataClassName('KTodo')
+class KTodos extends Table {
+  TextColumn get id => text()();
+  TextColumn get plannerId => text()();
+  TextColumn get day => text().nullable()();
+  IntColumn get list => integer().nullable()();
+  TextColumn get title => text()();
+  TextColumn get note => text().withDefault(const Constant(''))();
+  IntColumn get doneAt => integer().nullable()();
+  RealColumn get position => real().withDefault(const Constant(0))();
+  TextColumn get repeat => text().nullable()();
+  IntColumn get assigneeId => integer().nullable()();
+  IntColumn get creatorId => integer().nullable()();
+  IntColumn get createdAt => integer()();
+  IntColumn get updatedAt => integer()();
+  IntColumn get deletedAt => integer().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// One day of a repeating to-do: ticked ("done") or deleted ("skip").
+@DataClassName('KTodoMark')
+class KTodoMarks extends Table {
+  TextColumn get todoId => text()();
+  TextColumn get day => text()();
+  TextColumn get mark => text()();
+  IntColumn get deletedAt => integer().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {todoId, day};
+}
+
+@DataClassName('KTodoStep')
+class KTodoSteps extends Table {
+  TextColumn get id => text()();
+  TextColumn get todoId => text()();
+  TextColumn get content => text()();
+  BoolColumn get done => boolean().withDefault(const Constant(false))();
+  BoolColumn get heading => boolean().withDefault(const Constant(false))();
+  IntColumn get indent => integer().withDefault(const Constant(0))();
+  BoolColumn get star => boolean().withDefault(const Constant(false))();
+  RealColumn get position => real().withDefault(const Constant(0))();
+  IntColumn get createdAt => integer()();
+  IntColumn get deletedAt => integer().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+@DataClassName('KTodoFile')
+class KTodoFiles extends Table {
+  TextColumn get id => text()();
+  TextColumn get todoId => text()();
+  IntColumn get userId => integer().withDefault(const Constant(0))();
+  TextColumn get filename => text()();
+  TextColumn get mime => text().withDefault(const Constant('application/octet-stream'))();
+  IntColumn get size => integer().withDefault(const Constant(0))();
+  IntColumn get width => integer().nullable()();
+  IntColumn get height => integer().nullable()();
+  BoolColumn get hasThumb => boolean().withDefault(const Constant(false))();
+  IntColumn get createdAt => integer()();
+  IntColumn get deletedAt => integer().nullable()();
+  TextColumn get localPath => text().nullable()();
+  BoolColumn get uploaded => boolean().withDefault(const Constant(false))();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// This person's own reminders, on to-dos and cards. [at] is when, in
+/// milliseconds; null means cleared.
+@DataClassName('KReminder')
+class KReminders extends Table {
+  TextColumn get itemId => text()();
+  TextColumn get kind => text()();
+  IntColumn get at => integer().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {itemId};
+}
+
 @DriftDatabase(
-  tables: [KBoards, KColumns, KCards, KPeople, KSettings, KOutbox, KSteps, KComments, KReactions, KTags, KAssignees, KWatches, KPins, KFiles, KEvents],
+  tables: [
+    KBoards,
+    KColumns,
+    KCards,
+    KPeople,
+    KSettings,
+    KOutbox,
+    KSteps,
+    KComments,
+    KReactions,
+    KTags,
+    KAssignees,
+    KWatches,
+    KPins,
+    KFiles,
+    KEvents,
+    KPlanners,
+    KPlannerPeople,
+    KTodos,
+    KTodoMarks,
+    KTodoSteps,
+    KTodoFiles,
+    KReminders,
+  ],
 )
 class KolumnDb extends _$KolumnDb {
   KolumnDb() : super(driftDatabase(name: 'kolumn'));
@@ -231,7 +372,7 @@ class KolumnDb extends _$KolumnDb {
   KolumnDb.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -250,6 +391,11 @@ class KolumnDb extends _$KolumnDb {
         await m.addColumn(kCards, kCards.status);
         await m.addColumn(kCards, kCards.coverId);
         for (final t in <TableInfo>[kSteps, kComments, kReactions, kTags, kAssignees, kWatches, kPins, kFiles, kEvents]) {
+          await m.createTable(t);
+        }
+      }
+      if (from < 4) {
+        for (final t in <TableInfo>[kPlanners, kPlannerPeople, kTodos, kTodoMarks, kTodoSteps, kTodoFiles, kReminders]) {
           await m.createTable(t);
         }
       }

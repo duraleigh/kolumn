@@ -6,6 +6,7 @@ import 'package:flutter/widgets.dart';
 
 import '../data/database.dart';
 import '../data/repository.dart';
+import '../planner/days.dart';
 import 'hub_client.dart';
 
 enum SyncState { signedOut, checking, upToDate, offline, noAccess }
@@ -126,12 +127,21 @@ class SyncService with WidgetsBindingObserver {
     _running = true;
     _set(SyncStatus(SyncState.checking, lastSynced: _current.lastSynced));
     try {
+      // Tweek's "move unfinished to the next day", done on this phone so it
+      // works offline too; the moves go out with everything else.
+      if ((await repo.setting('me.level')) != 'read') await repo.rollOver(todayKey());
       var needFull = full || (await repo.setting('sync.cursor')) == null;
       needFull = await _pushAll() || needFull;
       await _pull(full: needFull);
       // A first sign-in to an empty hub gets the practice board, then sends it.
       if ((await repo.setting('me.level')) != 'read' && (await repo.watchBoards().first).isEmpty) {
         await repo.ensureStarterBoard();
+        await _pushAll();
+        await _pull(full: false);
+      }
+      // Everyone gets a planner of their own to start with.
+      if ((await repo.setting('me.level')) != 'read' && (await repo.watchPlanners().first).isEmpty) {
+        await repo.ensureStarterPlanner();
         await _pushAll();
         await _pull(full: false);
       }
@@ -165,11 +175,11 @@ class SyncService with WidgetsBindingObserver {
     for (var round = 0; round < 100; round++) {
       final waiting = await repo.pendingOutbox(limit: 200);
       if (waiting.isEmpty) break;
-      if (waiting.first.name == 'file.upload') {
+      if (_isUpload(waiting.first.name)) {
         refused = await _uploadOne(waiting.first) || refused;
         continue;
       }
-      final batch = waiting.takeWhile((e) => e.name != 'file.upload').toList();
+      final batch = waiting.takeWhile((e) => !_isUpload(e.name)).toList();
       Map<String, dynamic> reply;
       try {
         reply = await hub.push([
@@ -196,6 +206,8 @@ class SyncService with WidgetsBindingObserver {
     return refused;
   }
 
+  static bool _isUpload(String name) => name == 'file.upload' || name == 'todofile.upload';
+
   /// One waiting file. A file that has gone from the phone, or a card the
   /// hub no longer lets this person reach, is dropped rather than retried.
   Future<bool> _uploadOne(KOutboxEntry e) async {
@@ -209,7 +221,8 @@ class SyncService with WidgetsBindingObserver {
     try {
       await hub.uploadFile(
         id: id,
-        cardId: a['cardId'] as String,
+        cardId: a['cardId'] as String?,
+        todoId: a['todoId'] as String?,
         filename: a['filename'] as String? ?? 'file',
         cover: a['cover'] == true,
         bytes: await f.readAsBytes(),
@@ -219,7 +232,11 @@ class SyncService with WidgetsBindingObserver {
       await repo.removeOutbox([e.mutationId]);
       return true;
     }
-    await repo.markFileUploaded(id);
+    if (e.name == 'todofile.upload') {
+      await repo.markTodoFileUploaded(id);
+    } else {
+      await repo.markFileUploaded(id);
+    }
     await repo.removeOutbox([e.mutationId]);
     return false;
   }
@@ -227,7 +244,8 @@ class SyncService with WidgetsBindingObserver {
   Future<void> _pull({required bool full}) async {
     final cursor = full ? 0 : int.tryParse(await repo.setting('sync.cursor') ?? '') ?? 0;
     final known = full ? <String>[] : await repo.knownBoardIds();
-    final body = await hub.pull(cursor: cursor, known: known);
+    final knownPlanners = full ? <String>[] : await repo.knownPlannerIds();
+    final body = await hub.pull(cursor: cursor, known: known, knownPlanners: knownPlanners);
     await repo.applyPull(body, replaceAll: full);
   }
 }

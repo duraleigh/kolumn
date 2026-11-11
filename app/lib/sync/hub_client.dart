@@ -8,7 +8,7 @@ import 'package:http/http.dart' as http;
 /// practice site with `--dart-define=KOLUMN_SERVER=https://stage5230ca.clayaiken.com`.
 const String kolumnServer = String.fromEnvironment('KOLUMN_SERVER', defaultValue: 'https://clayaiken.com');
 
-const String _ua = 'Kolumn/0.4 (Android)';
+const String _ua = 'Kolumn/0.5 (Android)';
 
 /// Something the hub refused, with the hub's own plain message.
 class HubRefusal implements Exception {
@@ -174,19 +174,27 @@ class HubClient {
     return _decode(r);
   }
 
-  Future<Map<String, dynamic>> pull({required int cursor, required List<String> known}) =>
-      _authed((h) => _http.get(Uri.parse('$_base/kolumn/sync').replace(queryParameters: {'cursor': '$cursor', 'known': known.join(',')}), headers: h));
+  Future<Map<String, dynamic>> pull({required int cursor, required List<String> known, List<String> knownPlanners = const []}) => _authed(
+    (h) => _http.get(
+      Uri.parse('$_base/kolumn/sync').replace(queryParameters: {'cursor': '$cursor', 'known': known.join(','), 'knownPlanners': knownPlanners.join(',')}),
+      headers: h,
+    ),
+  );
 
   /// Sends one file as the request body. Safe to repeat: the hub keeps one copy per id.
+  /// A file on a card ([cardId]) or on a to-do ([todoId]).
   Future<Map<String, dynamic>> uploadFile({
     required String id,
-    required String cardId,
+    String? cardId,
+    String? todoId,
     required String filename,
-    required bool cover,
+    bool cover = false,
     required List<int> bytes,
   }) => _authed(
     (h) => _http.post(
-      Uri.parse('$_base/kolumn/files').replace(queryParameters: {'id': id, 'cardId': cardId, 'filename': filename, 'cover': cover ? '1' : '0'}),
+      Uri.parse('$_base/kolumn/files').replace(
+        queryParameters: {'id': id, 'cardId': ?cardId, 'todoId': ?todoId, 'filename': filename, 'cover': cover ? '1' : '0'},
+      ),
       headers: {...h, 'Content-Type': 'application/octet-stream'},
       body: bytes,
     ),

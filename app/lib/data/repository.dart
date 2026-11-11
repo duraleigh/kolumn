@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
+import '../planner/days.dart';
+import '../planner/repeat.dart';
 import 'database.dart';
 import 'lanes.dart';
 
@@ -569,6 +571,528 @@ class KolumnRepository {
     }
   }
 
+  // ---------------------------------------------------------------- time (Phase 5)
+
+  /// A card's due DAY (no times), or null to clear it.
+  Future<void> setCardDue(String cardId, String? day) => db.transaction(() async {
+    final now = _now();
+    await (db.update(db.kCards)..where((c) => c.id.equals(cardId))).write(
+      KCardsCompanion(dueAt: Value(day == null ? null : dueMsOf(day)), dueHasTime: const Value(false), lastActiveAt: Value(now), updatedAt: Value(now)),
+    );
+    await _record('card.due', {'id': cardId, 'day': day});
+  });
+
+  /// How long a Kolumn's cards may sit untouched before they move to Later on
+  /// their own. Null means the usual 30 days.
+  Future<void> setTidyDays(String boardId, int? days) => db.transaction(() async {
+    await (db.update(db.kBoards)..where((b) => b.id.equals(boardId))).write(KBoardsCompanion(tidyDays: Value(days), updatedAt: Value(_now())));
+    await _record('board.tidy', {'id': boardId, 'days': days});
+  });
+
+  // ---------------------------------------------------------------- the Planner (Phase 5)
+
+  Stream<List<KPlanner>> watchPlanners() =>
+      (db.select(db.kPlanners)
+            ..where((p) => p.deletedAt.isNull())
+            ..orderBy([(p) => OrderingTerm.asc(p.createdAt)]))
+          .watch();
+
+  Stream<List<KPlannerPerson>> watchPlannerPeople(String plannerId) =>
+      (db.select(db.kPlannerPeople)..where((p) => p.plannerId.equals(plannerId) & p.deletedAt.isNull())).watch();
+
+  Stream<List<KTodo>> watchTodos(String plannerId) => (db.select(db.kTodos)..where((t) => t.plannerId.equals(plannerId) & t.deletedAt.isNull())).watch();
+
+  Stream<List<KTodo>> watchAllTodos() => (db.select(db.kTodos)..where((t) => t.deletedAt.isNull())).watch();
+
+  Stream<KTodo?> watchTodo(String id) => (db.select(db.kTodos)..where((t) => t.id.equals(id))).watchSingleOrNull();
+
+  Future<KTodo?> todo(String id) => (db.select(db.kTodos)..where((t) => t.id.equals(id))).getSingleOrNull();
+
+  Stream<List<KTodoMark>> watchTodoMarks() => (db.select(db.kTodoMarks)..where((m) => m.deletedAt.isNull())).watch();
+
+  Stream<List<KTodoStep>> watchTodoSteps(String todoId) =>
+      (db.select(db.kTodoSteps)
+            ..where((s) => s.todoId.equals(todoId) & s.deletedAt.isNull())
+            ..orderBy([(s) => OrderingTerm.asc(s.position), (s) => OrderingTerm.asc(s.createdAt)]))
+          .watch();
+
+  Stream<List<KTodoStep>> watchAllTodoSteps() => (db.select(db.kTodoSteps)..where((s) => s.deletedAt.isNull())).watch();
+
+  Stream<List<KTodoFile>> watchTodoFiles(String todoId) =>
+      (db.select(db.kTodoFiles)
+            ..where((f) => f.todoId.equals(todoId) & f.deletedAt.isNull())
+            ..orderBy([(f) => OrderingTerm.asc(f.createdAt)]))
+          .watch();
+
+  Stream<List<KTodoFile>> watchAllTodoFiles() => (db.select(db.kTodoFiles)..where((f) => f.deletedAt.isNull())).watch();
+
+  Stream<List<KReminder>> watchReminders() => (db.select(db.kReminders)..where((r) => r.at.isNotNull())).watch();
+
+  Future<KTodoFile?> todoFile(String id) => (db.select(db.kTodoFiles)..where((f) => f.id.equals(id))).getSingleOrNull();
+
+  Future<String> createPlanner(String name, {List<String> boardIds = const []}) async {
+    final id = newId();
+    final now = _now();
+    await db.transaction(() async {
+      await db
+          .into(db.kPlanners)
+          .insert(
+            KPlannersCompanion.insert(
+              id: id,
+              name: name.trim().isEmpty ? 'My planner' : name.trim(),
+              creatorId: Value(await meId()),
+              boardIds: Value(jsonEncode(boardIds)),
+              createdAt: now,
+              updatedAt: now,
+            ),
+          );
+      await _record('planner.create', {'id': id, 'name': name.trim(), 'boardIds': boardIds});
+    });
+    return id;
+  }
+
+  Future<void> updatePlanner(String id, {String? name, bool? rollOver, bool? sinkDone, bool? hideDone, List<String>? boardIds}) => db.transaction(() async {
+    await (db.update(db.kPlanners)..where((p) => p.id.equals(id))).write(
+      KPlannersCompanion(
+        name: name == null ? const Value.absent() : Value(name.trim()),
+        rollOver: Value.absentIfNull(rollOver),
+        sinkDone: Value.absentIfNull(sinkDone),
+        hideDone: Value.absentIfNull(hideDone),
+        boardIds: boardIds == null ? const Value.absent() : Value(jsonEncode(boardIds)),
+        updatedAt: Value(_now()),
+      ),
+    );
+    await _record('planner.update', {
+      'id': id,
+      'name': ?name?.trim(),
+      'rollOver': ?rollOver,
+      'sinkDone': ?sinkDone,
+      'hideDone': ?hideDone,
+      'boardIds': ?boardIds,
+    });
+  });
+
+  Future<void> deletePlanner(String id) => db.transaction(() async {
+    final now = _now();
+    await (db.update(db.kPlanners)..where((p) => p.id.equals(id))).write(KPlannersCompanion(deletedAt: Value(now), updatedAt: Value(now)));
+    await _record('planner.delete', {'id': id});
+  });
+
+  /// Who a planner is shared with, and as what: 'owner' or 'edit'.
+  Future<void> setPlannerPeople(String id, Map<int, String> people) => db.transaction(() async {
+    await (db.update(db.kPlannerPeople)..where((p) => p.plannerId.equals(id))).write(KPlannerPeopleCompanion(deletedAt: Value(_now())));
+    for (final e in people.entries) {
+      await db
+          .into(db.kPlannerPeople)
+          .insertOnConflictUpdate(KPlannerPeopleCompanion.insert(plannerId: id, userId: e.key, role: Value(e.value), deletedAt: const Value(null)));
+    }
+    await _record('planner.people', {
+      'id': id,
+      'people': [
+        for (final e in people.entries) {'userId': e.key, 'role': e.value},
+      ],
+    });
+  });
+
+  Future<double> _nextTodoPosition(String plannerId, TodoSlot slot) async {
+    final q = db.select(db.kTodos)..where((t) => t.plannerId.equals(plannerId) & t.deletedAt.isNull());
+    if (slot.day != null) {
+      q.where((t) => t.day.equals(slot.day!));
+    } else {
+      q.where((t) => t.day.isNull() & t.list.equals(slot.list!));
+    }
+    final rows = await q.get();
+    return rows.isEmpty ? 1.0 : rows.map((r) => r.position).reduce((a, b) => a > b ? a : b) + 1;
+  }
+
+  Future<String> addTodo(String plannerId, TodoSlot slot, String title) async {
+    final id = newId();
+    await db.transaction(() async {
+      final now = _now();
+      final pos = await _nextTodoPosition(plannerId, slot);
+      await db
+          .into(db.kTodos)
+          .insert(
+            KTodosCompanion.insert(
+              id: id,
+              plannerId: plannerId,
+              day: Value(slot.day),
+              list: Value(slot.list),
+              title: title.trim(),
+              position: Value(pos),
+              creatorId: Value(await meId()),
+              createdAt: now,
+              updatedAt: now,
+            ),
+          );
+      await _record('todo.create', {'id': id, 'plannerId': plannerId, 'day': slot.day, 'list': slot.list, 'title': title.trim(), 'position': pos});
+    });
+    return id;
+  }
+
+  /// Changes only what is given. [slot] moves it to another day or a Someday
+  /// list (to the end there unless [position] says where).
+  Future<void> updateTodo(
+    String id, {
+    String? title,
+    String? note,
+    TodoSlot? slot,
+    double? position,
+    RepeatRule? repeat,
+    bool clearRepeat = false,
+    int? assigneeId,
+    bool clearAssignee = false,
+    String? plannerId,
+  }) => db.transaction(() async {
+    final before = await todo(id);
+    if (before == null) return;
+    final pos = position ?? (slot != null || plannerId != null ? await _nextTodoPosition(plannerId ?? before.plannerId, slot ?? TodoSlot.of(before)) : null);
+    await (db.update(db.kTodos)..where((t) => t.id.equals(id))).write(
+      KTodosCompanion(
+        title: title == null || title.trim().isEmpty ? const Value.absent() : Value(title.trim()),
+        note: Value.absentIfNull(note),
+        day: slot == null ? const Value.absent() : Value(slot.day),
+        list: slot == null ? const Value.absent() : Value(slot.list),
+        position: Value.absentIfNull(pos),
+        repeat: clearRepeat ? const Value(null) : (repeat == null ? const Value.absent() : Value(repeat.encode())),
+        assigneeId: clearAssignee || plannerId != null ? const Value(null) : Value.absentIfNull(assigneeId),
+        plannerId: Value.absentIfNull(plannerId),
+        updatedAt: Value(_now()),
+      ),
+    );
+    await _record('todo.update', {
+      'id': id,
+      if (title != null && title.trim().isNotEmpty) 'title': title.trim(),
+      'note': ?note,
+      if (slot != null) ...{'day': slot.day, 'list': slot.list},
+      'position': ?pos,
+      if (clearRepeat) 'repeat': null else if (repeat != null) 'repeat': repeat.toJson(),
+      if (clearAssignee) 'assigneeId': null else 'assigneeId': ?assigneeId,
+      'plannerId': ?plannerId,
+    });
+  });
+
+  /// Ticks a to-do, or takes the tick back. For a repeating to-do, [day] says
+  /// which day's tick.
+  Future<void> setTodoDone(KTodo t, bool done, {String? day}) => db.transaction(() async {
+    if (t.repeat != null) {
+      if (day == null) return;
+      await db
+          .into(db.kTodoMarks)
+          .insertOnConflictUpdate(KTodoMarksCompanion.insert(todoId: t.id, day: day, mark: 'done', deletedAt: Value(done ? null : _now())));
+      await _record('todo.done', {'id': t.id, 'on': done, 'day': day});
+      return;
+    }
+    await (db.update(db.kTodos)..where((x) => x.id.equals(t.id))).write(KTodosCompanion(doneAt: Value(done ? _now() : null), updatedAt: Value(_now())));
+    await _record('todo.done', {'id': t.id, 'on': done});
+  });
+
+  /// Deletes one day of a repeating to-do; the other days stay.
+  Future<void> skipTodoDay(KTodo t, String day) => db.transaction(() async {
+    await db.into(db.kTodoMarks).insertOnConflictUpdate(KTodoMarksCompanion.insert(todoId: t.id, day: day, mark: 'skip', deletedAt: const Value(null)));
+    await _record('todo.skip', {'id': t.id, 'day': day});
+  });
+
+  Future<void> deleteTodo(String id) => db.transaction(() async {
+    final now = _now();
+    await (db.update(db.kTodos)..where((t) => t.id.equals(id))).write(KTodosCompanion(deletedAt: Value(now), updatedAt: Value(now)));
+    await _record('todo.delete', {'id': id});
+  });
+
+  /// Moves every unfinished, non-repeating to-do from an earlier day to
+  /// [today], in planners with that switch on (Tweek's "move unfinished to
+  /// the next day"). Cards never move. Returns how many moved.
+  Future<int> rollOver(String today) async {
+    final planners = await (db.select(db.kPlanners)..where((p) => p.deletedAt.isNull() & p.rollOver.equals(true))).get();
+    if (planners.isEmpty) return 0;
+    final late =
+        await (db.select(db.kTodos)..where(
+              (t) =>
+                  t.plannerId.isIn(planners.map((p) => p.id).toList()) &
+                  t.deletedAt.isNull() &
+                  t.doneAt.isNull() &
+                  t.repeat.isNull() &
+                  t.day.isNotNull() &
+                  t.day.isSmallerThanValue(today),
+            ))
+            .get();
+    for (final t in late) {
+      await updateTodo(t.id, slot: TodoSlot.day(today));
+    }
+    return late.length;
+  }
+
+  Future<String> addTodoStep(String todoId, String content, {bool heading = false}) async {
+    final id = newId();
+    await db.transaction(() async {
+      final existing = await (db.select(db.kTodoSteps)..where((s) => s.todoId.equals(todoId))).get();
+      final pos = existing.isEmpty ? 1.0 : existing.map((e) => e.position).reduce((a, b) => a > b ? a : b) + 1;
+      await db
+          .into(db.kTodoSteps)
+          .insert(KTodoStepsCompanion.insert(id: id, todoId: todoId, content: content.trim(), heading: Value(heading), position: Value(pos), createdAt: _now()));
+      await _record('todostep.create', {'id': id, 'todoId': todoId, 'content': content.trim(), 'heading': heading, 'position': pos});
+    });
+    return id;
+  }
+
+  Future<void> updateTodoStep(KTodoStep s, {String? content, bool? done, bool? star, bool? heading, int? indent}) => db.transaction(() async {
+    await (db.update(db.kTodoSteps)..where((x) => x.id.equals(s.id))).write(
+      KTodoStepsCompanion(
+        content: content == null || content.trim().isEmpty ? const Value.absent() : Value(content.trim()),
+        done: Value.absentIfNull(done),
+        star: Value.absentIfNull(star),
+        heading: Value.absentIfNull(heading),
+        indent: Value.absentIfNull(indent),
+      ),
+    );
+    await _record('todostep.update', {
+      'id': s.id,
+      'content': ?content?.trim(),
+      'done': ?done,
+      'star': ?star,
+      'heading': ?heading,
+      'indent': ?indent,
+    });
+  });
+
+  Future<void> deleteTodoStep(KTodoStep s) => db.transaction(() async {
+    await (db.update(db.kTodoSteps)..where((x) => x.id.equals(s.id))).write(KTodoStepsCompanion(deletedAt: Value(_now())));
+    await _record('todostep.delete', {'id': s.id});
+  });
+
+  Future<String> addTodoFile(String todoId, {required String localPath, required String filename, required String mime, required int size}) async {
+    final id = newId();
+    await db.transaction(() async {
+      await db
+          .into(db.kTodoFiles)
+          .insert(
+            KTodoFilesCompanion.insert(
+              id: id,
+              todoId: todoId,
+              userId: Value(await meId() ?? 0),
+              filename: filename,
+              mime: Value(mime),
+              size: Value(size),
+              createdAt: _now(),
+              localPath: Value(localPath),
+            ),
+          );
+      await _record('todofile.upload', {'id': id, 'todoId': todoId, 'filename': filename, 'path': localPath});
+    });
+    return id;
+  }
+
+  Future<void> deleteTodoFile(KTodoFile f) => db.transaction(() async {
+    await (db.update(db.kTodoFiles)..where((x) => x.id.equals(f.id))).write(KTodoFilesCompanion(deletedAt: Value(_now())));
+    await _record('todofile.delete', {'id': f.id});
+  });
+
+  Future<void> markTodoFileUploaded(String id) =>
+      (db.update(db.kTodoFiles)..where((f) => f.id.equals(id))).write(const KTodoFilesCompanion(uploaded: Value(true)));
+
+  Future<void> setTodoFileLocalPath(String id, String path) =>
+      (db.update(db.kTodoFiles)..where((f) => f.id.equals(id))).write(KTodoFilesCompanion(localPath: Value(path)));
+
+  /// A reminder for this person only, on a to-do or a card; null clears it.
+  Future<void> setReminder(String itemId, String kind, int? at) => db.transaction(() async {
+    await db.into(db.kReminders).insertOnConflictUpdate(KRemindersCompanion.insert(itemId: itemId, kind: kind, at: Value(at)));
+    await _record('reminder.set', {'id': itemId, 'kind': kind, 'at': at});
+  });
+
+  /// Everyone's first planner. It shows the dated cards of every Kolumn they
+  /// can see; the planner's settings change that.
+  Future<String> ensureStarterPlanner() async {
+    final existing = await (db.select(db.kPlanners)..where((p) => p.deletedAt.isNull())).get();
+    if (existing.isNotEmpty) return existing.first.id;
+    final boards = await (db.select(db.kBoards)..where((b) => b.deletedAt.isNull())).get();
+    final id = await createPlanner('My planner', boardIds: boards.map((b) => b.id).toList());
+    await setSetting('planner.current', id);
+    return id;
+  }
+
+  Future<void> _applyPlanner(Map<String, dynamic> body, Set<String> pending, {required bool replaceAll}) async {
+    if (body['plannerIds'] == null) return; // A hub from before the Planner.
+    int? i(Object? v) => v == null ? null : (v as num).toInt();
+    List<Map<String, dynamic>> list(String k) => ((body[k] as List?) ?? const []).cast<Map<String, dynamic>>();
+    final visible = (body['plannerIds'] as List).cast<String>().toSet();
+
+    // Planners this person is no longer in leave the phone, with their to-dos.
+    for (final p in await db.select(db.kPlanners).get()) {
+      if (!visible.contains(p.id) && !pending.contains(p.id)) {
+        final todoIds = (await (db.select(db.kTodos)..where((t) => t.plannerId.equals(p.id))).get()).map((t) => t.id).toList();
+        await (db.delete(db.kTodoSteps)..where((x) => x.todoId.isIn(todoIds))).go();
+        await (db.delete(db.kTodoFiles)..where((x) => x.todoId.isIn(todoIds))).go();
+        await (db.delete(db.kTodoMarks)..where((x) => x.todoId.isIn(todoIds))).go();
+        await (db.delete(db.kTodos)..where((x) => x.plannerId.equals(p.id))).go();
+        await (db.delete(db.kPlannerPeople)..where((x) => x.plannerId.equals(p.id))).go();
+        await (db.delete(db.kPlanners)..where((x) => x.id.equals(p.id))).go();
+      }
+    }
+
+    for (final p in list('planners')) {
+      if (pending.contains(p['id'])) continue;
+      await db
+          .into(db.kPlanners)
+          .insertOnConflictUpdate(
+            KPlannersCompanion.insert(
+              id: p['id'] as String,
+              name: p['name'] as String? ?? '',
+              creatorId: Value(i(p['creatorId'])),
+              rollOver: Value(p['rollOver'] != false),
+              sinkDone: Value(p['sinkDone'] != false),
+              hideDone: Value(p['hideDone'] == true),
+              boardIds: Value(jsonEncode(p['boardIds'] ?? const [])),
+              canManage: Value(p['canManage'] == true),
+              createdAt: i(p['createdAt']) ?? 0,
+              updatedAt: i(p['updatedAt']) ?? 0,
+              deletedAt: Value(i(p['deletedAt'])),
+            ),
+          );
+    }
+    for (final p in list('plannerPeople')) {
+      if (pending.contains(p['plannerId'])) continue;
+      await db
+          .into(db.kPlannerPeople)
+          .insertOnConflictUpdate(
+            KPlannerPeopleCompanion.insert(
+              plannerId: p['plannerId'] as String,
+              userId: i(p['userId']) ?? 0,
+              role: Value(p['role'] as String? ?? 'edit'),
+              deletedAt: Value(i(p['deletedAt'])),
+            ),
+          );
+    }
+    final serverTodos = <String>{};
+    for (final t in list('todos')) {
+      final id = t['id'] as String;
+      serverTodos.add(id);
+      if (pending.contains(id)) continue;
+      final rule = t['repeat'];
+      await db
+          .into(db.kTodos)
+          .insertOnConflictUpdate(
+            KTodosCompanion.insert(
+              id: id,
+              plannerId: t['plannerId'] as String,
+              day: Value(t['day'] as String?),
+              list: Value(i(t['list'])),
+              title: t['title'] as String? ?? '',
+              note: Value(t['note'] as String? ?? ''),
+              doneAt: Value(i(t['doneAt'])),
+              position: Value((t['position'] as num?)?.toDouble() ?? 0),
+              repeat: Value(rule == null ? null : jsonEncode(rule)),
+              assigneeId: Value(i(t['assigneeId'])),
+              creatorId: Value(i(t['creatorId'])),
+              createdAt: i(t['createdAt']) ?? 0,
+              updatedAt: i(t['updatedAt']) ?? 0,
+              deletedAt: Value(i(t['deletedAt'])),
+            ),
+          );
+    }
+    final serverMarks = <String>{};
+    for (final m in list('todoMarks')) {
+      serverMarks.add('${m['todoId']}|${m['day']}');
+      if (pending.contains(m['todoId'])) continue;
+      await db
+          .into(db.kTodoMarks)
+          .insertOnConflictUpdate(
+            KTodoMarksCompanion.insert(
+              todoId: m['todoId'] as String,
+              day: m['day'] as String,
+              mark: m['mark'] as String? ?? 'done',
+              deletedAt: Value(i(m['deletedAt'])),
+            ),
+          );
+    }
+    final serverSteps = <String>{};
+    for (final s in list('todoSteps')) {
+      serverSteps.add(s['id'] as String);
+      if (pending.contains(s['id'])) continue;
+      await db
+          .into(db.kTodoSteps)
+          .insertOnConflictUpdate(
+            KTodoStepsCompanion.insert(
+              id: s['id'] as String,
+              todoId: s['todoId'] as String,
+              content: s['content'] as String? ?? '',
+              done: Value(s['done'] == true),
+              heading: Value(s['heading'] == true),
+              indent: Value(i(s['indent']) ?? 0),
+              star: Value(s['star'] == true),
+              position: Value((s['position'] as num?)?.toDouble() ?? 0),
+              createdAt: i(s['createdAt']) ?? 0,
+              deletedAt: Value(i(s['deletedAt'])),
+            ),
+          );
+    }
+    final serverFiles = <String>{};
+    for (final f in list('todoFiles')) {
+      serverFiles.add(f['id'] as String);
+      if (pending.contains(f['id'])) continue;
+      final existing = await todoFile(f['id'] as String);
+      await db
+          .into(db.kTodoFiles)
+          .insertOnConflictUpdate(
+            KTodoFilesCompanion.insert(
+              id: f['id'] as String,
+              todoId: f['todoId'] as String,
+              userId: Value(i(f['userId']) ?? 0),
+              filename: f['filename'] as String? ?? 'file',
+              mime: Value(f['mime'] as String? ?? 'application/octet-stream'),
+              size: Value(i(f['size']) ?? 0),
+              width: Value(i(f['width'])),
+              height: Value(i(f['height'])),
+              hasThumb: Value(f['hasThumb'] == true),
+              createdAt: i(f['createdAt']) ?? 0,
+              deletedAt: Value(i(f['deletedAt'])),
+              localPath: Value(existing?.localPath),
+              uploaded: const Value(true),
+            ),
+          );
+    }
+    for (final r in list('reminders')) {
+      if (pending.contains(r['itemId'])) continue;
+      await db
+          .into(db.kReminders)
+          .insertOnConflictUpdate(KRemindersCompanion.insert(itemId: r['itemId'] as String, kind: r['kind'] as String? ?? 'todo', at: Value(i(r['at']))));
+    }
+
+    if (replaceAll) {
+      // A full refresh: anything the hub no longer has goes, unless waiting to be sent.
+      for (final t in await db.select(db.kTodos).get()) {
+        if (!serverTodos.contains(t.id) && !pending.contains(t.id)) await (db.delete(db.kTodos)..where((x) => x.id.equals(t.id))).go();
+      }
+      for (final s in await db.select(db.kTodoSteps).get()) {
+        if (!serverSteps.contains(s.id) && !pending.contains(s.id) && !pending.contains(s.todoId)) {
+          await (db.delete(db.kTodoSteps)..where((x) => x.id.equals(s.id))).go();
+        }
+      }
+      for (final f in await db.select(db.kTodoFiles).get()) {
+        if (!serverFiles.contains(f.id) && !pending.contains(f.id)) await (db.delete(db.kTodoFiles)..where((x) => x.id.equals(f.id))).go();
+      }
+      for (final m in await db.select(db.kTodoMarks).get()) {
+        if (!serverMarks.contains('${m.todoId}|${m.day}') && !pending.contains(m.todoId)) {
+          await (db.delete(db.kTodoMarks)..where((x) => x.todoId.equals(m.todoId) & x.day.equals(m.day))).go();
+        }
+      }
+    }
+
+    await setSetting('sync.plannerIds', jsonEncode(visible.toList()));
+    final current = await setting('planner.current');
+    final planners = await (db.select(db.kPlanners)..where((p) => p.deletedAt.isNull())).get();
+    if (planners.isNotEmpty && (current == null || !planners.any((p) => p.id == current))) {
+      await setSetting('planner.current', planners.first.id);
+    }
+  }
+
+  /// Planners this phone holds that the hub also knows.
+  Future<List<String>> knownPlannerIds() async {
+    final raw = await setting('sync.plannerIds');
+    final server = raw == null ? <String>{} : (jsonDecode(raw) as List).cast<String>().toSet();
+    final local = (await db.select(db.kPlanners).get()).map((p) => p.id).toSet();
+    return local.intersection(server).toList();
+  }
+
   // ---------------------------------------------------------------- sharing
 
   /// Who sees a board: everyone with To-Dos ([allAccess]), or only [members]
@@ -604,7 +1128,7 @@ class KolumnRepository {
     for (final e in await db.select(db.kOutbox).get()) {
       final a = jsonDecode(e.args);
       if (a is Map) {
-        for (final k in const ['id', 'swappedWith', 'commentId']) {
+        for (final k in const ['id', 'swappedWith', 'commentId', 'todoId', 'plannerId']) {
           final v = a[k];
           if (v is String) ids.add(v);
         }
@@ -728,6 +1252,7 @@ class KolumnRepository {
     }
 
     await _applyDetails(body, pending);
+    await _applyPlanner(body, pending, replaceAll: replaceAll);
 
     await db.delete(db.kPeople).go();
     for (final raw in (body['people'] as List?) ?? const []) {
@@ -769,11 +1294,28 @@ class KolumnRepository {
     await db.delete(db.kBoards).go();
     await db.delete(db.kPeople).go();
     await db.delete(db.kOutbox).go();
-    for (final t in <TableInfo>[db.kSteps, db.kComments, db.kReactions, db.kTags, db.kAssignees, db.kWatches, db.kPins, db.kFiles, db.kEvents]) {
+    for (final t in <TableInfo>[
+      db.kSteps,
+      db.kComments,
+      db.kReactions,
+      db.kTags,
+      db.kAssignees,
+      db.kWatches,
+      db.kPins,
+      db.kFiles,
+      db.kEvents,
+      db.kPlanners,
+      db.kPlannerPeople,
+      db.kTodos,
+      db.kTodoMarks,
+      db.kTodoSteps,
+      db.kTodoFiles,
+      db.kReminders,
+    ]) {
       await db.delete(t).go();
     }
     _me = null;
-    for (final k in const ['sync.cursor', 'sync.boardIds', 'board.current', 'me.id', 'me.name', 'me.level', 'me.manager', 'sync.last']) {
+    for (final k in const ['sync.cursor', 'sync.boardIds', 'sync.plannerIds', 'board.current', 'planner.current', 'me.id', 'me.name', 'me.level', 'me.manager', 'sync.last']) {
       await (db.delete(db.kSettings)..where((s) => s.key.equals(k))).go();
     }
   });
@@ -803,4 +1345,27 @@ class KolumnRepository {
     await setSetting('board.current', board);
     return board;
   }
+}
+
+/// Where a to-do sits: a [day], or Someday list [list] (1-3).
+class TodoSlot {
+  const TodoSlot.day(String this.day) : list = null;
+  const TodoSlot.someday(int this.list) : day = null;
+  final String? day;
+  final int? list;
+
+  static TodoSlot of(KTodo t) => t.day != null ? TodoSlot.day(t.day!) : TodoSlot.someday(t.list ?? 1);
+
+  String get key => day ?? 'someday-$list';
+
+  static TodoSlot? fromKey(String key) {
+    if (key.startsWith('someday-')) return TodoSlot.someday(int.tryParse(key.substring(8)) ?? 1);
+    return RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(key) ? TodoSlot.day(key) : null;
+  }
+
+  @override
+  bool operator ==(Object other) => other is TodoSlot && other.day == day && other.list == list;
+
+  @override
+  int get hashCode => Object.hash(day, list);
 }
