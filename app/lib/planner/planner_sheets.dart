@@ -47,8 +47,8 @@ class _PlannersSheet extends ConsumerWidget {
                         Navigator.pop(context);
                       },
                       onSettings: () {
-                        Navigator.pop(context);
-                        showPlannerSettings(context, ref, p.id);
+                        final nav = Navigator.of(context)..pop();
+                        showPlannerSettings(nav.context, ref, p.id);
                       },
                     ),
                 ],
@@ -68,6 +68,15 @@ class _PlannersSheet extends ConsumerWidget {
                 icon: const Icon(Icons.add_rounded),
                 label: const Text('Add planner'),
               ),
+            const SizedBox(height: 4),
+            TextButton.icon(
+              onPressed: () {
+                final nav = Navigator.of(context)..pop();
+                showSettingsSheet(nav.context, ref);
+              },
+              icon: const Icon(Icons.tune_rounded),
+              label: const Text('App settings'),
+            ),
           ],
         ),
       ),

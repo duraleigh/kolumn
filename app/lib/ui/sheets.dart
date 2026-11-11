@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../board/lane_info.dart';
+import '../home_shell.dart' show startScreenProvider;
 import '../data/database.dart';
 import '../data/tidy.dart';
 import '../data/lanes.dart';
@@ -430,7 +431,7 @@ class _BoardsSheet extends ConsumerWidget {
 // ------------------------------------------------------------------ settings
 
 Future<void> showSettingsSheet(BuildContext context, WidgetRef ref) {
-  return showModalBottomSheet<void>(context: context, builder: (context) => const _SettingsSheet());
+  return showModalBottomSheet<void>(context: context, isScrollControlled: true, useSafeArea: true, builder: (context) => const _SettingsSheet());
 }
 
 class _SettingsSheet extends ConsumerWidget {
@@ -441,7 +442,7 @@ class _SettingsSheet extends ConsumerWidget {
     final mode = ref.watch(themeModeProvider).value ?? ThemeMode.system;
     final repo = ref.read(repositoryProvider);
     return SafeArea(
-      child: Padding(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -464,6 +465,20 @@ class _SettingsSheet extends ConsumerWidget {
                 repo.setSetting('theme', m == ThemeMode.light ? 'light' : (m == ThemeMode.dark ? 'dark' : 'system'));
               },
             ),
+            const SizedBox(height: 20),
+            Text('Opens on', style: Theme.of(context).textTheme.labelLarge),
+            const SizedBox(height: 8),
+            SegmentedButton<String>(
+              showSelectedIcon: false,
+              segments: const [
+                ButtonSegment(value: 'kolumns', icon: Icon(Icons.view_kanban_outlined), label: Text('Kolumns')),
+                ButtonSegment(value: 'planner', icon: Icon(Icons.calendar_today_outlined), label: Text('Planner')),
+              ],
+              selected: {ref.watch(startScreenProvider).value == 'planner' ? 'planner' : 'kolumns'},
+              onSelectionChanged: (s) => repo.setSetting('home.start', s.first),
+            ),
+            const SizedBox(height: 4),
+            Text('The screen you see first each time Kolumn opens.', style: Theme.of(context).textTheme.bodySmall),
             const SizedBox(height: 20),
             Text('Account', style: Theme.of(context).textTheme.labelLarge),
             const SizedBox(height: 6),
@@ -493,7 +508,7 @@ class _SettingsSheet extends ConsumerWidget {
             ),
             const SizedBox(height: 14),
             Text(
-              'Kolumn 0.5, test version. Kolumns and planners are shared through the hub and saved on this phone, so they work without a connection.',
+              'Kolumn 0.5.1, test version. Kolumns and planners are shared through the hub and saved on this phone, so they work without a connection.',
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ],

@@ -38,7 +38,7 @@ Future<P> pumpPlanner(WidgetTester tester, Size size, {String theme = 'light'}) 
     final board = await repo.ensureStarterBoard();
     planner = await repo.ensureStarterPlanner();
     await repo.setSetting('theme', theme);
-    await repo.setSetting('home.tab', 'planner');
+    await repo.setSetting('home.start', 'planner');
     await repo.addTodo(planner, const TodoSlot.day('2026-11-11'), 'Vocal warm-up');
     await repo.addTodo(planner, const TodoSlot.day('2026-11-12'), 'Rehearsal at the studio');
     await repo.addTodo(planner, const TodoSlot.someday(1), 'Learn the new arrangement');
@@ -212,5 +212,48 @@ void main() {
     await tester.tap(find.text('Planner'));
     await settle(tester);
     expect(find.text('Vocal warm-up'), findsOneWidget);
+  });
+
+  testWidgets('Settings: "Opens on" chooses the first screen; switching tabs does not change it', (tester) async {
+    final p = await pumpPlanner(tester, phone);
+    expect(find.text('Vocal warm-up'), findsOneWidget, reason: 'set to open on the Planner');
+    await tester.tap(find.text('My planner'));
+    await settle(tester);
+    await tester.tap(find.text('App settings'));
+    await settle(tester);
+    expect(find.text('Opens on'), findsOneWidget);
+    await tester.tap(find.descendant(of: find.byType(SegmentedButton<String>), matching: find.text('Kolumns')));
+    await settle(tester);
+    expect(await tester.runAsync(() => p.repo.setting('home.start')), 'kolumns');
+    await tester.tapAt(const Offset(20, 20));
+    await settle(tester);
+    await tester.tap(find.text('Kolumns').last);
+    await settle(tester);
+    await tester.tap(find.text('Planner').last);
+    await settle(tester);
+    expect(await tester.runAsync(() => p.repo.setting('home.start')), 'kolumns', reason: 'moving between tabs never changes the choice');
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('with no choice made, Kolumn opens on Kolumns', (tester) async {
+    final p = await pumpPlanner(tester, phone);
+    await tester.runAsync(() async {
+      await (p.db.delete(p.db.kSettings)..where((s) => s.key.equals('home.start'))).go();
+    });
+    await tester.pumpWidget(const SizedBox());
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          repositoryProvider.overrideWithValue(p.repo),
+          syncServiceProvider.overrideWithValue(SyncService(repo: p.repo, hub: HubClient(credentials: MemoryCredentialStore(), server: 'https://hub.invalid'))),
+          syncStatusProvider.overrideWith((ref) => Stream.value(SyncStatus(SyncState.upToDate, lastSynced: DateTime.now()))),
+          plannerTodayProvider.overrideWithValue('2026-11-11'),
+        ],
+        child: const KolumnApp(),
+      ),
+    );
+    await settle(tester);
+    expect(find.text('Playground'), findsOneWidget);
+    expect(find.text('Add a card'), findsOneWidget);
   });
 }
