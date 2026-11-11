@@ -108,7 +108,7 @@ class ReminderService {
     icon: 'ic_stat_kolumn',
   );
 
-  Future<void> start() async {
+  Future<void> _init() async {
     try {
       tzdata.initializeTimeZones();
       final zone = await FlutterTimezone.getLocalTimezone();
@@ -117,8 +117,25 @@ class ReminderService {
       _ready = true;
     } catch (_) {
       _ready = false; // Not on a phone (tests), or the phone refused: Kolumn works without reminders.
-      return;
     }
+  }
+
+  /// For the check every 15 minutes while Kolumn is closed: set the
+  /// reminders and pop up new alerts once, then stop.
+  Future<void> runOnce() async {
+    await _init();
+    if (!_ready) return;
+    _reminders = await repo.watchReminders().first;
+    _todos = await repo.watchAllTodos().first;
+    _cards = await repo.watchAllCards().first;
+    _marks = await repo.watchTodoMarks().first;
+    await _reschedule();
+    await _alerts(await repo.watchNotifications().first);
+  }
+
+  Future<void> start() async {
+    await _init();
+    if (!_ready) return;
     _subs
       ..add(repo.watchReminders().listen((v) => _changed(() => _reminders = v)))
       ..add(repo.watchAllTodos().listen((v) => _changed(() => _todos = v)))

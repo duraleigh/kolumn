@@ -7,6 +7,7 @@ import 'data/database.dart';
 import 'data/repository.dart';
 import 'home_shell.dart';
 import 'state/providers.dart';
+import 'sync/background.dart';
 import 'sync/hub_client.dart';
 import 'sync/reminders.dart';
 import 'sync/sync_service.dart';
@@ -23,6 +24,8 @@ Future<void> main() async {
   await sync.start();
   // Reminders the person set, shown at their time even with Kolumn closed.
   unawaited(ReminderService(repo).start());
+  // A check every 15 minutes while Kolumn is closed, so alerts still arrive.
+  unawaited(startBackgroundChecks(sync));
   runApp(ProviderScope(overrides: [repositoryProvider.overrideWithValue(repo), syncServiceProvider.overrideWithValue(sync)], child: const KolumnApp()));
 }
 
