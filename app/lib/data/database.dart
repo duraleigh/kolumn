@@ -340,6 +340,47 @@ class KReminders extends Table {
   Set<Column> get primaryKey => {itemId};
 }
 
+// ---------------------------------------------------------------- schema 5: alerts and finding things (Phase 6)
+
+/// This person's alerts: at most one per card (newer news replaces older).
+@DataClassName('KNotification')
+class KNotifications extends Table {
+  TextColumn get cardId => text()();
+  TextColumn get boardId => text()();
+  IntColumn get creatorId => integer().withDefault(const Constant(0))();
+  TextColumn get action => text()();
+  TextColumn get particulars => text().withDefault(const Constant('{}'))();
+  IntColumn get unreadCount => integer().withDefault(const Constant(0))();
+  IntColumn get readAt => integer().nullable()();
+  IntColumn get updatedAt => integer()();
+
+  @override
+  Set<Column> get primaryKey => {cardId};
+}
+
+/// Kolumns this person chose to follow (or stop following).
+@DataClassName('KBoardWatch')
+class KBoardWatches extends Table {
+  TextColumn get boardId => text()();
+  BoolColumn get watching => boolean()();
+
+  @override
+  Set<Column> get primaryKey => {boardId};
+}
+
+/// This person's saved views: named filters.
+@DataClassName('KView')
+class KViews extends Table {
+  TextColumn get id => text()();
+  TextColumn get name => text()();
+  TextColumn get params => text().withDefault(const Constant('{}'))();
+  IntColumn get createdAt => integer()();
+  IntColumn get deletedAt => integer().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
 @DriftDatabase(
   tables: [
     KBoards,
@@ -364,6 +405,9 @@ class KReminders extends Table {
     KTodoSteps,
     KTodoFiles,
     KReminders,
+    KNotifications,
+    KBoardWatches,
+    KViews,
   ],
 )
 class KolumnDb extends _$KolumnDb {
@@ -372,7 +416,7 @@ class KolumnDb extends _$KolumnDb {
   KolumnDb.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -396,6 +440,11 @@ class KolumnDb extends _$KolumnDb {
       }
       if (from < 4) {
         for (final t in <TableInfo>[kPlanners, kPlannerPeople, kTodos, kTodoMarks, kTodoSteps, kTodoFiles, kReminders]) {
+          await m.createTable(t);
+        }
+      }
+      if (from < 5) {
+        for (final t in <TableInfo>[kNotifications, kBoardWatches, kViews]) {
           await m.createTable(t);
         }
       }

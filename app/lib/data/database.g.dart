@@ -10253,6 +10253,1098 @@ class KRemindersCompanion extends UpdateCompanion<KReminder> {
   }
 }
 
+class $KNotificationsTable extends KNotifications
+    with TableInfo<$KNotificationsTable, KNotification> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $KNotificationsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _cardIdMeta = const VerificationMeta('cardId');
+  @override
+  late final GeneratedColumn<String> cardId = GeneratedColumn<String>(
+    'card_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _boardIdMeta = const VerificationMeta(
+    'boardId',
+  );
+  @override
+  late final GeneratedColumn<String> boardId = GeneratedColumn<String>(
+    'board_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _creatorIdMeta = const VerificationMeta(
+    'creatorId',
+  );
+  @override
+  late final GeneratedColumn<int> creatorId = GeneratedColumn<int>(
+    'creator_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _actionMeta = const VerificationMeta('action');
+  @override
+  late final GeneratedColumn<String> action = GeneratedColumn<String>(
+    'action',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _particularsMeta = const VerificationMeta(
+    'particulars',
+  );
+  @override
+  late final GeneratedColumn<String> particulars = GeneratedColumn<String>(
+    'particulars',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('{}'),
+  );
+  static const VerificationMeta _unreadCountMeta = const VerificationMeta(
+    'unreadCount',
+  );
+  @override
+  late final GeneratedColumn<int> unreadCount = GeneratedColumn<int>(
+    'unread_count',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _readAtMeta = const VerificationMeta('readAt');
+  @override
+  late final GeneratedColumn<int> readAt = GeneratedColumn<int>(
+    'read_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<int> updatedAt = GeneratedColumn<int>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    cardId,
+    boardId,
+    creatorId,
+    action,
+    particulars,
+    unreadCount,
+    readAt,
+    updatedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'k_notifications';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<KNotification> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('card_id')) {
+      context.handle(
+        _cardIdMeta,
+        cardId.isAcceptableOrUnknown(data['card_id']!, _cardIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_cardIdMeta);
+    }
+    if (data.containsKey('board_id')) {
+      context.handle(
+        _boardIdMeta,
+        boardId.isAcceptableOrUnknown(data['board_id']!, _boardIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_boardIdMeta);
+    }
+    if (data.containsKey('creator_id')) {
+      context.handle(
+        _creatorIdMeta,
+        creatorId.isAcceptableOrUnknown(data['creator_id']!, _creatorIdMeta),
+      );
+    }
+    if (data.containsKey('action')) {
+      context.handle(
+        _actionMeta,
+        action.isAcceptableOrUnknown(data['action']!, _actionMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_actionMeta);
+    }
+    if (data.containsKey('particulars')) {
+      context.handle(
+        _particularsMeta,
+        particulars.isAcceptableOrUnknown(
+          data['particulars']!,
+          _particularsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('unread_count')) {
+      context.handle(
+        _unreadCountMeta,
+        unreadCount.isAcceptableOrUnknown(
+          data['unread_count']!,
+          _unreadCountMeta,
+        ),
+      );
+    }
+    if (data.containsKey('read_at')) {
+      context.handle(
+        _readAtMeta,
+        readAt.isAcceptableOrUnknown(data['read_at']!, _readAtMeta),
+      );
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {cardId};
+  @override
+  KNotification map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return KNotification(
+      cardId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}card_id'],
+      )!,
+      boardId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}board_id'],
+      )!,
+      creatorId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}creator_id'],
+      )!,
+      action: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}action'],
+      )!,
+      particulars: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}particulars'],
+      )!,
+      unreadCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}unread_count'],
+      )!,
+      readAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}read_at'],
+      ),
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}updated_at'],
+      )!,
+    );
+  }
+
+  @override
+  $KNotificationsTable createAlias(String alias) {
+    return $KNotificationsTable(attachedDatabase, alias);
+  }
+}
+
+class KNotification extends DataClass implements Insertable<KNotification> {
+  final String cardId;
+  final String boardId;
+  final int creatorId;
+  final String action;
+  final String particulars;
+  final int unreadCount;
+  final int? readAt;
+  final int updatedAt;
+  const KNotification({
+    required this.cardId,
+    required this.boardId,
+    required this.creatorId,
+    required this.action,
+    required this.particulars,
+    required this.unreadCount,
+    this.readAt,
+    required this.updatedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['card_id'] = Variable<String>(cardId);
+    map['board_id'] = Variable<String>(boardId);
+    map['creator_id'] = Variable<int>(creatorId);
+    map['action'] = Variable<String>(action);
+    map['particulars'] = Variable<String>(particulars);
+    map['unread_count'] = Variable<int>(unreadCount);
+    if (!nullToAbsent || readAt != null) {
+      map['read_at'] = Variable<int>(readAt);
+    }
+    map['updated_at'] = Variable<int>(updatedAt);
+    return map;
+  }
+
+  KNotificationsCompanion toCompanion(bool nullToAbsent) {
+    return KNotificationsCompanion(
+      cardId: Value(cardId),
+      boardId: Value(boardId),
+      creatorId: Value(creatorId),
+      action: Value(action),
+      particulars: Value(particulars),
+      unreadCount: Value(unreadCount),
+      readAt: readAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(readAt),
+      updatedAt: Value(updatedAt),
+    );
+  }
+
+  factory KNotification.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return KNotification(
+      cardId: serializer.fromJson<String>(json['cardId']),
+      boardId: serializer.fromJson<String>(json['boardId']),
+      creatorId: serializer.fromJson<int>(json['creatorId']),
+      action: serializer.fromJson<String>(json['action']),
+      particulars: serializer.fromJson<String>(json['particulars']),
+      unreadCount: serializer.fromJson<int>(json['unreadCount']),
+      readAt: serializer.fromJson<int?>(json['readAt']),
+      updatedAt: serializer.fromJson<int>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'cardId': serializer.toJson<String>(cardId),
+      'boardId': serializer.toJson<String>(boardId),
+      'creatorId': serializer.toJson<int>(creatorId),
+      'action': serializer.toJson<String>(action),
+      'particulars': serializer.toJson<String>(particulars),
+      'unreadCount': serializer.toJson<int>(unreadCount),
+      'readAt': serializer.toJson<int?>(readAt),
+      'updatedAt': serializer.toJson<int>(updatedAt),
+    };
+  }
+
+  KNotification copyWith({
+    String? cardId,
+    String? boardId,
+    int? creatorId,
+    String? action,
+    String? particulars,
+    int? unreadCount,
+    Value<int?> readAt = const Value.absent(),
+    int? updatedAt,
+  }) => KNotification(
+    cardId: cardId ?? this.cardId,
+    boardId: boardId ?? this.boardId,
+    creatorId: creatorId ?? this.creatorId,
+    action: action ?? this.action,
+    particulars: particulars ?? this.particulars,
+    unreadCount: unreadCount ?? this.unreadCount,
+    readAt: readAt.present ? readAt.value : this.readAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+  );
+  KNotification copyWithCompanion(KNotificationsCompanion data) {
+    return KNotification(
+      cardId: data.cardId.present ? data.cardId.value : this.cardId,
+      boardId: data.boardId.present ? data.boardId.value : this.boardId,
+      creatorId: data.creatorId.present ? data.creatorId.value : this.creatorId,
+      action: data.action.present ? data.action.value : this.action,
+      particulars: data.particulars.present
+          ? data.particulars.value
+          : this.particulars,
+      unreadCount: data.unreadCount.present
+          ? data.unreadCount.value
+          : this.unreadCount,
+      readAt: data.readAt.present ? data.readAt.value : this.readAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('KNotification(')
+          ..write('cardId: $cardId, ')
+          ..write('boardId: $boardId, ')
+          ..write('creatorId: $creatorId, ')
+          ..write('action: $action, ')
+          ..write('particulars: $particulars, ')
+          ..write('unreadCount: $unreadCount, ')
+          ..write('readAt: $readAt, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    cardId,
+    boardId,
+    creatorId,
+    action,
+    particulars,
+    unreadCount,
+    readAt,
+    updatedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is KNotification &&
+          other.cardId == this.cardId &&
+          other.boardId == this.boardId &&
+          other.creatorId == this.creatorId &&
+          other.action == this.action &&
+          other.particulars == this.particulars &&
+          other.unreadCount == this.unreadCount &&
+          other.readAt == this.readAt &&
+          other.updatedAt == this.updatedAt);
+}
+
+class KNotificationsCompanion extends UpdateCompanion<KNotification> {
+  final Value<String> cardId;
+  final Value<String> boardId;
+  final Value<int> creatorId;
+  final Value<String> action;
+  final Value<String> particulars;
+  final Value<int> unreadCount;
+  final Value<int?> readAt;
+  final Value<int> updatedAt;
+  final Value<int> rowid;
+  const KNotificationsCompanion({
+    this.cardId = const Value.absent(),
+    this.boardId = const Value.absent(),
+    this.creatorId = const Value.absent(),
+    this.action = const Value.absent(),
+    this.particulars = const Value.absent(),
+    this.unreadCount = const Value.absent(),
+    this.readAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  KNotificationsCompanion.insert({
+    required String cardId,
+    required String boardId,
+    this.creatorId = const Value.absent(),
+    required String action,
+    this.particulars = const Value.absent(),
+    this.unreadCount = const Value.absent(),
+    this.readAt = const Value.absent(),
+    required int updatedAt,
+    this.rowid = const Value.absent(),
+  }) : cardId = Value(cardId),
+       boardId = Value(boardId),
+       action = Value(action),
+       updatedAt = Value(updatedAt);
+  static Insertable<KNotification> custom({
+    Expression<String>? cardId,
+    Expression<String>? boardId,
+    Expression<int>? creatorId,
+    Expression<String>? action,
+    Expression<String>? particulars,
+    Expression<int>? unreadCount,
+    Expression<int>? readAt,
+    Expression<int>? updatedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (cardId != null) 'card_id': cardId,
+      if (boardId != null) 'board_id': boardId,
+      if (creatorId != null) 'creator_id': creatorId,
+      if (action != null) 'action': action,
+      if (particulars != null) 'particulars': particulars,
+      if (unreadCount != null) 'unread_count': unreadCount,
+      if (readAt != null) 'read_at': readAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  KNotificationsCompanion copyWith({
+    Value<String>? cardId,
+    Value<String>? boardId,
+    Value<int>? creatorId,
+    Value<String>? action,
+    Value<String>? particulars,
+    Value<int>? unreadCount,
+    Value<int?>? readAt,
+    Value<int>? updatedAt,
+    Value<int>? rowid,
+  }) {
+    return KNotificationsCompanion(
+      cardId: cardId ?? this.cardId,
+      boardId: boardId ?? this.boardId,
+      creatorId: creatorId ?? this.creatorId,
+      action: action ?? this.action,
+      particulars: particulars ?? this.particulars,
+      unreadCount: unreadCount ?? this.unreadCount,
+      readAt: readAt ?? this.readAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (cardId.present) {
+      map['card_id'] = Variable<String>(cardId.value);
+    }
+    if (boardId.present) {
+      map['board_id'] = Variable<String>(boardId.value);
+    }
+    if (creatorId.present) {
+      map['creator_id'] = Variable<int>(creatorId.value);
+    }
+    if (action.present) {
+      map['action'] = Variable<String>(action.value);
+    }
+    if (particulars.present) {
+      map['particulars'] = Variable<String>(particulars.value);
+    }
+    if (unreadCount.present) {
+      map['unread_count'] = Variable<int>(unreadCount.value);
+    }
+    if (readAt.present) {
+      map['read_at'] = Variable<int>(readAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<int>(updatedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('KNotificationsCompanion(')
+          ..write('cardId: $cardId, ')
+          ..write('boardId: $boardId, ')
+          ..write('creatorId: $creatorId, ')
+          ..write('action: $action, ')
+          ..write('particulars: $particulars, ')
+          ..write('unreadCount: $unreadCount, ')
+          ..write('readAt: $readAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $KBoardWatchesTable extends KBoardWatches
+    with TableInfo<$KBoardWatchesTable, KBoardWatch> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $KBoardWatchesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _boardIdMeta = const VerificationMeta(
+    'boardId',
+  );
+  @override
+  late final GeneratedColumn<String> boardId = GeneratedColumn<String>(
+    'board_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _watchingMeta = const VerificationMeta(
+    'watching',
+  );
+  @override
+  late final GeneratedColumn<bool> watching = GeneratedColumn<bool>(
+    'watching',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("watching" IN (0, 1))',
+    ),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [boardId, watching];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'k_board_watches';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<KBoardWatch> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('board_id')) {
+      context.handle(
+        _boardIdMeta,
+        boardId.isAcceptableOrUnknown(data['board_id']!, _boardIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_boardIdMeta);
+    }
+    if (data.containsKey('watching')) {
+      context.handle(
+        _watchingMeta,
+        watching.isAcceptableOrUnknown(data['watching']!, _watchingMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_watchingMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {boardId};
+  @override
+  KBoardWatch map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return KBoardWatch(
+      boardId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}board_id'],
+      )!,
+      watching: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}watching'],
+      )!,
+    );
+  }
+
+  @override
+  $KBoardWatchesTable createAlias(String alias) {
+    return $KBoardWatchesTable(attachedDatabase, alias);
+  }
+}
+
+class KBoardWatch extends DataClass implements Insertable<KBoardWatch> {
+  final String boardId;
+  final bool watching;
+  const KBoardWatch({required this.boardId, required this.watching});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['board_id'] = Variable<String>(boardId);
+    map['watching'] = Variable<bool>(watching);
+    return map;
+  }
+
+  KBoardWatchesCompanion toCompanion(bool nullToAbsent) {
+    return KBoardWatchesCompanion(
+      boardId: Value(boardId),
+      watching: Value(watching),
+    );
+  }
+
+  factory KBoardWatch.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return KBoardWatch(
+      boardId: serializer.fromJson<String>(json['boardId']),
+      watching: serializer.fromJson<bool>(json['watching']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'boardId': serializer.toJson<String>(boardId),
+      'watching': serializer.toJson<bool>(watching),
+    };
+  }
+
+  KBoardWatch copyWith({String? boardId, bool? watching}) => KBoardWatch(
+    boardId: boardId ?? this.boardId,
+    watching: watching ?? this.watching,
+  );
+  KBoardWatch copyWithCompanion(KBoardWatchesCompanion data) {
+    return KBoardWatch(
+      boardId: data.boardId.present ? data.boardId.value : this.boardId,
+      watching: data.watching.present ? data.watching.value : this.watching,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('KBoardWatch(')
+          ..write('boardId: $boardId, ')
+          ..write('watching: $watching')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(boardId, watching);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is KBoardWatch &&
+          other.boardId == this.boardId &&
+          other.watching == this.watching);
+}
+
+class KBoardWatchesCompanion extends UpdateCompanion<KBoardWatch> {
+  final Value<String> boardId;
+  final Value<bool> watching;
+  final Value<int> rowid;
+  const KBoardWatchesCompanion({
+    this.boardId = const Value.absent(),
+    this.watching = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  KBoardWatchesCompanion.insert({
+    required String boardId,
+    required bool watching,
+    this.rowid = const Value.absent(),
+  }) : boardId = Value(boardId),
+       watching = Value(watching);
+  static Insertable<KBoardWatch> custom({
+    Expression<String>? boardId,
+    Expression<bool>? watching,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (boardId != null) 'board_id': boardId,
+      if (watching != null) 'watching': watching,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  KBoardWatchesCompanion copyWith({
+    Value<String>? boardId,
+    Value<bool>? watching,
+    Value<int>? rowid,
+  }) {
+    return KBoardWatchesCompanion(
+      boardId: boardId ?? this.boardId,
+      watching: watching ?? this.watching,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (boardId.present) {
+      map['board_id'] = Variable<String>(boardId.value);
+    }
+    if (watching.present) {
+      map['watching'] = Variable<bool>(watching.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('KBoardWatchesCompanion(')
+          ..write('boardId: $boardId, ')
+          ..write('watching: $watching, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $KViewsTable extends KViews with TableInfo<$KViewsTable, KView> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $KViewsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _paramsMeta = const VerificationMeta('params');
+  @override
+  late final GeneratedColumn<String> params = GeneratedColumn<String>(
+    'params',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('{}'),
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<int> createdAt = GeneratedColumn<int>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  @override
+  late final GeneratedColumn<int> deletedAt = GeneratedColumn<int>(
+    'deleted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    name,
+    params,
+    createdAt,
+    deletedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'k_views';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<KView> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('params')) {
+      context.handle(
+        _paramsMeta,
+        params.isAcceptableOrUnknown(data['params']!, _paramsMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  KView map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return KView(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+      params: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}params'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}created_at'],
+      )!,
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}deleted_at'],
+      ),
+    );
+  }
+
+  @override
+  $KViewsTable createAlias(String alias) {
+    return $KViewsTable(attachedDatabase, alias);
+  }
+}
+
+class KView extends DataClass implements Insertable<KView> {
+  final String id;
+  final String name;
+  final String params;
+  final int createdAt;
+  final int? deletedAt;
+  const KView({
+    required this.id,
+    required this.name,
+    required this.params,
+    required this.createdAt,
+    this.deletedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['name'] = Variable<String>(name);
+    map['params'] = Variable<String>(params);
+    map['created_at'] = Variable<int>(createdAt);
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<int>(deletedAt);
+    }
+    return map;
+  }
+
+  KViewsCompanion toCompanion(bool nullToAbsent) {
+    return KViewsCompanion(
+      id: Value(id),
+      name: Value(name),
+      params: Value(params),
+      createdAt: Value(createdAt),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
+    );
+  }
+
+  factory KView.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return KView(
+      id: serializer.fromJson<String>(json['id']),
+      name: serializer.fromJson<String>(json['name']),
+      params: serializer.fromJson<String>(json['params']),
+      createdAt: serializer.fromJson<int>(json['createdAt']),
+      deletedAt: serializer.fromJson<int?>(json['deletedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'name': serializer.toJson<String>(name),
+      'params': serializer.toJson<String>(params),
+      'createdAt': serializer.toJson<int>(createdAt),
+      'deletedAt': serializer.toJson<int?>(deletedAt),
+    };
+  }
+
+  KView copyWith({
+    String? id,
+    String? name,
+    String? params,
+    int? createdAt,
+    Value<int?> deletedAt = const Value.absent(),
+  }) => KView(
+    id: id ?? this.id,
+    name: name ?? this.name,
+    params: params ?? this.params,
+    createdAt: createdAt ?? this.createdAt,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+  );
+  KView copyWithCompanion(KViewsCompanion data) {
+    return KView(
+      id: data.id.present ? data.id.value : this.id,
+      name: data.name.present ? data.name.value : this.name,
+      params: data.params.present ? data.params.value : this.params,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('KView(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('params: $params, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('deletedAt: $deletedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, name, params, createdAt, deletedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is KView &&
+          other.id == this.id &&
+          other.name == this.name &&
+          other.params == this.params &&
+          other.createdAt == this.createdAt &&
+          other.deletedAt == this.deletedAt);
+}
+
+class KViewsCompanion extends UpdateCompanion<KView> {
+  final Value<String> id;
+  final Value<String> name;
+  final Value<String> params;
+  final Value<int> createdAt;
+  final Value<int?> deletedAt;
+  final Value<int> rowid;
+  const KViewsCompanion({
+    this.id = const Value.absent(),
+    this.name = const Value.absent(),
+    this.params = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  KViewsCompanion.insert({
+    required String id,
+    required String name,
+    this.params = const Value.absent(),
+    required int createdAt,
+    this.deletedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       name = Value(name),
+       createdAt = Value(createdAt);
+  static Insertable<KView> custom({
+    Expression<String>? id,
+    Expression<String>? name,
+    Expression<String>? params,
+    Expression<int>? createdAt,
+    Expression<int>? deletedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (name != null) 'name': name,
+      if (params != null) 'params': params,
+      if (createdAt != null) 'created_at': createdAt,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  KViewsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? name,
+    Value<String>? params,
+    Value<int>? createdAt,
+    Value<int?>? deletedAt,
+    Value<int>? rowid,
+  }) {
+    return KViewsCompanion(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      params: params ?? this.params,
+      createdAt: createdAt ?? this.createdAt,
+      deletedAt: deletedAt ?? this.deletedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (params.present) {
+      map['params'] = Variable<String>(params.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<int>(createdAt.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<int>(deletedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('KViewsCompanion(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('params: $params, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$KolumnDb extends GeneratedDatabase {
   _$KolumnDb(QueryExecutor e) : super(e);
   $KolumnDbManager get managers => $KolumnDbManager(this);
@@ -10278,6 +11370,9 @@ abstract class _$KolumnDb extends GeneratedDatabase {
   late final $KTodoStepsTable kTodoSteps = $KTodoStepsTable(this);
   late final $KTodoFilesTable kTodoFiles = $KTodoFilesTable(this);
   late final $KRemindersTable kReminders = $KRemindersTable(this);
+  late final $KNotificationsTable kNotifications = $KNotificationsTable(this);
+  late final $KBoardWatchesTable kBoardWatches = $KBoardWatchesTable(this);
+  late final $KViewsTable kViews = $KViewsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -10305,6 +11400,9 @@ abstract class _$KolumnDb extends GeneratedDatabase {
     kTodoSteps,
     kTodoFiles,
     kReminders,
+    kNotifications,
+    kBoardWatches,
+    kViews,
   ];
 }
 
@@ -15629,6 +16727,623 @@ typedef $$KRemindersTableProcessedTableManager =
       KReminder,
       PrefetchHooks Function()
     >;
+typedef $$KNotificationsTableCreateCompanionBuilder =
+    KNotificationsCompanion Function({
+      required String cardId,
+      required String boardId,
+      Value<int> creatorId,
+      required String action,
+      Value<String> particulars,
+      Value<int> unreadCount,
+      Value<int?> readAt,
+      required int updatedAt,
+      Value<int> rowid,
+    });
+typedef $$KNotificationsTableUpdateCompanionBuilder =
+    KNotificationsCompanion Function({
+      Value<String> cardId,
+      Value<String> boardId,
+      Value<int> creatorId,
+      Value<String> action,
+      Value<String> particulars,
+      Value<int> unreadCount,
+      Value<int?> readAt,
+      Value<int> updatedAt,
+      Value<int> rowid,
+    });
+
+class $$KNotificationsTableFilterComposer
+    extends Composer<_$KolumnDb, $KNotificationsTable> {
+  $$KNotificationsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get cardId => $composableBuilder(
+    column: $table.cardId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get boardId => $composableBuilder(
+    column: $table.boardId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get creatorId => $composableBuilder(
+    column: $table.creatorId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get action => $composableBuilder(
+    column: $table.action,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get particulars => $composableBuilder(
+    column: $table.particulars,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get unreadCount => $composableBuilder(
+    column: $table.unreadCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get readAt => $composableBuilder(
+    column: $table.readAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$KNotificationsTableOrderingComposer
+    extends Composer<_$KolumnDb, $KNotificationsTable> {
+  $$KNotificationsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get cardId => $composableBuilder(
+    column: $table.cardId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get boardId => $composableBuilder(
+    column: $table.boardId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get creatorId => $composableBuilder(
+    column: $table.creatorId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get action => $composableBuilder(
+    column: $table.action,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get particulars => $composableBuilder(
+    column: $table.particulars,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get unreadCount => $composableBuilder(
+    column: $table.unreadCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get readAt => $composableBuilder(
+    column: $table.readAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$KNotificationsTableAnnotationComposer
+    extends Composer<_$KolumnDb, $KNotificationsTable> {
+  $$KNotificationsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get cardId =>
+      $composableBuilder(column: $table.cardId, builder: (column) => column);
+
+  GeneratedColumn<String> get boardId =>
+      $composableBuilder(column: $table.boardId, builder: (column) => column);
+
+  GeneratedColumn<int> get creatorId =>
+      $composableBuilder(column: $table.creatorId, builder: (column) => column);
+
+  GeneratedColumn<String> get action =>
+      $composableBuilder(column: $table.action, builder: (column) => column);
+
+  GeneratedColumn<String> get particulars => $composableBuilder(
+    column: $table.particulars,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get unreadCount => $composableBuilder(
+    column: $table.unreadCount,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get readAt =>
+      $composableBuilder(column: $table.readAt, builder: (column) => column);
+
+  GeneratedColumn<int> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+}
+
+class $$KNotificationsTableTableManager
+    extends
+        RootTableManager<
+          _$KolumnDb,
+          $KNotificationsTable,
+          KNotification,
+          $$KNotificationsTableFilterComposer,
+          $$KNotificationsTableOrderingComposer,
+          $$KNotificationsTableAnnotationComposer,
+          $$KNotificationsTableCreateCompanionBuilder,
+          $$KNotificationsTableUpdateCompanionBuilder,
+          (
+            KNotification,
+            BaseReferences<_$KolumnDb, $KNotificationsTable, KNotification>,
+          ),
+          KNotification,
+          PrefetchHooks Function()
+        > {
+  $$KNotificationsTableTableManager(_$KolumnDb db, $KNotificationsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$KNotificationsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$KNotificationsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$KNotificationsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> cardId = const Value.absent(),
+                Value<String> boardId = const Value.absent(),
+                Value<int> creatorId = const Value.absent(),
+                Value<String> action = const Value.absent(),
+                Value<String> particulars = const Value.absent(),
+                Value<int> unreadCount = const Value.absent(),
+                Value<int?> readAt = const Value.absent(),
+                Value<int> updatedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => KNotificationsCompanion(
+                cardId: cardId,
+                boardId: boardId,
+                creatorId: creatorId,
+                action: action,
+                particulars: particulars,
+                unreadCount: unreadCount,
+                readAt: readAt,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String cardId,
+                required String boardId,
+                Value<int> creatorId = const Value.absent(),
+                required String action,
+                Value<String> particulars = const Value.absent(),
+                Value<int> unreadCount = const Value.absent(),
+                Value<int?> readAt = const Value.absent(),
+                required int updatedAt,
+                Value<int> rowid = const Value.absent(),
+              }) => KNotificationsCompanion.insert(
+                cardId: cardId,
+                boardId: boardId,
+                creatorId: creatorId,
+                action: action,
+                particulars: particulars,
+                unreadCount: unreadCount,
+                readAt: readAt,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$KNotificationsTable, KNotification>(table),
+                  BaseReferences<
+                    _$KolumnDb,
+                    $KNotificationsTable,
+                    KNotification
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$KNotificationsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$KolumnDb,
+      $KNotificationsTable,
+      KNotification,
+      $$KNotificationsTableFilterComposer,
+      $$KNotificationsTableOrderingComposer,
+      $$KNotificationsTableAnnotationComposer,
+      $$KNotificationsTableCreateCompanionBuilder,
+      $$KNotificationsTableUpdateCompanionBuilder,
+      (
+        KNotification,
+        BaseReferences<_$KolumnDb, $KNotificationsTable, KNotification>,
+      ),
+      KNotification,
+      PrefetchHooks Function()
+    >;
+typedef $$KBoardWatchesTableCreateCompanionBuilder =
+    KBoardWatchesCompanion Function({
+      required String boardId,
+      required bool watching,
+      Value<int> rowid,
+    });
+typedef $$KBoardWatchesTableUpdateCompanionBuilder =
+    KBoardWatchesCompanion Function({
+      Value<String> boardId,
+      Value<bool> watching,
+      Value<int> rowid,
+    });
+
+class $$KBoardWatchesTableFilterComposer
+    extends Composer<_$KolumnDb, $KBoardWatchesTable> {
+  $$KBoardWatchesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get boardId => $composableBuilder(
+    column: $table.boardId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get watching => $composableBuilder(
+    column: $table.watching,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$KBoardWatchesTableOrderingComposer
+    extends Composer<_$KolumnDb, $KBoardWatchesTable> {
+  $$KBoardWatchesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get boardId => $composableBuilder(
+    column: $table.boardId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get watching => $composableBuilder(
+    column: $table.watching,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$KBoardWatchesTableAnnotationComposer
+    extends Composer<_$KolumnDb, $KBoardWatchesTable> {
+  $$KBoardWatchesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get boardId =>
+      $composableBuilder(column: $table.boardId, builder: (column) => column);
+
+  GeneratedColumn<bool> get watching =>
+      $composableBuilder(column: $table.watching, builder: (column) => column);
+}
+
+class $$KBoardWatchesTableTableManager
+    extends
+        RootTableManager<
+          _$KolumnDb,
+          $KBoardWatchesTable,
+          KBoardWatch,
+          $$KBoardWatchesTableFilterComposer,
+          $$KBoardWatchesTableOrderingComposer,
+          $$KBoardWatchesTableAnnotationComposer,
+          $$KBoardWatchesTableCreateCompanionBuilder,
+          $$KBoardWatchesTableUpdateCompanionBuilder,
+          (
+            KBoardWatch,
+            BaseReferences<_$KolumnDb, $KBoardWatchesTable, KBoardWatch>,
+          ),
+          KBoardWatch,
+          PrefetchHooks Function()
+        > {
+  $$KBoardWatchesTableTableManager(_$KolumnDb db, $KBoardWatchesTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$KBoardWatchesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$KBoardWatchesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$KBoardWatchesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> boardId = const Value.absent(),
+                Value<bool> watching = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => KBoardWatchesCompanion(
+                boardId: boardId,
+                watching: watching,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String boardId,
+                required bool watching,
+                Value<int> rowid = const Value.absent(),
+              }) => KBoardWatchesCompanion.insert(
+                boardId: boardId,
+                watching: watching,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$KBoardWatchesTable, KBoardWatch>(table),
+                  BaseReferences<_$KolumnDb, $KBoardWatchesTable, KBoardWatch>(
+                    db,
+                    table,
+                    e,
+                  ),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$KBoardWatchesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$KolumnDb,
+      $KBoardWatchesTable,
+      KBoardWatch,
+      $$KBoardWatchesTableFilterComposer,
+      $$KBoardWatchesTableOrderingComposer,
+      $$KBoardWatchesTableAnnotationComposer,
+      $$KBoardWatchesTableCreateCompanionBuilder,
+      $$KBoardWatchesTableUpdateCompanionBuilder,
+      (
+        KBoardWatch,
+        BaseReferences<_$KolumnDb, $KBoardWatchesTable, KBoardWatch>,
+      ),
+      KBoardWatch,
+      PrefetchHooks Function()
+    >;
+typedef $$KViewsTableCreateCompanionBuilder = KViewsCompanion Function({
+  required String id,
+  required String name,
+  Value<String> params,
+  required int createdAt,
+  Value<int?> deletedAt,
+  Value<int> rowid,
+});
+typedef $$KViewsTableUpdateCompanionBuilder = KViewsCompanion Function({
+  Value<String> id,
+  Value<String> name,
+  Value<String> params,
+  Value<int> createdAt,
+  Value<int?> deletedAt,
+  Value<int> rowid,
+});
+
+class $$KViewsTableFilterComposer extends Composer<_$KolumnDb, $KViewsTable> {
+  $$KViewsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get params => $composableBuilder(
+    column: $table.params,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$KViewsTableOrderingComposer extends Composer<_$KolumnDb, $KViewsTable> {
+  $$KViewsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get params => $composableBuilder(
+    column: $table.params,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$KViewsTableAnnotationComposer
+    extends Composer<_$KolumnDb, $KViewsTable> {
+  $$KViewsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<String> get params =>
+      $composableBuilder(column: $table.params, builder: (column) => column);
+
+  GeneratedColumn<int> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<int> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+}
+
+class $$KViewsTableTableManager
+    extends
+        RootTableManager<
+          _$KolumnDb,
+          $KViewsTable,
+          KView,
+          $$KViewsTableFilterComposer,
+          $$KViewsTableOrderingComposer,
+          $$KViewsTableAnnotationComposer,
+          $$KViewsTableCreateCompanionBuilder,
+          $$KViewsTableUpdateCompanionBuilder,
+          (KView, BaseReferences<_$KolumnDb, $KViewsTable, KView>),
+          KView,
+          PrefetchHooks Function()
+        > {
+  $$KViewsTableTableManager(_$KolumnDb db, $KViewsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$KViewsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$KViewsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$KViewsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<String> params = const Value.absent(),
+                Value<int> createdAt = const Value.absent(),
+                Value<int?> deletedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => KViewsCompanion(
+                id: id,
+                name: name,
+                params: params,
+                createdAt: createdAt,
+                deletedAt: deletedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String name,
+                Value<String> params = const Value.absent(),
+                required int createdAt,
+                Value<int?> deletedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => KViewsCompanion.insert(
+                id: id,
+                name: name,
+                params: params,
+                createdAt: createdAt,
+                deletedAt: deletedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$KViewsTable, KView>(table),
+                  BaseReferences<_$KolumnDb, $KViewsTable, KView>(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$KViewsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$KolumnDb,
+      $KViewsTable,
+      KView,
+      $$KViewsTableFilterComposer,
+      $$KViewsTableOrderingComposer,
+      $$KViewsTableAnnotationComposer,
+      $$KViewsTableCreateCompanionBuilder,
+      $$KViewsTableUpdateCompanionBuilder,
+      (KView, BaseReferences<_$KolumnDb, $KViewsTable, KView>),
+      KView,
+      PrefetchHooks Function()
+    >;
 
 class $KolumnDbManager {
   final _$KolumnDb _db;
@@ -15677,4 +17392,10 @@ class $KolumnDbManager {
       $$KTodoFilesTableTableManager(_db, _db.kTodoFiles);
   $$KRemindersTableTableManager get kReminders =>
       $$KRemindersTableTableManager(_db, _db.kReminders);
+  $$KNotificationsTableTableManager get kNotifications =>
+      $$KNotificationsTableTableManager(_db, _db.kNotifications);
+  $$KBoardWatchesTableTableManager get kBoardWatches =>
+      $$KBoardWatchesTableTableManager(_db, _db.kBoardWatches);
+  $$KViewsTableTableManager get kViews =>
+      $$KViewsTableTableManager(_db, _db.kViews);
 }

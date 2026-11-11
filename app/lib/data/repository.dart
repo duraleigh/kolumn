@@ -1088,6 +1088,103 @@ class KolumnRepository {
     return local.intersection(server).toList();
   }
 
+  // ---------------------------------------------------------------- alerts, following, saved views (Phase 6)
+
+  Stream<List<KNotification>> watchNotifications() =>
+      (db.select(db.kNotifications)..orderBy([(n) => OrderingTerm.desc(n.updatedAt)])).watch();
+
+  Stream<List<KBoardWatch>> watchBoardWatches() => db.select(db.kBoardWatches).watch();
+
+  Stream<List<KView>> watchViews() =>
+      (db.select(db.kViews)
+            ..where((v) => v.deletedAt.isNull())
+            ..orderBy([(v) => OrderingTerm.asc(v.createdAt)]))
+          .watch();
+
+  Stream<List<KEvent>> watchAllEvents() => (db.select(db.kEvents)..orderBy([(e) => OrderingTerm.desc(e.createdAt)])).watch();
+
+  Stream<List<KColumn>> watchAllColumns() => (db.select(db.kColumns)..where((c) => c.deletedAt.isNull())).watch();
+
+  /// Opening an alert marks it read; "Mark unread" puts it back.
+  Future<void> setAlertRead(String cardId, bool read) => db.transaction(() async {
+    await (db.update(db.kNotifications)..where((n) => n.cardId.equals(cardId))).write(
+      KNotificationsCompanion(readAt: Value(read ? _now() : null), unreadCount: Value(read ? 0 : 1)),
+    );
+    await _record(read ? 'notification.read' : 'notification.unread', {'id': cardId});
+  });
+
+  Future<void> readAllAlerts() => db.transaction(() async {
+    await (db.update(db.kNotifications)..where((n) => n.readAt.isNull())).write(KNotificationsCompanion(readAt: Value(_now()), unreadCount: const Value(0)));
+    await _record('notification.readall', {'id': newId()});
+  });
+
+  /// Following a Kolumn: alerts about everything that happens on it.
+  Future<void> setBoardFollow(String boardId, bool on) => db.transaction(() async {
+    await db.into(db.kBoardWatches).insertOnConflictUpdate(KBoardWatchesCompanion.insert(boardId: boardId, watching: on));
+    await _record('board.watch', {'id': boardId, 'on': on});
+  });
+
+  /// A saved view: a name and its filters. Saving again with the same id renames or changes it.
+  Future<String> saveView(String name, Map<String, Object?> params, {String? id}) async {
+    final vid = id ?? newId();
+    await db.transaction(() async {
+      await db
+          .into(db.kViews)
+          .insertOnConflictUpdate(KViewsCompanion.insert(id: vid, name: name.trim(), params: Value(jsonEncode(params)), createdAt: _now(), deletedAt: const Value(null)));
+      await _record('view.save', {'id': vid, 'name': name.trim(), 'params': params});
+    });
+    return vid;
+  }
+
+  Future<void> deleteView(String id) => db.transaction(() async {
+    await (db.update(db.kViews)..where((v) => v.id.equals(id))).write(KViewsCompanion(deletedAt: Value(_now())));
+    await _record('view.delete', {'id': id});
+  });
+
+  Future<void> _applyAlerts(Map<String, dynamic> body, Set<String> pending, Set<String> visibleBoards, {required bool replaceAll}) async {
+    if (body['notifications'] == null) return; // A hub from before Phase 6.
+    int? i(Object? v) => v == null ? null : (v as num).toInt();
+    List<Map<String, dynamic>> list(String k) => ((body[k] as List?) ?? const []).cast<Map<String, dynamic>>();
+    if (replaceAll) await db.delete(db.kNotifications).go();
+    for (final n in list('notifications')) {
+      if (pending.contains(n['cardId'])) continue;
+      await db
+          .into(db.kNotifications)
+          .insertOnConflictUpdate(
+            KNotificationsCompanion.insert(
+              cardId: n['cardId'] as String,
+              boardId: n['boardId'] as String,
+              creatorId: Value(i(n['creatorId']) ?? 0),
+              action: n['action'] as String? ?? '',
+              particulars: Value(jsonEncode(n['particulars'] ?? const {})),
+              unreadCount: Value(i(n['unreadCount']) ?? 0),
+              readAt: Value(i(n['readAt'])),
+              updatedAt: i(n['updatedAt']) ?? 0,
+            ),
+          );
+    }
+    // Alerts about Kolumns this person can no longer see go.
+    await (db.delete(db.kNotifications)..where((n) => n.boardId.isNotIn(visibleBoards.toList()))).go();
+    for (final w in list('boardWatches')) {
+      if (pending.contains(w['boardId'])) continue;
+      await db.into(db.kBoardWatches).insertOnConflictUpdate(KBoardWatchesCompanion.insert(boardId: w['boardId'] as String, watching: w['watching'] == true));
+    }
+    for (final v in list('views')) {
+      if (pending.contains(v['id'])) continue;
+      await db
+          .into(db.kViews)
+          .insertOnConflictUpdate(
+            KViewsCompanion.insert(
+              id: v['id'] as String,
+              name: v['name'] as String? ?? '',
+              params: Value(jsonEncode(v['params'] ?? const {})),
+              createdAt: i(v['createdAt']) ?? 0,
+              deletedAt: Value(i(v['deletedAt'])),
+            ),
+          );
+    }
+  }
+
   // ---------------------------------------------------------------- sharing
 
   /// Who sees a board: everyone with To-Dos ([allAccess]), or only [members]
@@ -1248,6 +1345,7 @@ class KolumnRepository {
 
     await _applyDetails(body, pending);
     await _applyPlanner(body, pending, replaceAll: replaceAll);
+    await _applyAlerts(body, pending, visible, replaceAll: replaceAll);
 
     await db.delete(db.kPeople).go();
     for (final raw in (body['people'] as List?) ?? const []) {
@@ -1306,6 +1404,9 @@ class KolumnRepository {
       db.kTodoSteps,
       db.kTodoFiles,
       db.kReminders,
+      db.kNotifications,
+      db.kBoardWatches,
+      db.kViews,
     ]) {
       await db.delete(t).go();
     }
@@ -1321,6 +1422,7 @@ class KolumnRepository {
       'me.level',
       'me.manager',
       'sync.last',
+      'alerts.shown',
     ]) {
       await (db.delete(db.kSettings)..where((s) => s.key.equals(k))).go();
     }
