@@ -13,6 +13,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kolumn/data/database.dart';
 import 'package:kolumn/data/lanes.dart';
 import 'package:kolumn/data/repository.dart';
+import 'package:kolumn/planner/repeat.dart';
 import 'package:kolumn/sync/hub_client.dart';
 import 'package:kolumn/sync/sync_service.dart';
 
@@ -93,6 +94,51 @@ void main() {
     final events = (await pa.repo.watchEvents(card).first).map((e) => e.action).toList();
     expect(events, containsAll(['card_published', 'card_moved', 'card_renamed', 'comment_created']));
     photo.deleteSync();
+
+    // Phase 5: a due day, and a shared planner.
+    await pa.repo.setCardDue(card, '2026-11-13');
+    final planner = await pa.repo.createPlanner('Two-phone planner', boardIds: [board]);
+    final meB = int.parse((await pb.repo.setting('me.id'))!);
+    await pa.repo.setPlannerPeople(planner, {meB: 'edit'});
+    final todo = await pa.repo.addTodo(planner, const TodoSlot.day('2026-11-11'), 'Plan the load-in');
+    await pa.repo.updateTodo(todo, note: 'Truck at 2');
+    await pa.repo.addTodoStep(todo, 'Print the stage plot');
+    final warm = await pa.repo.addTodo(planner, const TodoSlot.day('2026-11-09'), 'Vocal warm-up');
+    await pa.repo.updateTodo(warm, repeat: const RepeatRule());
+    await pa.repo.addTodo(planner, const TodoSlot.someday(2), 'New merch designs');
+    await pa.repo.setReminder(todo, 'todo', DateTime(2026, 11, 11, 9, 30).millisecondsSinceEpoch);
+    final plot = File('${Directory.systemTemp.path}/kolumn-plot-${DateTime.now().microsecondsSinceEpoch}.png')
+      ..writeAsBytesSync(base64Decode('iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGP8z8DAwMDAxMDAwMDAAAANHQEDK+mmyAAAAABJRU5ErkJggg=='));
+    final plotId = await pa.repo.addTodoFile(todo, localPath: plot.path, filename: 'plot.png', mime: 'image/png', size: plot.lengthSync());
+    await pa.sync.syncNow();
+    expect(await pa.repo.pendingCount(), 0, reason: 'the planner, its to-dos and the picture all went up');
+    await pb.sync.syncNow();
+    expect((await pb.repo.watchPlanners().first).map((p) => p.id), contains(planner), reason: 'B was added, so B gets the planner');
+    final bTodos = await pb.repo.watchTodos(planner).first;
+    expect(bTodos.map((t) => t.title).toSet(), {'Plan the load-in', 'Vocal warm-up', 'New merch designs'});
+    expect(bTodos.firstWhere((t) => t.id == todo).note, 'Truck at 2');
+    expect((await pb.repo.watchTodoSteps(todo).first).single.content, 'Print the stage plot');
+    expect(await pb.sync.hub.downloadFile(plotId), plot.readAsBytesSync(), reason: 'B fetches exactly the picture A added to the to-do');
+    expect((await pb.repo.card(card))!.dueAt, DateTime.utc(2026, 11, 13, 12).millisecondsSinceEpoch, reason: 'the due day reached B');
+    expect((await pb.repo.watchReminders().first).where((r) => r.itemId == todo), isEmpty, reason: 'A\'s reminder is A\'s alone');
+    plot.deleteSync();
+
+    // B ticks the to-do and one day of the repeat; A sees both.
+    await pb.repo.setTodoDone(bTodos.firstWhere((t) => t.id == todo), true);
+    await pb.repo.setTodoDone(bTodos.firstWhere((t) => t.id == warm), true, day: '2026-11-10');
+    await pb.sync.syncNow();
+    await pa.sync.syncNow();
+    expect((await pa.repo.todo(todo))!.doneAt, isNotNull);
+    expect((await pa.repo.watchTodoMarks().first).where((m) => m.todoId == warm && m.day == '2026-11-10' && m.mark == 'done'), hasLength(1));
+
+    // A takes B out: the planner leaves B's phone.
+    await pa.repo.setPlannerPeople(planner, {});
+    await pa.sync.syncNow();
+    await pb.sync.syncNow();
+    expect((await pb.repo.watchPlanners().first).map((p) => p.id), isNot(contains(planner)));
+    expect(await pb.repo.todo(todo), isNull);
+    await pa.repo.deletePlanner(planner);
+    await pa.sync.syncNow();
 
     // A makes the board private to themselves: it leaves B's phone.
       final meA = int.parse((await pa.repo.setting('me.id'))!);
