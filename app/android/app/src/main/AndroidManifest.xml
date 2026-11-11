@@ -1,4 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Kolumn syncs with the hub, so the release build needs the internet (the template only grants it to debug builds). -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <application
         android:label="Kolumn"
         android:name="${applicationName}"

@@ -8,7 +8,7 @@ import 'package:http/http.dart' as http;
 /// practice site with `--dart-define=KOLUMN_SERVER=https://stage5230ca.clayaiken.com`.
 const String kolumnServer = String.fromEnvironment('KOLUMN_SERVER', defaultValue: 'https://clayaiken.com');
 
-const String _ua = 'Kolumn/0.3 (Android)';
+const String _ua = 'Kolumn/0.3.1 (Android)';
 
 /// Something the hub refused, with the hub's own plain message.
 class HubRefusal implements Exception {
