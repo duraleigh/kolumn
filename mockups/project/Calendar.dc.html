@@ -1,0 +1,771 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Kolumn calendar, Tweek style</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wght@8..144,400;8..144,500;8..144,600;8..144,700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div ref="{{rootRef}}" style="{{rootStyle}}" onPointerMove="{{onMove}}" onPointerUp="{{onUp}}" onPointerCancel="{{onCancel}}">
+
+<div style="{{headerStyle}}">
+<div style="font-size: {{titleSize}}; font-weight: 700; letter-spacing: -0.8px; line-height: 1; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{title}}</div>
+<button type="button" onClick="{{openCalendars}}" style="{{calChipStyle}}">
+<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" aria-hidden="true"><path d="{{ic.calendar}}" style="stroke-width: 2; stroke-linecap: round; stroke-linejoin: round"></path></svg>
+<span>{{calName}}</span>
+<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" aria-hidden="true"><path d="{{ic.chevD}}" style="stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round"></path></svg>
+</button>
+<button type="button" onClick="{{prev}}" aria-label="{{prevLabel}}" style="{{roundBtn}}"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" aria-hidden="true"><path d="{{ic.chevL}}" style="stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round"></path></svg></button>
+<button type="button" onClick="{{next}}" aria-label="{{nextLabel}}" style="{{roundBtn}}"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" aria-hidden="true"><path d="{{ic.chevR}}" style="stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round"></path></svg></button>
+</div>
+
+<div ref="{{scrollRef}}" style="{{bodyStyle}}">
+
+<sc-if value="{{isDesktopWeek}}" hint-placeholder-val="{{ false }}">
+<div style="display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 0 22px; padding: 6px 28px 0">
+<sc-for list="{{deskCols}}" as="col" hint-placeholder-count="6">
+<div style="display: flex; flex-direction: column; gap: 26px; min-width: 0">
+<sc-for list="{{col.days}}" as="d" hint-placeholder-count="1">
+<div data-day="{{d.key}}" style="{{d.boxStyle}}">
+<div style="{{d.headStyle}}"><span style="{{d.dateStyle}}">{{d.date}}</span><span style="{{d.wdStyle}}">{{d.wd}}</span></div>
+<sc-for list="{{d.rows}}" as="r" hint-placeholder-count="6">
+<sc-if value="{{r.isItem}}" hint-placeholder-val="{{ true }}">
+<div data-item="{{r.id}}" onPointerDown="{{r.down}}" style="{{r.rowStyle}}">
+<sc-if value="{{r.isCard}}" hint-placeholder-val="{{ false }}"><span style="{{r.dotStyle}}"></span></sc-if>
+<sc-if value="{{r.repeat}}" hint-placeholder-val="{{ false }}"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" aria-hidden="true" style="flex: none"><path d="{{ic.repeat}}" style="stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round"></path></svg></sc-if>
+<sc-if value="{{r.bell}}" hint-placeholder-val="{{ false }}"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" aria-hidden="true" style="flex: none"><path d="{{ic.bell}}" style="stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round"></path></svg></sc-if>
+<span style="{{r.textStyle}}">{{r.text}}</span>
+<button type="button" onClick="{{r.toggle}}" onPointerDown="{{stop}}" aria-label="{{r.checkLabel}}" style="{{r.checkStyle}}"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="12" cy="12" r="9.2" fill="{{r.circleFill}}" stroke="currentColor" style="stroke-width: 1.6"></circle><path d="M8.2 12.4l2.5 2.5 5.1-5.6" fill="none" stroke="{{r.tickColor}}" style="stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round"></path></svg></button>
+</div>
+</sc-if>
+<sc-if value="{{r.isAdding}}" hint-placeholder-val="{{ false }}">
+<div style="{{r.rowStyle}}"><label style="flex: 1; display: flex"><span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">New to-do</span><input ref="{{focusRef}}" value="{{draft}}" onChange="{{onDraft}}" onKeyDown="{{onDraftKey}}" onBlur="{{onDraftBlur}}" placeholder="New to-do" style="flex: 1; border: 0; background: transparent; color: var(--ink); font: inherit; font-size: inherit; outline: none; padding: 0"></label></div>
+</sc-if>
+<sc-if value="{{r.isEmpty}}" hint-placeholder-val="{{ false }}">
+<button type="button" onClick="{{r.add}}" aria-label="{{r.addLabel}}" style="{{r.emptyStyle}}"></button>
+</sc-if>
+</sc-for>
+</div>
+</sc-for>
+</div>
+</sc-for>
+</div>
+<div style="padding: 34px 28px 30px">
+<div style="font-size: 20px; font-weight: 700; letter-spacing: -0.3px; padding-bottom: 8px; border-bottom: 2px solid var(--ink)">Someday</div>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 22px">
+<sc-for list="{{someday}}" as="d" hint-placeholder-count="3">
+<div data-day="{{d.key}}" style="{{d.boxStyle}}">
+<sc-for list="{{d.rows}}" as="r" hint-placeholder-count="4">
+<sc-if value="{{r.isItem}}" hint-placeholder-val="{{ true }}">
+<div data-item="{{r.id}}" onPointerDown="{{r.down}}" style="{{r.rowStyle}}">
+<sc-if value="{{r.repeat}}" hint-placeholder-val="{{ false }}"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" aria-hidden="true" style="flex: none"><path d="{{ic.repeat}}" style="stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round"></path></svg></sc-if>
+<span style="{{r.textStyle}}">{{r.text}}</span>
+<button type="button" onClick="{{r.toggle}}" onPointerDown="{{stop}}" aria-label="{{r.checkLabel}}" style="{{r.checkStyle}}"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="12" cy="12" r="9.2" fill="{{r.circleFill}}" stroke="currentColor" style="stroke-width: 1.6"></circle><path d="M8.2 12.4l2.5 2.5 5.1-5.6" fill="none" stroke="{{r.tickColor}}" style="stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round"></path></svg></button>
+</div>
+</sc-if>
+<sc-if value="{{r.isAdding}}" hint-placeholder-val="{{ false }}">
+<div style="{{r.rowStyle}}"><label style="flex: 1; display: flex"><span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">New to-do</span><input ref="{{focusRef}}" value="{{draft}}" onChange="{{onDraft}}" onKeyDown="{{onDraftKey}}" onBlur="{{onDraftBlur}}" placeholder="New to-do" style="flex: 1; border: 0; background: transparent; color: var(--ink); font: inherit; font-size: inherit; outline: none; padding: 0"></label></div>
+</sc-if>
+<sc-if value="{{r.isEmpty}}" hint-placeholder-val="{{ false }}">
+<button type="button" onClick="{{r.add}}" aria-label="{{r.addLabel}}" style="{{r.emptyStyle}}"></button>
+</sc-if>
+</sc-for>
+</div>
+</sc-for>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{isPhoneList}}" hint-placeholder-val="{{ true }}">
+<div style="padding: 4px 18px 150px">
+<sc-for list="{{phoneDays}}" as="d" hint-placeholder-count="3">
+<div data-day="{{d.key}}" style="{{d.boxStyle}}">
+<sc-if value="{{d.showHead}}" hint-placeholder-val="{{ true }}">
+<div style="{{d.headStyle}}"><span style="{{d.dateStyle}}">{{d.date}}</span><span style="{{d.wdStyle}}">{{d.wd}}</span></div>
+</sc-if>
+<sc-for list="{{d.rows}}" as="r" hint-placeholder-count="4">
+<sc-if value="{{r.isItem}}" hint-placeholder-val="{{ true }}">
+<div data-item="{{r.id}}" onPointerDown="{{r.down}}" onContextMenu="{{noCtx}}" style="{{r.rowStyle}}">
+<sc-if value="{{r.isCard}}" hint-placeholder-val="{{ false }}"><span style="{{r.dotStyle}}"></span></sc-if>
+<sc-if value="{{r.repeat}}" hint-placeholder-val="{{ false }}"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" aria-hidden="true" style="flex: none"><path d="{{ic.repeat}}" style="stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round"></path></svg></sc-if>
+<sc-if value="{{r.bell}}" hint-placeholder-val="{{ false }}"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" aria-hidden="true" style="flex: none"><path d="{{ic.bell}}" style="stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round"></path></svg></sc-if>
+<span style="{{r.textStyle}}">{{r.text}}</span>
+<button type="button" onClick="{{r.toggle}}" onPointerDown="{{stop}}" aria-label="{{r.checkLabel}}" style="{{r.checkStyle}}"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><circle cx="12" cy="12" r="9.2" fill="{{r.circleFill}}" stroke="currentColor" style="stroke-width: 1.6"></circle><path d="M8.2 12.4l2.5 2.5 5.1-5.6" fill="none" stroke="{{r.tickColor}}" style="stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round"></path></svg></button>
+</div>
+</sc-if>
+<sc-if value="{{r.isAdding}}" hint-placeholder-val="{{ false }}">
+<div style="{{r.rowStyle}}"><label style="flex: 1; display: flex"><span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">New to-do</span><input ref="{{focusRef}}" value="{{draft}}" onChange="{{onDraft}}" onKeyDown="{{onDraftKey}}" onBlur="{{onDraftBlur}}" placeholder="New to-do" style="flex: 1; border: 0; background: transparent; color: var(--ink); font: inherit; font-size: inherit; outline: none; padding: 0"></label></div>
+</sc-if>
+<sc-if value="{{r.isEmpty}}" hint-placeholder-val="{{ false }}">
+<button type="button" onClick="{{r.add}}" aria-label="{{r.addLabel}}" style="{{r.emptyStyle}}"></button>
+</sc-if>
+</sc-for>
+</div>
+</sc-for>
+</div>
+</sc-if>
+
+<sc-if value="{{isMonth}}" hint-placeholder-val="{{ false }}">
+<div style="padding: 0 10px 150px">
+<div style="font-size: 20px; font-weight: 700; padding: 6px 8px 10px 52px; border-bottom: 1px solid var(--line)">{{monthName}}</div>
+<div style="display: grid; grid-template-columns: repeat(7, minmax(0, 1fr))">
+<sc-for list="{{monthCells}}" as="m" hint-placeholder-count="35">
+<button type="button" onClick="{{m.open}}" aria-label="{{m.label}}" style="{{m.style}}">
+<span style="{{m.numStyle}}">{{m.n}}</span>
+<sc-for list="{{m.tags}}" as="t" hint-placeholder-count="2"><span style="{{t.style}}">{{t.text}}</span></sc-for>
+<sc-if value="{{m.hasMore}}" hint-placeholder-val="{{ false }}"><span style="font-size: 10px; color: var(--ink2); padding-left: 2px">{{m.more}}</span></sc-if>
+</button>
+</sc-for>
+</div>
+</div>
+</sc-if>
+
+</div>
+
+<sc-if value="{{isPhone}}" hint-placeholder-val="{{ true }}">
+<div style="position: absolute; left: 50%; bottom: 84px; transform: translateX(-50%); display: flex; gap: 4px; padding: 5px; border-radius: 999px; background: var(--card); box-shadow: 0 8px 24px var(--barShadow), 0 0 0 1px var(--line)">
+<sc-for list="{{viewBtns}}" as="v" hint-placeholder-count="3">
+<button type="button" onClick="{{v.pick}}" aria-label="{{v.label}}" style="{{v.style}}"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" aria-hidden="true"><path d="{{v.icon}}" style="stroke-width: 1.9; stroke-linejoin: round"></path></svg></button>
+</sc-for>
+</div>
+<div style="position: absolute; left: 0; right: 0; bottom: 0; height: 70px; background: var(--nav); display: flex; justify-content: space-around; align-items: center; padding-bottom: 4px; box-sizing: border-box">
+<div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 12px; color: var(--ink2)"><span style="width: 60px; height: 30px; display: flex; align-items: center; justify-content: center"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" aria-hidden="true"><path d="{{ic.board}}" style="stroke-width: 1.8; stroke-linejoin: round"></path></svg></span>Boards</div>
+<div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 12px; font-weight: 600; color: var(--ink)"><span style="width: 60px; height: 30px; border-radius: 15px; background: var(--navOn); color: var(--navOnText); display: flex; align-items: center; justify-content: center"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" aria-hidden="true"><path d="{{ic.calendar}}" style="stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round"></path></svg></span>Calendar</div>
+</div>
+</sc-if>
+
+<sc-if value="{{showEdges}}" hint-placeholder-val="{{ false }}">
+<div style="{{edgeLStyle}}"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" aria-hidden="true"><path d="{{ic.chevL}}" style="stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round"></path></svg></div>
+<div style="{{edgeRStyle}}"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" aria-hidden="true"><path d="{{ic.chevR}}" style="stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round"></path></svg></div>
+</sc-if>
+
+<sc-if value="{{dragging}}" hint-placeholder-val="{{ false }}">
+<div style="{{ghostStyle}}"><span style="flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{ghostText}}</span></div>
+</sc-if>
+
+<sc-if value="{{showSheet}}" hint-placeholder-val="{{ false }}">
+<button type="button" onClick="{{closeSheet}}" aria-label="Close" style="position: absolute; inset: 0; width: 100%; border: 0; padding: 0; background: var(--scrim); cursor: default; z-index: 20"></button>
+<div style="{{sheetStyle}}">
+
+<sc-if value="{{isTodoSheet}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--ink2); margin-bottom: 14px">
+<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" aria-hidden="true"><path d="{{ic.calendar}}" style="stroke-width: 2; stroke-linecap: round; stroke-linejoin: round"></path></svg>{{sheetItem.when}}
+</div>
+<div style="display: flex; align-items: flex-start; gap: 12px; margin-bottom: 10px">
+<div style="{{sheetItem.titleStyle}}">{{sheetItem.text}}</div>
+<button type="button" onClick="{{sheetItem.toggle}}" aria-label="{{sheetItem.checkLabel}}" style="width: 44px; height: 44px; border: 0; background: transparent; color: var(--ink); display: flex; align-items: center; justify-content: center; cursor: pointer; margin: -8px -10px 0 0"><svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><circle cx="12" cy="12" r="9.2" fill="{{sheetItem.circleFill}}" stroke="currentColor" style="stroke-width: 1.6"></circle><path d="M8.2 12.4l2.5 2.5 5.1-5.6" fill="none" stroke="{{sheetItem.tickColor}}" style="stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round"></path></svg></button>
+</div>
+<sc-if value="{{sheetItem.isCard}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: 16px; background: var(--chip); margin-bottom: 14px">
+<span style="{{sheetItem.dotStyle}}"></span>
+<span style="flex: 1; font-size: 14px">{{sheetItem.cardLine}}</span>
+<span style="font-size: 14px; font-weight: 600; color: var(--accentText)">Open card</span>
+</div>
+<sc-if value="{{sheetItem.late}}" hint-placeholder-val="{{ false }}"><div style="font-size: 13px; color: var(--dangerText); margin-bottom: 12px">Late. A card keeps its real due day and shows red until it's done or given a new day.</div></sc-if>
+</sc-if>
+<sc-if value="{{sheetItem.hasNote}}" hint-placeholder-val="{{ false }}"><div style="font-size: 15px; line-height: 1.5; color: var(--ink); margin-bottom: 14px">{{sheetItem.note}}</div></sc-if>
+<sc-for list="{{sheetItem.checklist}}" as="c" hint-placeholder-count="3">
+<sc-if value="{{c.isHead}}" hint-placeholder-val="{{ false }}"><div style="font-size: 15px; font-weight: 700; margin: 12px 0 4px">{{c.text}}</div></sc-if>
+<sc-if value="{{c.isStep}}" hint-placeholder-val="{{ true }}">
+<button type="button" onClick="{{c.toggle}}" style="{{c.style}}">
+<span style="{{c.boxStyle}}"></span>
+<span style="{{c.textStyle}}">{{c.text}}</span>
+<sc-if value="{{c.star}}" hint-placeholder-val="{{ false }}"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" aria-hidden="true" style="color: var(--ink2)"><path d="{{ic.asterisk}}" style="stroke-width: 2; stroke-linecap: round"></path></svg></sc-if>
+</button>
+</sc-if>
+</sc-for>
+<sc-if value="{{sheetItem.hasFiles}}" hint-placeholder-val="{{ false }}">
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 12px">
+<div style="height: 84px; border-radius: 14px; background: var(--chip); display: flex; align-items: center; justify-content: center; color: var(--ink2)"><svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" aria-hidden="true"><path d="{{ic.image}}" style="stroke-width: 1.6; stroke-linejoin: round"></path></svg></div>
+<div style="height: 84px; border-radius: 14px; background: var(--chip); display: flex; flex-direction: column; justify-content: center; padding: 0 12px; gap: 3px"><span style="font-size: 13px; font-weight: 600">Load-in rider</span><span style="font-size: 12px; color: var(--ink2)">PDF · 1.2 MB</span></div>
+</div>
+</sc-if>
+<div style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px; padding-top: 10px">
+<button type="button" aria-label="People" style="{{barBtn}}"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" aria-hidden="true"><path d="{{ic.user}}" style="stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round"></path></svg></button>
+<button type="button" onClick="{{openRepeat}}" aria-label="Repeat" style="{{barBtn}}"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" aria-hidden="true"><path d="{{ic.repeat}}" style="stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round"></path></svg></button>
+<button type="button" onClick="{{sheetItem.toggle}}" aria-label="Done" style="width: 56px; height: 56px; border-radius: 50%; border: 0; background: var(--ink); color: var(--bg); display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 6px 16px var(--barShadow)"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" aria-hidden="true"><circle cx="12" cy="12" r="8" style="stroke-width: 2"></circle></svg></button>
+<button type="button" onClick="{{openReminder}}" aria-label="Reminder" style="{{barBtn}}"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" aria-hidden="true"><path d="{{ic.bell}}" style="stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round"></path></svg></button>
+<button type="button" aria-label="More" style="{{barBtn}}"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" aria-hidden="true"><path d="M5 12h.01 M12 12h.01 M19 12h.01" style="stroke-width: 3; stroke-linecap: round"></path></svg></button>
+</div>
+</sc-if>
+
+<sc-if value="{{isRepeatSheet}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; align-items: center; margin-bottom: 14px"><button type="button" onClick="{{backToTodo}}" aria-label="Back" style="{{barBtn}}"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" aria-hidden="true"><path d="{{ic.chevL}}" style="stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round"></path></svg></button><div style="flex: 1; text-align: center; font-size: 16px; font-weight: 700; margin-right: 44px">Repeat</div></div>
+<div style="border-radius: 18px; background: var(--chip); padding: 14px">
+<div style="display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 14px">
+<span style="font-size: 15px; color: var(--ink2)">Every</span>
+<sc-for list="{{everyBtns}}" as="e" hint-placeholder-count="3"><button type="button" onClick="{{e.pick}}" style="{{e.style}}">{{e.n}}</button></sc-for>
+</div>
+<div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin-bottom: 14px">
+<sc-for list="{{unitBtns}}" as="u" hint-placeholder-count="4"><button type="button" onClick="{{u.pick}}" style="{{u.style}}">{{u.name}}</button></sc-for>
+</div>
+<sc-if value="{{repeatMonthly}}" hint-placeholder-val="{{ false }}">
+<div style="display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px">
+<sc-for list="{{monthDayBtns}}" as="b" hint-placeholder-count="31"><span style="{{b.style}}">{{b.n}}</span></sc-for>
+</div>
+<div style="margin-top: 10px; font-size: 14px; border-top: 1px solid var(--line); padding-top: 10px; display: flex; flex-direction: column; gap: 10px"><span>On the same day</span><span style="display: flex; justify-content: space-between">Every second Wednesday<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" aria-hidden="true"><path d="{{ic.check}}" style="stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round"></path></svg></span></div>
+</sc-if>
+<sc-if value="{{repeatYearly}}" hint-placeholder-val="{{ false }}">
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px">
+<sc-for list="{{monthBtns}}" as="b" hint-placeholder-count="12"><span style="{{b.style}}">{{b.n}}</span></sc-for>
+</div>
+</sc-if>
+</div>
+<div style="display: flex; justify-content: space-between; padding: 14px 6px; font-size: 14px"><span>Ending</span><span style="color: var(--ink2)">Never</span></div>
+<div style="text-align: center; font-size: 13px; color: var(--ink2); margin-bottom: 12px">{{repeatSentence}}</div>
+<button type="button" onClick="{{applyRepeat}}" style="width: 100%; min-height: 50px; border: 0; border-radius: 999px; background: var(--ink); color: var(--bg); font: inherit; font-size: 15px; font-weight: 700; cursor: pointer">Apply</button>
+</sc-if>
+
+<sc-if value="{{isReminderSheet}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; align-items: center; margin-bottom: 14px"><button type="button" onClick="{{backToTodo}}" aria-label="Back" style="{{barBtn}}"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" aria-hidden="true"><path d="{{ic.chevL}}" style="stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round"></path></svg></button><div style="flex: 1; text-align: center; font-size: 16px; font-weight: 700; margin-right: 44px">Reminder</div></div>
+<div style="border-radius: 18px; background: var(--chip); padding: 10px 0; display: grid; grid-template-columns: 2fr 1fr 1fr; font-size: 16px; text-align: center">
+<div style="display: flex; flex-direction: column; gap: 8px; color: var(--ink2)"><span style="opacity: 0.45">Mon 9 Nov</span><span style="opacity: 0.7">Tue 10 Nov</span><span style="color: var(--ink); font-weight: 600; background: var(--card); margin: 0 0 0 10px; border-radius: 12px 0 0 12px; padding: 6px 0">Today</span><span style="opacity: 0.7">Thu 12 Nov</span><span style="opacity: 0.45">Fri 13 Nov</span></div>
+<div style="display: flex; flex-direction: column; gap: 8px; color: var(--ink2)"><span style="opacity: 0.45">7</span><span style="opacity: 0.7">8</span><span style="color: var(--ink); font-weight: 600; background: var(--card); padding: 6px 0">9</span><span style="opacity: 0.7">10</span><span style="opacity: 0.45">11</span></div>
+<div style="display: flex; flex-direction: column; gap: 8px; color: var(--ink2)"><span style="opacity: 0.45">20</span><span style="opacity: 0.7">25</span><span style="color: var(--ink); font-weight: 600; background: var(--card); margin: 0 10px 0 0; border-radius: 0 12px 12px 0; padding: 6px 0">30 am</span><span style="opacity: 0.7">35</span><span style="opacity: 0.45">40</span></div>
+</div>
+<div style="text-align: center; font-size: 13px; color: var(--ink2); margin: 12px 0">The to-do stays on its day. Only the alert has a time.</div>
+<button type="button" onClick="{{applyReminder}}" style="width: 100%; min-height: 50px; border: 0; border-radius: 999px; background: var(--ink); color: var(--bg); font: inherit; font-size: 15px; font-weight: 700; cursor: pointer">Set reminder</button>
+</sc-if>
+
+<sc-if value="{{isCalendarsSheet}}" hint-placeholder-val="{{ false }}">
+<div style="font-size: 20px; font-weight: 700; margin-bottom: 12px">Calendars</div>
+<div style="border-radius: 18px; background: var(--chip); padding: 0 14px; margin-bottom: 14px">
+<sc-for list="{{calendars}}" as="cl" hint-placeholder-count="3">
+<div style="{{cl.rowStyle}}">
+<button type="button" onClick="{{cl.pick}}" style="flex: 1; display: flex; align-items: center; gap: 10px; border: 0; background: transparent; color: var(--ink); font: inherit; font-size: 15px; text-align: left; cursor: pointer; min-height: 52px; padding: 0">
+<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" aria-hidden="true"><path d="{{ic.calendar}}" style="stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round"></path></svg>
+<span style="flex: 1">{{cl.name}}</span>
+<span style="font-size: 12px; color: var(--ink2)">{{cl.people}}</span>
+<sc-if value="{{cl.current}}" hint-placeholder-val="{{ false }}"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" aria-hidden="true"><path d="{{ic.check}}" style="stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round"></path></svg></sc-if>
+</button>
+<button type="button" onClick="{{cl.settings}}" aria-label="{{cl.settingsLabel}}" style="{{barBtn}}"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" aria-hidden="true"><path d="{{ic.gear}}" style="stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round"></path></svg></button>
+</div>
+</sc-for>
+</div>
+<button type="button" style="width: 100%; min-height: 50px; border: 0; border-radius: 999px; background: var(--ink); color: var(--bg); font: inherit; font-size: 15px; font-weight: 700; cursor: pointer">Add calendar</button>
+</sc-if>
+
+<sc-if value="{{isSettingsSheet}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; align-items: center; margin-bottom: 10px"><button type="button" onClick="{{openCalendars}}" aria-label="Back to calendars" style="{{barBtn}}"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" aria-hidden="true"><path d="{{ic.chevL}}" style="stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round"></path></svg></button><div style="flex: 1; font-size: 20px; font-weight: 700">{{calName}}</div></div>
+<div style="font-size: 13px; font-weight: 700; color: var(--ink2); margin: 4px 4px 6px">People</div>
+<div style="border-radius: 18px; background: var(--chip); padding: 0 14px; margin-bottom: 14px">
+<div style="display: flex; align-items: center; gap: 10px; min-height: 50px; border-bottom: 1px solid var(--line)"><span style="width: 28px; height: 28px; border-radius: 50%; background: #DFE0FF; color: #0B1A7A; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center">CA</span><span style="flex: 1; font-size: 15px">Clay Aiken</span><span style="font-size: 13px; color: var(--ink2)">Owner</span></div>
+<div style="display: flex; align-items: center; gap: 10px; min-height: 50px; border-bottom: 1px solid var(--line)"><span style="width: 28px; height: 28px; border-radius: 50%; background: #BFEFD0; color: #003920; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center">JM</span><span style="flex: 1; font-size: 15px">Jamie Moss</span><span style="font-size: 13px; color: var(--ink2)">Can edit</span></div>
+<div style="display: flex; align-items: center; justify-content: center; min-height: 48px; font-size: 14px; font-weight: 600; color: var(--accentText)">Add people</div>
+</div>
+<div style="font-size: 13px; font-weight: 700; color: var(--ink2); margin: 4px 4px 6px">Cards from boards</div>
+<div style="border-radius: 18px; background: var(--chip); padding: 0 14px; margin-bottom: 14px">
+<sc-for list="{{boardSwitches}}" as="s" hint-placeholder-count="2">
+<button type="button" onClick="{{s.flip}}" style="{{s.rowStyle}}"><span style="{{s.dotStyle}}"></span><span style="flex: 1; text-align: left">{{s.name}}</span><span style="{{s.trackStyle}}"><span style="{{s.knobStyle}}"></span></span></button>
+</sc-for>
+</div>
+<div style="font-size: 13px; font-weight: 700; color: var(--ink2); margin: 4px 4px 6px">To-dos</div>
+<div style="border-radius: 18px; background: var(--chip); padding: 0 14px">
+<sc-for list="{{todoSwitches}}" as="s" hint-placeholder-count="3">
+<button type="button" onClick="{{s.flip}}" style="{{s.rowStyle}}"><span style="flex: 1; text-align: left">{{s.name}}</span><span style="{{s.trackStyle}}"><span style="{{s.knobStyle}}"></span></span></button>
+</sc-for>
+</div>
+</sc-if>
+
+</div>
+</sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["light","dark"],"default":"light"},"size":{"editor":"enum","options":["phone","desktop"],"default":"phone"},"view":{"editor":"enum","options":["week","month","day"],"default":"week"},"sheet":{"editor":"enum","options":["none","todo","calendars","settings","repeat","reminder"],"default":"none"},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.press = null;
+    this.timer = null;
+    this.edgeTimer = null;
+    this.edgeSide = 0;
+    this.rootEl = null;
+    this.scrollEl = null;
+    this.focusEl = null;
+    this.seq = 100;
+    var sheet = props.sheet && props.sheet !== 'none' ? props.sheet : null;
+    this.state = {
+      view: props.view || 'week',
+      week: 0,
+      dayOffset: 0,
+      items: this.seed(),
+      adding: null,
+      draft: '',
+      sheet: sheet,
+      sheetId: sheet === 'todo' || sheet === 'repeat' || sheet === 'reminder' ? 't7' : null,
+      cal: 'tour',
+      sw: { roll: true, sink: true, hide: false },
+      boards: { fall: true, studio: false },
+      every: 1,
+      unit: 'month',
+      drag: null
+    };
+  }
+
+  seed() {
+    return [
+      { id: 't1', day: '2026-11-09', text: 'Call the venue about load-in', done: true },
+      { id: 't2', day: '2026-11-09', text: 'Pick up the stage outfit' },
+      { id: 'c41', day: '2026-11-09', text: 'Confirm hotel block for Raleigh', card: true, num: 41, board: 'fall' },
+      { id: 't3', day: '2026-11-10', text: 'Send the setlist to the band', done: true },
+      { id: 't4', day: '2026-11-10', text: 'Order new strings' },
+      { id: 't5', day: '2026-11-11', text: 'Vocal warm-up', repeat: true },
+      { id: 't6', day: '2026-11-11', text: 'Radio interview prep', bell: true },
+      { id: 'c39', day: '2026-11-11', text: 'Merch table restock list', card: true, num: 39, board: 'fall' },
+      { id: 't7', day: '2026-11-11', text: 'Plan the Raleigh load-in', note: 'Truck arrives at 2. Stage manager wants the plot by noon.', files: true,
+        checklist: [{ head: true, text: 'Before we leave' }, { text: 'Print the stage plot', done: true }, { text: 'Confirm the dock height', star: true }, { text: 'Pack the in-ears' }, { head: true, text: 'At the venue' }, { text: 'Walk the stage with sound' }] },
+      { id: 't8', day: '2026-11-11', text: 'Text Jamie about rehearsal' },
+      { id: 't9', day: '2026-11-12', text: 'Vocal warm-up', repeat: true },
+      { id: 't10', day: '2026-11-12', text: 'Rehearsal at the studio' },
+      { id: 'c38', day: '2026-11-12', text: 'Finalize setlist', card: true, num: 38, board: 'fall' },
+      { id: 'c50', day: '2026-11-12', text: 'Mix notes for track 4', card: true, num: 50, board: 'studio' },
+      { id: 't11', day: '2026-11-13', text: 'Raleigh show day', bell: true },
+      { id: 't12', day: '2026-11-13', text: 'Vocal warm-up', repeat: true },
+      { id: 't13', day: '2026-11-14', text: 'Pack the gear' },
+      { id: 't14', day: '2026-11-15', text: 'Rest day' },
+      { id: 't15', day: 'someday-1', text: 'Learn the new arrangement' },
+      { id: 't16', day: 'someday-1', text: 'Fan Q&A ideas' },
+      { id: 't17', day: 'someday-2', text: 'New merch designs', repeat: false },
+      { id: 't18', day: 'someday-3', text: 'Call Mom', repeat: true },
+      { id: 't19', day: '2026-11-18', text: 'Charlotte show day', bell: true },
+      { id: 't20', day: '2026-11-20', text: 'Interview with WRAL' },
+      { id: 't21', day: '2026-11-03', text: 'Tour poster proofs', done: true },
+      { id: 't22', day: '2026-11-25', text: 'Thanksgiving travel' }
+    ];
+  }
+
+  dims() {
+    return this.props.size === 'desktop' ? { w: 1280, h: 820 } : { w: 390, h: 844 };
+  }
+
+  theme() {
+    if (this.props.theme === 'dark') {
+      return { '--bg': '#111318', '--card': '#1B1E26', '--chip': '#21252E', '--nav': '#0B0D11', '--sheet': '#181B22', '--ink': '#F1F3F7', '--ink2': '#9AA1AE', '--line': '#262A33', '--rule': '#E8EAF0',
+        '--accent': '#7C3AED', '--accentText': '#C4B5FD', '--today': '#A78BFA', '--danger': '#F87171', '--dangerText': '#FCA5A5', '--scrim': 'rgba(0,0,0,0.55)', '--barShadow': 'rgba(0,0,0,0.45)', '--navOn': '#2E2350', '--navOnText': '#DDD6FE', '--done': '#5B6170' };
+    }
+    return { '--bg': '#FBF8FF', '--card': '#FFFFFF', '--chip': '#F0EDF6', '--nav': '#EFEDF4', '--sheet': '#FFFFFF', '--ink': '#1B1B21', '--ink2': '#6B6D80', '--line': '#E6E3EE', '--rule': '#1B1B21',
+      '--accent': '#4653D0', '--accentText': '#3442B8', '--today': '#4653D0', '--danger': '#BA1A1A', '--dangerText': '#93000A', '--scrim': 'rgba(27,27,33,0.36)', '--barShadow': 'rgba(70,83,208,0.16)', '--navOn': '#DFE0FF', '--navOnText': '#0B1A7A', '--done': '#B9B7C6' };
+  }
+
+  boardColor(b) {
+    var dark = this.props.theme === 'dark';
+    if (b === 'studio') return dark ? '#34D399' : '#1D9E75';
+    return dark ? '#A78BFA' : '#4653D0';
+  }
+
+  key(d) {
+    var m = d.getMonth() + 1, day = d.getDate();
+    return d.getFullYear() + '-' + (m < 10 ? '0' : '') + m + '-' + (day < 10 ? '0' : '') + day;
+  }
+
+  today() { return '2026-11-11'; }
+
+  monday(weekOffset) {
+    var d = new Date(2026, 10, 9);
+    d.setDate(d.getDate() + weekOffset * 7);
+    return d;
+  }
+
+  visible(item) {
+    if (item.card && !this.state.boards[item.board]) return false;
+    if (this.state.sw.hide && item.done) return false;
+    return true;
+  }
+
+  /** Where an item shows: an unfinished to-do (never a card) from a past day rolls to today when the switch is on. */
+  where(item) {
+    if (this.state.sw.roll && !item.card && !item.done && item.day.indexOf('someday') !== 0 && item.day < this.today()) return this.today();
+    return item.day;
+  }
+
+  itemsOn(key) {
+    var self = this;
+    var list = this.state.items.filter(function (i) { return self.visible(i) && self.where(i) === key; });
+    if (this.state.sw.sink) list = list.filter(function (i) { return !i.done; }).concat(list.filter(function (i) { return i.done; }));
+    return list;
+  }
+
+  scale() {
+    if (!this.rootEl) return 1;
+    var r = this.rootEl.getBoundingClientRect();
+    return (r.width / this.rootEl.offsetWidth) || 1;
+  }
+
+  local(e) {
+    var r = this.rootEl.getBoundingClientRect(), s = this.scale();
+    return { x: (e.clientX - r.left) / s, y: (e.clientY - r.top) / s };
+  }
+
+  down(item, e) {
+    if (e.button && e.button > 0) return;
+    var p = this.local(e);
+    var self = this;
+    this.press = { id: item.id, x0: e.clientX, y0: e.clientY, type: e.pointerType || 'mouse', el: e.currentTarget, pointerId: e.pointerId, started: false, p0: p, text: item.text };
+    clearTimeout(this.timer);
+    if (this.press.type !== 'mouse') this.timer = setTimeout(function () { self.begin(); }, 380);
+  }
+
+  begin() {
+    var pr = this.press;
+    if (!pr || pr.started) return;
+    pr.started = true;
+    try { pr.el.setPointerCapture(pr.pointerId); } catch (err) {}
+    if (navigator.vibrate) { try { navigator.vibrate(12); } catch (err2) {} }
+    this.setState({ drag: { id: pr.id, x: pr.p0.x, y: pr.p0.y, over: null, text: pr.text } });
+  }
+
+  move(e) {
+    var pr = this.press;
+    if (!pr) return;
+    var dx = e.clientX - pr.x0, dy = e.clientY - pr.y0, dist = Math.sqrt(dx * dx + dy * dy);
+    if (!pr.started) {
+      if (pr.type === 'mouse') { if (dist > 5) this.begin(); else return; }
+      else { if (dist > 10) { clearTimeout(this.timer); this.press = null; } return; }
+    }
+    var p = this.local(e);
+    var over = null;
+    var hit = document.elementFromPoint(e.clientX, e.clientY);
+    if (hit && hit.closest) { var t = hit.closest('[data-day]'); if (t && this.rootEl.contains(t)) over = t.getAttribute('data-day'); }
+    var d = this.dims();
+    if (this.scrollEl) {
+      if (p.y > d.h - 150) this.scrollEl.scrollTop += 14;
+      else if (p.y < 140) this.scrollEl.scrollTop -= 14;
+    }
+    if (this.props.size === 'desktop') {
+      var side = p.x < 26 ? -1 : (p.x > d.w - 26 ? 1 : 0);
+      if (side !== this.edgeSide) {
+        clearTimeout(this.edgeTimer);
+        this.edgeSide = side;
+        var self = this;
+        if (side) this.edgeTimer = setTimeout(function flip() {
+          if (!self.press || !self.press.started || !self.edgeSide) return;
+          self.setState({ week: self.state.week + self.edgeSide });
+          self.edgeTimer = setTimeout(flip, 750);
+        }, 650);
+      }
+    }
+    this.setState({ drag: Object.assign({}, this.state.drag, { x: p.x, y: p.y, over: over }) });
+  }
+
+  up(e, cancelled) {
+    clearTimeout(this.timer); clearTimeout(this.edgeTimer); this.edgeSide = 0;
+    var pr = this.press;
+    this.press = null;
+    if (!pr) return;
+    if (!pr.started) { if (!cancelled) this.setState({ sheet: 'todo', sheetId: pr.id }); return; }
+    var dr = this.state.drag;
+    if (!cancelled && dr && dr.over) {
+      var items = this.state.items.map(function (i) { return i.id === dr.id ? Object.assign({}, i, { day: dr.over }) : i; });
+      this.setState({ items: items, drag: null });
+      return;
+    }
+    this.setState({ drag: null });
+  }
+
+  toggle(id) {
+    var items = this.state.items.map(function (i) { return i.id === id ? Object.assign({}, i, { done: !i.done }) : i; });
+    this.setState({ items: items });
+  }
+
+  commitDraft(keepGoing) {
+    var t = (this.state.draft || '').trim();
+    var day = this.state.adding;
+    if (!day) return;
+    if (!t) { this.setState({ adding: keepGoing ? day : null, draft: '' }); return; }
+    this.seq += 1;
+    var item = { id: 'n' + this.seq, day: day, text: t };
+    this.setState({ items: this.state.items.concat([item]), draft: '', adding: keepGoing ? day : null });
+  }
+
+  dayRows(key, lines, phone) {
+    var self = this;
+    var st = this.state;
+    var fs = phone ? 16 : 14;
+    var h = phone ? 50 : 38;
+    var rows = this.itemsOn(key).map(function (i) {
+      var late = i.card && !i.done && i.day < self.today();
+      return {
+        isItem: true, isAdding: false, isEmpty: false, id: i.id, text: i.text, isCard: !!i.card, repeat: !!i.repeat, bell: !!i.bell,
+        checkLabel: i.done ? 'Mark not done' : 'Mark done',
+        circleFill: i.done ? 'var(--done)' : 'none', tickColor: i.done ? 'var(--bg)' : 'currentColor',
+        down: function (e) { self.down(i, e); },
+        toggle: function () { self.toggle(i.id); },
+        dotStyle: { width: '8px', height: '8px', borderRadius: '2px', background: late ? 'var(--danger)' : self.boardColor(i.board), flex: 'none' },
+        rowStyle: { display: 'flex', alignItems: 'center', gap: '7px', minHeight: h + 'px', borderBottom: '1px solid var(--line)', fontSize: fs + 'px', cursor: 'pointer', userSelect: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none',
+          opacity: st.drag && st.drag.id === i.id ? 0.3 : 1, padding: '0 2px', boxSizing: 'border-box', color: i.done ? 'var(--ink2)' : (late ? 'var(--dangerText)' : 'var(--ink)') },
+        textStyle: { flex: 1, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textDecoration: i.done ? 'line-through' : 'none', fontWeight: i.card ? 500 : 400 },
+        checkStyle: { flex: 'none', width: phone ? '44px' : '30px', height: (h - 2) + 'px', margin: phone ? '0 -10px 0 0' : '0 -6px 0 0', border: '0', background: 'transparent', color: i.done ? 'var(--done)' : 'var(--ink)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: '0' }
+      };
+    });
+    var emptyBase = { display: 'block', width: '100%', minHeight: h + 'px', border: '0', borderBottom: '1px solid var(--line)', background: 'transparent', cursor: 'text', padding: '0' };
+    if (st.adding === key) rows.push({ isItem: false, isAdding: true, isEmpty: false, rowStyle: { display: 'flex', alignItems: 'center', minHeight: h + 'px', borderBottom: '1px solid var(--accent)', fontSize: fs + 'px', padding: '0 2px' } });
+    var need = Math.max(phone ? 1 : 1, lines - rows.length);
+    for (var k = 0; k < need; k++) {
+      rows.push({ isItem: false, isAdding: false, isEmpty: true, addLabel: 'Add a to-do', emptyStyle: emptyBase, add: function () { self.setState({ adding: key, draft: '' }); } });
+    }
+    return rows;
+  }
+
+  dayHead(d, phone, big) {
+    var key = this.key(d);
+    var isToday = key === this.today();
+    var wd = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d.getDay()];
+    var mon = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][d.getMonth()];
+    var over = this.state.drag && this.state.drag.over === key;
+    return {
+      key: key, date: d.getDate() + ' ' + mon, wd: wd,
+      headStyle: { display: big ? 'none' : 'flex', alignItems: 'baseline', justifyContent: 'space-between', paddingBottom: '7px', borderBottom: '2px solid ' + (isToday ? 'var(--today)' : 'var(--rule)') },
+      dateStyle: { fontSize: phone ? '19px' : '17px', fontWeight: 700, letterSpacing: '-0.3px', color: isToday ? 'var(--today)' : 'var(--ink)' },
+      wdStyle: { fontSize: phone ? '17px' : '15px', color: isToday ? 'var(--today)' : 'var(--ink2)', opacity: isToday ? 0.6 : 0.7 },
+      boxStyle: { borderRadius: '8px', background: over ? 'var(--chip)' : 'transparent', boxShadow: over ? '0 0 0 2px var(--accent)' : 'none', transition: 'background .12s', paddingTop: phone ? '18px' : '0' }
+    };
+  }
+
+  renderVals() {
+    var self = this;
+    var st = this.state;
+    var d = this.dims(), W = d.w, H = d.h;
+    var phone = this.props.size !== 'desktop';
+    var ic = {
+      calendar: 'M4 6.5h16V20H4z M4 10.5h16 M8.5 3.5v4 M15.5 3.5v4',
+      chevL: 'M15 6l-6 6 6 6', chevR: 'M9 6l6 6-6 6', chevD: 'M6 9l6 6 6-6',
+      repeat: 'M17 3l3 3-3 3 M20 6H8a4 4 0 0 0-4 4v1 M7 21l-3-3 3-3 M4 18h12a4 4 0 0 0 4-4v-1',
+      bell: 'M6 16.5V11a6 6 0 1 1 12 0v5.5l1.8 1.8H4.2z M10 20.5a2 2 0 0 0 4 0',
+      board: 'M4 4.5h5v15H4z M10.5 4.5h5v10h-5z M17 4.5h3v7h-3z',
+      user: 'M12 12a4 4 0 1 0 0-8a4 4 0 0 0 0 8z M4.5 20a7.5 7.5 0 0 1 15 0',
+      check: 'M5 12.5l4.5 4.5L19 7.5',
+      gear: 'M12 9a3 3 0 1 0 0 6a3 3 0 0 0 0-6z M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.6 1.6 0 0 0-1-1.5 1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.6 1.6 0 0 0 1.5-1 1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z',
+      image: 'M4 5h16v14H4z M4 16l5-5 4 4 2-2 5 5 M15 9h.01',
+      asterisk: 'M12 5v14 M6 8.5l12 7 M6 15.5l12-7',
+      month: 'M4 4h7v7H4z M13 4h7v7h-7z M4 13h7v7H4z M13 13h7v7h-7z',
+      week: 'M4 5h16v6H4z M4 13h16v6H4z',
+      day: 'M5 5h14v14H5z'
+    };
+    var mons = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    var short = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    var mon = this.monday(st.week);
+    var days = [];
+    for (var i = 0; i < 7; i++) { var dd = new Date(mon); dd.setDate(mon.getDate() + i); days.push(dd); }
+
+    var title;
+    if (st.view === 'day' && phone) {
+      var dayDate = new Date(2026, 10, 11 + st.dayOffset);
+      title = dayDate.getDate() + ' ' + short[dayDate.getMonth()];
+    } else if (st.view === 'month' && phone) {
+      title = '2026';
+    } else {
+      title = (phone ? short[mon.getMonth()] : mons[mon.getMonth()]) + ' ' + mon.getFullYear();
+    }
+
+    var deskCols = [];
+    if (!phone) {
+      for (var c = 0; c < 5; c++) {
+        var h = this.dayHead(days[c], false, false);
+        h.rows = this.dayRows(h.key, 11, false);
+        deskCols.push({ days: [h] });
+      }
+      var sat = this.dayHead(days[5], false, false); sat.rows = this.dayRows(sat.key, 4, false);
+      var sun = this.dayHead(days[6], false, false); sun.rows = this.dayRows(sun.key, 4, false);
+      deskCols.push({ days: [sat, sun] });
+    }
+    var someday = [1, 2, 3].map(function (n) {
+      var key = 'someday-' + n;
+      var over = st.drag && st.drag.over === key;
+      return { key: key, rows: self.dayRows(key, 4, phone), boxStyle: { borderRadius: '8px', background: over ? 'var(--chip)' : 'transparent', boxShadow: over ? '0 0 0 2px var(--accent)' : 'none' } };
+    });
+
+    var phoneDays = [];
+    if (phone && st.view === 'week') {
+      days.forEach(function (dd) { var hh = self.dayHead(dd, true, false); hh.rows = self.dayRows(hh.key, 2, true); hh.showHead = true; phoneDays.push(hh); });
+      var sd = { key: 'someday-1', showHead: true, date: 'Someday', wd: '', rows: this.dayRows('someday-1', 3, true),
+        headStyle: { display: 'flex', alignItems: 'baseline', paddingBottom: '7px', borderBottom: '2px solid var(--rule)' },
+        dateStyle: { fontSize: '19px', fontWeight: 700 }, wdStyle: {}, boxStyle: { paddingTop: '28px', borderRadius: '8px', boxShadow: st.drag && st.drag.over === 'someday-1' ? '0 0 0 2px var(--accent)' : 'none' } };
+      phoneDays.push(sd);
+    } else if (phone && st.view === 'day') {
+      var one = new Date(2026, 10, 11 + st.dayOffset);
+      var hd = this.dayHead(one, true, true); hd.rows = this.dayRows(hd.key, 12, true); hd.showHead = false; hd.boxStyle = { paddingTop: '4px' };
+      phoneDays.push(hd);
+    }
+
+    var monthCells = [];
+    if (phone && st.view === 'month') {
+      var first = new Date(2026, 10, 1);
+      var lead = (first.getDay() + 6) % 7;
+      for (var b = 0; b < lead; b++) monthCells.push({ n: '', label: '', tags: [], hasMore: false, more: '', open: function () {}, style: { minHeight: '92px', border: '0', background: 'transparent' }, numStyle: {} });
+      for (var n = 1; n <= 30; n++) {
+        (function (n) {
+          var dt = new Date(2026, 10, n), key = self.key(dt);
+          var its = self.itemsOn(key);
+          var wk = dt.getDay() === 0 || dt.getDay() === 6;
+          var isT = key === self.today();
+          monthCells.push({
+            n: n, label: n + ' November, ' + its.length + ' to-dos',
+            open: function () { self.setState({ view: 'day', dayOffset: n - 11 }); },
+            tags: its.slice(0, 3).map(function (it) { return { text: it.text, style: { fontSize: '10px', lineHeight: '15px', padding: '0 3px', borderRadius: '4px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'clip', background: it.card ? (self.props.theme === 'dark' ? 'rgba(167,139,250,0.25)' : '#DFE0FF') : 'var(--chip)', color: it.done ? 'var(--ink2)' : 'var(--ink)', textDecoration: it.done ? 'line-through' : 'none', textAlign: 'left' } }; }),
+            hasMore: its.length > 3, more: (its.length - 3) + ' more',
+            style: { minHeight: '92px', border: '0', borderTop: '1px solid var(--line)', background: 'transparent', color: 'var(--ink)', font: 'inherit', padding: '6px 2px', display: 'flex', flexDirection: 'column', gap: '2px', alignItems: 'stretch', cursor: 'pointer', overflow: 'hidden' },
+            numStyle: { alignSelf: 'center', width: '26px', height: '26px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '15px', fontWeight: 700, marginBottom: '2px', background: isT ? 'var(--today)' : 'transparent', color: isT ? '#fff' : (wk ? 'var(--ink2)' : 'var(--ink)') }
+          });
+        })(n);
+      }
+    }
+
+    var viewDefs = [['month', 'Month view', ic.month], ['week', 'Week view', ic.week], ['day', 'Day view', ic.day]];
+    var viewBtns = viewDefs.map(function (v) {
+      var on = st.view === v[0];
+      return { label: v[1], icon: v[2], pick: function () { self.setState({ view: v[0], dayOffset: 0 }); },
+        style: { width: '52px', height: '40px', borderRadius: '999px', border: '0', background: on ? 'var(--ink)' : 'transparent', color: on ? 'var(--bg)' : 'var(--ink2)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' } };
+    });
+
+    var item = null;
+    st.items.forEach(function (it) { if (it.id === st.sheetId) item = it; });
+    var sheetItem = { text: '', when: '', isCard: false, late: false, hasNote: false, note: '', checklist: [], hasFiles: false, cardLine: '', titleStyle: {}, toggle: function () {}, checkLabel: '', circleFill: 'none', tickColor: 'currentColor', dotStyle: {} };
+    if (item) {
+      var wdN = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      var when = item.day.indexOf('someday') === 0 ? 'Someday' : (function () { var p = item.day.split('-'); var dt = new Date(+p[0], +p[1] - 1, +p[2]); return wdN[dt.getDay()] + ', ' + dt.getDate() + ' ' + short[dt.getMonth()] + (item.repeat ? ' · repeats daily' : '') + (item.bell ? ' · reminder 9:30 am' : ''); })();
+      var late = item.card && !item.done && item.day < this.today();
+      sheetItem = {
+        text: item.text, when: when, isCard: !!item.card, late: late,
+        cardLine: (item.board === 'studio' ? 'Studio album' : 'Fall tour prep') + ' · card #' + item.num,
+        dotStyle: { width: '10px', height: '10px', borderRadius: '3px', background: late ? 'var(--danger)' : this.boardColor(item.board) },
+        hasNote: !!item.note, note: item.note || '', hasFiles: !!item.files,
+        titleStyle: { flex: 1, fontSize: '23px', fontWeight: 700, letterSpacing: '-0.4px', lineHeight: 1.2, textDecoration: item.done ? 'line-through' : 'none', color: item.done ? 'var(--ink2)' : (late ? 'var(--dangerText)' : 'var(--ink)') },
+        toggle: function () { self.toggle(item.id); }, checkLabel: item.done ? 'Mark not done' : 'Mark done',
+        circleFill: item.done ? 'var(--done)' : 'none', tickColor: item.done ? 'var(--bg)' : 'currentColor',
+        checklist: (item.checklist || []).map(function (c, k) {
+          return {
+            isHead: !!c.head, isStep: !c.head, text: c.text, star: !!c.star,
+            toggle: function () {
+              var items = st.items.map(function (x) { if (x.id !== item.id) return x; var cl = x.checklist.map(function (y, j) { return j === k ? Object.assign({}, y, { done: !y.done }) : y; }); return Object.assign({}, x, { checklist: cl }); });
+              self.setState({ items: items });
+            },
+            style: { width: '100%', display: 'flex', alignItems: 'center', gap: '12px', minHeight: '40px', border: '0', background: 'transparent', color: 'var(--ink)', font: 'inherit', fontSize: '15px', textAlign: 'left', padding: '0', cursor: 'pointer' },
+            boxStyle: { width: '18px', height: '18px', borderRadius: '50%', border: '1.6px solid ' + (c.done ? 'var(--done)' : 'var(--ink)'), background: c.done ? 'var(--done)' : 'transparent', flex: 'none' },
+            textStyle: { flex: 1, color: c.done ? 'var(--ink2)' : 'var(--ink)', opacity: c.done ? 0.6 : 1 }
+          };
+        })
+      };
+    }
+
+    var calDefs = [['my', 'My calendar', 'Just you'], ['family', 'Family', '3 people'], ['tour', 'Tour', '4 people']];
+    var calName = 'Tour';
+    calDefs.forEach(function (c) { if (c[0] === st.cal) calName = c[1]; });
+    var calendars = calDefs.map(function (c, k) {
+      return { name: c[1], people: c[2], current: c[0] === st.cal, settingsLabel: 'Settings for ' + c[1],
+        pick: function () { self.setState({ cal: c[0], sheet: null }); },
+        settings: function () { self.setState({ cal: c[0], sheet: 'settings' }); },
+        rowStyle: { display: 'flex', alignItems: 'center', gap: '6px', borderBottom: k < calDefs.length - 1 ? '1px solid var(--line)' : '0' } };
+    });
+    var sw = function (on) {
+      return {
+        trackStyle: { width: '46px', height: '28px', borderRadius: '14px', background: on ? 'var(--ink)' : 'var(--line)', position: 'relative', flex: 'none', transition: 'background .15s' },
+        knobStyle: { position: 'absolute', top: '3px', left: on ? '21px' : '3px', width: '22px', height: '22px', borderRadius: '50%', background: on ? 'var(--bg)' : '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.25)', transition: 'left .15s' },
+        rowStyle: { width: '100%', display: 'flex', alignItems: 'center', gap: '10px', minHeight: '52px', border: '0', borderBottom: '1px solid var(--line)', background: 'transparent', color: 'var(--ink)', font: 'inherit', fontSize: '15px', cursor: 'pointer', padding: '0' }
+      };
+    };
+    var boardSwitches = [['fall', 'Fall tour prep'], ['studio', 'Studio album']].map(function (b) {
+      return Object.assign({ name: b[1], flip: function () { var o = Object.assign({}, st.boards); o[b[0]] = !o[b[0]]; self.setState({ boards: o }); },
+        dotStyle: { width: '10px', height: '10px', borderRadius: '3px', background: self.boardColor(b[0]) } }, sw(st.boards[b[0]]));
+    });
+    var todoSwitches = [['roll', 'Move unfinished to the next day'], ['sink', 'Sink finished to the bottom'], ['hide', 'Hide finished']].map(function (t) {
+      return Object.assign({ name: t[1], flip: function () { var o = Object.assign({}, st.sw); o[t[0]] = !o[t[0]]; self.setState({ sw: o }); } }, sw(st.sw[t[0]]));
+    });
+
+    var everyBtns = [1, 2, 3].map(function (n) {
+      var on = st.every === n;
+      return { n: n, pick: function () { self.setState({ every: n }); }, style: { width: '44px', height: '40px', borderRadius: '12px', border: '0', background: on ? 'var(--card)' : 'transparent', color: on ? 'var(--ink)' : 'var(--ink2)', font: 'inherit', fontSize: '16px', fontWeight: on ? 700 : 400, cursor: 'pointer', boxShadow: on ? '0 1px 3px var(--barShadow)' : 'none' } };
+    });
+    var unitBtns = [['day', 'day'], ['week', 'week'], ['month', 'month'], ['year', 'year']].map(function (u) {
+      var on = st.unit === u[0];
+      return { name: st.every > 1 ? u[1] + 's' : u[1], pick: function () { self.setState({ unit: u[0] }); }, style: { minHeight: '40px', borderRadius: '12px', border: '0', background: on ? 'var(--card)' : 'transparent', color: on ? 'var(--ink)' : 'var(--ink2)', font: 'inherit', fontSize: '15px', fontWeight: on ? 700 : 400, cursor: 'pointer', boxShadow: on ? '0 1px 3px var(--barShadow)' : 'none' } };
+    });
+    var monthDayBtns = [];
+    for (var md = 1; md <= 31; md++) monthDayBtns.push({ n: md, style: { height: '32px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', background: md === 11 ? 'var(--ink)' : 'transparent', color: md === 11 ? 'var(--bg)' : 'var(--ink)' } });
+    var monthBtns = short.map(function (m, k) { return { n: m, style: { height: '38px', borderRadius: '999px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', background: k === 10 ? 'var(--ink)' : 'transparent', color: k === 10 ? 'var(--bg)' : 'var(--ink)' } }; });
+    var unitWord = { day: 'day', week: 'week', month: 'month', year: 'year' }[st.unit];
+    var repeatSentence = 'Repeat every ' + (st.every > 1 ? st.every + ' ' + unitWord + 's' : unitWord) + (st.unit === 'month' ? ', on the second Wednesday' : (st.unit === 'year' ? ' in November' : ''));
+
+    var sheetStyle = phone
+      ? { position: 'absolute', left: '0', right: '0', bottom: '0', maxHeight: (H - 80) + 'px', overflowY: 'auto', background: 'var(--sheet)', borderRadius: '28px 28px 0 0', padding: '20px 20px 26px', boxSizing: 'border-box', boxShadow: '0 -14px 34px var(--barShadow)', zIndex: 21 }
+      : { position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%)', width: '440px', maxHeight: (H - 80) + 'px', overflowY: 'auto', background: 'var(--sheet)', borderRadius: '28px', padding: '24px', boxSizing: 'border-box', boxShadow: '0 30px 70px var(--barShadow), 0 0 0 1px var(--line)', zIndex: 21 };
+
+    var dr = st.drag;
+    var ghostStyle = dr ? { position: 'absolute', left: (dr.x - 30) + 'px', top: (dr.y - 22) + 'px', width: phone ? '260px' : '200px', minHeight: '44px', display: 'flex', alignItems: 'center', padding: '0 14px', boxSizing: 'border-box', borderRadius: '14px', background: 'var(--card)', color: 'var(--ink)', fontSize: phone ? '16px' : '14px', boxShadow: '0 22px 44px var(--barShadow), 0 0 0 2px var(--accent)', transform: 'rotate(-2deg)', pointerEvents: 'none', zIndex: 30 } : {};
+    var edgeBase = { position: 'absolute', top: '45%', width: '26px', height: '120px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--navOn)', color: 'var(--navOnText)', zIndex: 25, pointerEvents: 'none' };
+
+    var rootStyle = Object.assign({}, this.theme(), {
+      width: W + 'px', height: H + 'px', position: 'relative', overflow: 'hidden', boxSizing: 'border-box', background: 'var(--bg)', color: 'var(--ink)',
+      fontFamily: '"Roboto Flex", "Segoe UI Variable Text", "Segoe UI", Roboto, system-ui, sans-serif', WebkitTapHighlightColor: 'transparent'
+    });
+
+    return {
+      ic: ic,
+      rootRef: function (el) {
+        if (el && el !== self.rootEl) {
+          self.rootEl = el;
+          el.addEventListener('touchmove', function (ev) { if (self.press && self.press.started) ev.preventDefault(); }, { passive: false });
+        }
+      },
+      scrollRef: function (el) { self.scrollEl = el; },
+      focusRef: function (el) { if (el && el !== self.focusEl) { self.focusEl = el; setTimeout(function () { try { el.focus(); } catch (e) {} }, 0); } if (!el) self.focusEl = null; },
+      rootStyle: rootStyle,
+      onMove: function (e) { self.move(e); },
+      onUp: function (e) { self.up(e, false); },
+      onCancel: function (e) { self.up(e, true); },
+      stop: function (e) { e.stopPropagation(); },
+      noCtx: function (e) { e.preventDefault(); },
+
+      title: title, titleSize: phone ? (st.view === 'day' ? '40px' : '34px') : '40px',
+      headerStyle: { display: 'flex', alignItems: 'center', gap: '8px', padding: phone ? '22px 18px 12px' : '26px 28px 18px', boxSizing: 'border-box' },
+      calName: calName,
+      calChipStyle: { display: 'flex', alignItems: 'center', gap: '6px', minHeight: '40px', padding: '0 12px', borderRadius: '999px', border: '0', background: 'var(--chip)', color: 'var(--ink)', font: 'inherit', fontSize: '14px', fontWeight: 600, cursor: 'pointer', flex: 'none' },
+      roundBtn: { width: '42px', height: '42px', borderRadius: '50%', border: '0', background: 'var(--ink)', color: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flex: 'none' },
+      prevLabel: st.view === 'day' ? 'Previous day' : 'Previous week', nextLabel: st.view === 'day' ? 'Next day' : 'Next week',
+      prev: function () { if (st.view === 'day' && phone) self.setState({ dayOffset: st.dayOffset - 1 }); else self.setState({ week: st.week - 1 }); },
+      next: function () { if (st.view === 'day' && phone) self.setState({ dayOffset: st.dayOffset + 1 }); else self.setState({ week: st.week + 1 }); },
+      openCalendars: function () { self.setState({ sheet: 'calendars' }); },
+
+      bodyStyle: { position: 'absolute', left: '0', right: '0', top: phone ? '76px' : '88px', bottom: '0', overflowY: st.drag ? 'hidden' : 'auto', overflowX: 'hidden', scrollbarWidth: 'none' },
+      isDesktopWeek: !phone, isPhoneList: phone && st.view !== 'month', isMonth: phone && st.view === 'month', isPhone: phone,
+      deskCols: deskCols, someday: someday, phoneDays: phoneDays, monthCells: monthCells, monthName: 'November',
+      viewBtns: viewBtns,
+
+      draft: st.draft,
+      onDraft: function (e) { self.setState({ draft: e.target.value }); },
+      onDraftKey: function (e) { if (e.key === 'Enter') { e.preventDefault(); self.commitDraft(true); } else if (e.key === 'Escape') { self.setState({ adding: null, draft: '' }); } },
+      onDraftBlur: function () { setTimeout(function () { if (self.state.adding) self.commitDraft(false); }, 120); },
+
+      showEdges: !!dr && !phone,
+      edgeLStyle: Object.assign({}, edgeBase, { left: '0', borderRadius: '0 16px 16px 0' }),
+      edgeRStyle: Object.assign({}, edgeBase, { right: '0', borderRadius: '16px 0 0 16px' }),
+      dragging: !!dr, ghostStyle: ghostStyle, ghostText: dr ? dr.text : '',
+
+      showSheet: !!st.sheet, sheetStyle: sheetStyle,
+      closeSheet: function () { self.setState({ sheet: null }); },
+      isTodoSheet: st.sheet === 'todo' && !!item, isRepeatSheet: st.sheet === 'repeat', isReminderSheet: st.sheet === 'reminder',
+      isCalendarsSheet: st.sheet === 'calendars', isSettingsSheet: st.sheet === 'settings',
+      sheetItem: sheetItem,
+      barBtn: { width: '44px', height: '44px', borderRadius: '50%', border: '0', background: 'transparent', color: 'var(--ink)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flex: 'none' },
+      openRepeat: function () { self.setState({ sheet: 'repeat' }); },
+      openReminder: function () { self.setState({ sheet: 'reminder' }); },
+      backToTodo: function () { self.setState({ sheet: 'todo' }); },
+      applyRepeat: function () { var items = st.items.map(function (x) { return x.id === st.sheetId ? Object.assign({}, x, { repeat: true }) : x; }); self.setState({ items: items, sheet: 'todo' }); },
+      applyReminder: function () { var items = st.items.map(function (x) { return x.id === st.sheetId ? Object.assign({}, x, { bell: true }) : x; }); self.setState({ items: items, sheet: 'todo' }); },
+      everyBtns: everyBtns, unitBtns: unitBtns, monthDayBtns: monthDayBtns, monthBtns: monthBtns,
+      repeatMonthly: st.unit === 'month', repeatYearly: st.unit === 'year', repeatSentence: repeatSentence,
+      calendars: calendars, boardSwitches: boardSwitches, todoSwitches: todoSwitches
+    };
+  }
+}
+</script>
+</body>
+</html>
