@@ -49,13 +49,11 @@ class _HomeShellState extends ConsumerState<HomeShell> {
                 onDestinationSelected: pick,
                 labelType: NavigationRailLabelType.all,
                 groupAlignment: -0.9,
-                destinations: const [
-                  NavigationRailDestination(icon: Icon(Icons.view_kanban_outlined), selectedIcon: Icon(Icons.view_kanban_rounded), label: Text('Kolumns')),
-                  NavigationRailDestination(
-                    icon: Icon(Icons.calendar_today_outlined),
-                    selectedIcon: Icon(Icons.calendar_today_rounded),
-                    label: Text('Planner'),
-                  ),
+                destinations: [
+                  const NavigationRailDestination(icon: Icon(Icons.view_kanban_outlined), selectedIcon: Icon(Icons.view_kanban_rounded), label: Text('Kolumns')),
+                  const NavigationRailDestination(icon: Icon(Icons.show_chart_rounded), label: Text('Activity')),
+                  const NavigationRailDestination(icon: Icon(Icons.calendar_today_outlined), selectedIcon: Icon(Icons.calendar_today_rounded), label: Text('Planner')),
+                  NavigationRailDestination(icon: bell(false), selectedIcon: bell(true), label: const Text('Alerts')),
                 ],
               ),
             ),

@@ -173,6 +173,7 @@ class KolumnRepository {
               priorityAt: Value(priority ? now : null),
               lastActiveAt: now,
               status: Value(draft ? 'draft' : 'published'),
+              creatorId: Value(await meId()),
               createdAt: now,
               updatedAt: now,
             ),

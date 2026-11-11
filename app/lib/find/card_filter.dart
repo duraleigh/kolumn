@@ -162,7 +162,8 @@ List<FoundCard> applyFilter(
   final out = <FoundCard>[];
   for (final c in cards) {
     if (c.deletedAt != null || !boards.containsKey(c.boardId)) continue;
-    if (c.status == 'draft' && c.creatorId != me) continue;
+    // A draft is only its maker's; one not yet sent was made on this phone.
+    if (c.status == 'draft' && c.creatorId != null && c.creatorId != me) continue;
     if (f.boards.isNotEmpty && !f.boards.contains(c.boardId)) continue;
     final open = c.closedAt == null && c.laterAt == null;
     switch (f.status) {
