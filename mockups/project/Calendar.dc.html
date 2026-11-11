@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Kolumn calendar, Tweek style</title>
+<title>Kolumn planner, Tweek style</title>
 <script src="./support.js"></script>
 </head>
 <body>
@@ -137,8 +137,8 @@ body{margin:0}
 </sc-for>
 </div>
 <div style="position: absolute; left: 0; right: 0; bottom: 0; height: 70px; background: var(--nav); display: flex; justify-content: space-around; align-items: center; padding-bottom: 4px; box-sizing: border-box">
-<div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 12px; color: var(--ink2)"><span style="width: 60px; height: 30px; display: flex; align-items: center; justify-content: center"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" aria-hidden="true"><path d="{{ic.board}}" style="stroke-width: 1.8; stroke-linejoin: round"></path></svg></span>Boards</div>
-<div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 12px; font-weight: 600; color: var(--ink)"><span style="width: 60px; height: 30px; border-radius: 15px; background: var(--navOn); color: var(--navOnText); display: flex; align-items: center; justify-content: center"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" aria-hidden="true"><path d="{{ic.calendar}}" style="stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round"></path></svg></span>Calendar</div>
+<div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 12px; color: var(--ink2)"><span style="width: 60px; height: 30px; display: flex; align-items: center; justify-content: center"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" aria-hidden="true"><path d="{{ic.board}}" style="stroke-width: 1.8; stroke-linejoin: round"></path></svg></span>Kolumns</div>
+<div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 12px; font-weight: 600; color: var(--ink)"><span style="width: 60px; height: 30px; border-radius: 15px; background: var(--navOn); color: var(--navOnText); display: flex; align-items: center; justify-content: center"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" aria-hidden="true"><path d="{{ic.calendar}}" style="stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round"></path></svg></span>Planner</div>
 </div>
 </sc-if>
 
@@ -236,7 +236,7 @@ body{margin:0}
 </sc-if>
 
 <sc-if value="{{isCalendarsSheet}}" hint-placeholder-val="{{ false }}">
-<div style="font-size: 20px; font-weight: 700; margin-bottom: 12px">Calendars</div>
+<div style="font-size: 20px; font-weight: 700; margin-bottom: 12px">Planners</div>
 <div style="border-radius: 18px; background: var(--chip); padding: 0 14px; margin-bottom: 14px">
 <sc-for list="{{calendars}}" as="cl" hint-placeholder-count="3">
 <div style="{{cl.rowStyle}}">
@@ -250,18 +250,18 @@ body{margin:0}
 </div>
 </sc-for>
 </div>
-<button type="button" style="width: 100%; min-height: 50px; border: 0; border-radius: 999px; background: var(--ink); color: var(--bg); font: inherit; font-size: 15px; font-weight: 700; cursor: pointer">Add calendar</button>
+<button type="button" style="width: 100%; min-height: 50px; border: 0; border-radius: 999px; background: var(--ink); color: var(--bg); font: inherit; font-size: 15px; font-weight: 700; cursor: pointer">Add planner</button>
 </sc-if>
 
 <sc-if value="{{isSettingsSheet}}" hint-placeholder-val="{{ false }}">
-<div style="display: flex; align-items: center; margin-bottom: 10px"><button type="button" onClick="{{openCalendars}}" aria-label="Back to calendars" style="{{barBtn}}"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" aria-hidden="true"><path d="{{ic.chevL}}" style="stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round"></path></svg></button><div style="flex: 1; font-size: 20px; font-weight: 700">{{calName}}</div></div>
+<div style="display: flex; align-items: center; margin-bottom: 10px"><button type="button" onClick="{{openCalendars}}" aria-label="Back to planners" style="{{barBtn}}"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" aria-hidden="true"><path d="{{ic.chevL}}" style="stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round"></path></svg></button><div style="flex: 1; font-size: 20px; font-weight: 700">{{calName}}</div></div>
 <div style="font-size: 13px; font-weight: 700; color: var(--ink2); margin: 4px 4px 6px">People</div>
 <div style="border-radius: 18px; background: var(--chip); padding: 0 14px; margin-bottom: 14px">
 <div style="display: flex; align-items: center; gap: 10px; min-height: 50px; border-bottom: 1px solid var(--line)"><span style="width: 28px; height: 28px; border-radius: 50%; background: #DFE0FF; color: #0B1A7A; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center">CA</span><span style="flex: 1; font-size: 15px">Clay Aiken</span><span style="font-size: 13px; color: var(--ink2)">Owner</span></div>
 <div style="display: flex; align-items: center; gap: 10px; min-height: 50px; border-bottom: 1px solid var(--line)"><span style="width: 28px; height: 28px; border-radius: 50%; background: #BFEFD0; color: #003920; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center">JM</span><span style="flex: 1; font-size: 15px">Jamie Moss</span><span style="font-size: 13px; color: var(--ink2)">Can edit</span></div>
 <div style="display: flex; align-items: center; justify-content: center; min-height: 48px; font-size: 14px; font-weight: 600; color: var(--accentText)">Add people</div>
 </div>
-<div style="font-size: 13px; font-weight: 700; color: var(--ink2); margin: 4px 4px 6px">Cards from boards</div>
+<div style="font-size: 13px; font-weight: 700; color: var(--ink2); margin: 4px 4px 6px">Cards from Kolumns</div>
 <div style="border-radius: 18px; background: var(--chip); padding: 0 14px; margin-bottom: 14px">
 <sc-for list="{{boardSwitches}}" as="s" hint-placeholder-count="2">
 <button type="button" onClick="{{s.flip}}" style="{{s.rowStyle}}"><span style="{{s.dotStyle}}"></span><span style="flex: 1; text-align: left">{{s.name}}</span><span style="{{s.trackStyle}}"><span style="{{s.knobStyle}}"></span></span></button>
@@ -656,7 +656,7 @@ class Component extends DCLogic {
       };
     }
 
-    var calDefs = [['my', 'My calendar', 'Just you'], ['family', 'Family', '3 people'], ['tour', 'Tour', '4 people']];
+    var calDefs = [['my', 'My planner', 'Just you'], ['family', 'Family', '3 people'], ['tour', 'Tour', '4 people']];
     var calName = 'Tour';
     calDefs.forEach(function (c) { if (c[0] === st.cal) calName = c[1]; });
     var calendars = calDefs.map(function (c, k) {
