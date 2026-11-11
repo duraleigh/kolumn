@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../board/lane_info.dart';
-import '../home_shell.dart' show startScreenProvider;
+import '../home_shell.dart' show startScreenProvider, startScreens;
 import '../data/database.dart';
 import '../data/tidy.dart';
 import '../data/lanes.dart';
@@ -471,10 +471,11 @@ class _SettingsSheet extends ConsumerWidget {
             SegmentedButton<String>(
               showSelectedIcon: false,
               segments: const [
-                ButtonSegment(value: 'kolumns', icon: Icon(Icons.view_kanban_outlined), label: Text('Kolumns')),
-                ButtonSegment(value: 'planner', icon: Icon(Icons.calendar_today_outlined), label: Text('Planner')),
+                ButtonSegment(value: 'kolumns', label: Text('Kolumns')),
+                ButtonSegment(value: 'activity', label: Text('Activity')),
+                ButtonSegment(value: 'planner', label: Text('Planner')),
               ],
-              selected: {ref.watch(startScreenProvider).value == 'planner' ? 'planner' : 'kolumns'},
+              selected: {startScreens.contains(ref.watch(startScreenProvider).value) ? ref.watch(startScreenProvider).value! : 'kolumns'},
               onSelectionChanged: (s) => repo.setSetting('home.start', s.first),
             ),
             const SizedBox(height: 4),

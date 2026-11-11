@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../card/card_screen.dart';
 import '../data/database.dart';
 import '../data/lanes.dart';
+import '../find/find_screen.dart';
 import '../state/providers.dart';
 import '../sync/sync_service.dart';
 import '../theme/tokens.dart';
@@ -437,6 +438,11 @@ class _TopBar extends ConsumerWidget {
                 ),
               ),
             ),
+          ),
+          IconButton(
+            tooltip: 'Find cards',
+            onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const FindScreen())),
+            icon: const Icon(Icons.search_rounded),
           ),
           _PinsButton(),
           _RefreshButton(),

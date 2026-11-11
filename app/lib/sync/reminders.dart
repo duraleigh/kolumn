@@ -1,10 +1,12 @@
 import 'dart:async';
 
+import 'package:flutter/widgets.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/data/latest_all.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
 
+import '../activity/activity_model.dart';
 import '../data/database.dart';
 import '../data/repository.dart';
 import '../planner/days.dart';
@@ -88,6 +90,15 @@ class ReminderService {
   List<KTodoMark> _marks = const [];
   String _lastPlan = '';
 
+  static const _alertsChannel = AndroidNotificationDetails(
+    'kolumn_alerts',
+    'Alerts',
+    channelDescription: 'When someone assigns you, mentions you, or changes something you follow',
+    importance: Importance.high,
+    priority: Priority.high,
+    icon: 'ic_stat_kolumn',
+  );
+
   static const _channel = AndroidNotificationDetails(
     'kolumn_reminders',
     'Reminders',
@@ -112,7 +123,41 @@ class ReminderService {
       ..add(repo.watchReminders().listen((v) => _changed(() => _reminders = v)))
       ..add(repo.watchAllTodos().listen((v) => _changed(() => _todos = v)))
       ..add(repo.watchAllCards().listen((v) => _changed(() => _cards = v)))
-      ..add(repo.watchTodoMarks().listen((v) => _changed(() => _marks = v)));
+      ..add(repo.watchTodoMarks().listen((v) => _changed(() => _marks = v)))
+      ..add(repo.watchNotifications().listen(_alerts));
+  }
+
+  /// New alerts that arrive while Kolumn is not on screen pop up on the
+  /// phone. Each is shown once; the first fetch after signing in shows none.
+  Future<void> _alerts(List<KNotification> list) async {
+    if (!_ready) return;
+    final unread = list.where((n) => n.readAt == null).toList();
+    final newest = list.isEmpty ? 0 : list.map((n) => n.updatedAt).reduce((a, b) => a > b ? a : b);
+    final raw = await repo.setting('alerts.shown');
+    if (raw == null) {
+      if (list.isNotEmpty) await repo.setSetting('alerts.shown', '$newest');
+      return;
+    }
+    final shown = int.tryParse(raw) ?? 0;
+    final fresh = unread.where((n) => n.updatedAt > shown).toList();
+    if (newest > shown) await repo.setSetting('alerts.shown', '$newest');
+    if (fresh.isEmpty || WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed) return;
+    final me = await repo.meId();
+    final names = {for (final p in await repo.watchPeople().first) p.id: p.name};
+    for (final n in fresh.take(5)) {
+      final card = await repo.card(n.cardId);
+      if (card == null) continue;
+      try {
+        await _plugin.show(
+          id: 'alert:${n.cardId}'.hashCode & 0x7fffffff,
+          title: card.title,
+          body: alertLine(n, who: names[n.creatorId] ?? 'Someone', title: card.title, me: me),
+          notificationDetails: const NotificationDetails(android: _alertsChannel),
+        );
+      } catch (_) {
+        // A pop-up that cannot show is skipped; the alert is still in the app.
+      }
+    }
   }
 
   void _changed(void Function() set) {

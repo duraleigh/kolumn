@@ -142,3 +142,22 @@ final fileBytesProvider = FutureProvider.family<Uint8List?, (String, bool)>((ref
     return null;
   }
 });
+
+// ---------------------------------------------------------------- Phase 6: alerts and finding things
+
+final notificationsProvider = StreamProvider<List<KNotification>>((ref) => ref.watch(repositoryProvider).watchNotifications());
+final boardWatchesProvider = StreamProvider<List<KBoardWatch>>((ref) => ref.watch(repositoryProvider).watchBoardWatches());
+final viewsProvider = StreamProvider<List<KView>>((ref) => ref.watch(repositoryProvider).watchViews());
+final allEventsProvider = StreamProvider<List<KEvent>>((ref) => ref.watch(repositoryProvider).watchAllEvents());
+final allColumnsProvider = StreamProvider<List<KColumn>>((ref) => ref.watch(repositoryProvider).watchAllColumns());
+
+/// How many alerts are waiting to be read (for the badge).
+final unreadAlertsProvider = Provider<int>((ref) => (ref.watch(notificationsProvider).value ?? const <KNotification>[]).where((n) => n.readAt == null).length);
+
+/// Whether this person follows a Kolumn: their own choice, or (if they never
+/// chose) yes for a Kolumn they made.
+final followsProvider = Provider<Map<String, bool>>((ref) {
+  final me = ref.watch(meIdProvider).value;
+  final chosen = {for (final w in ref.watch(boardWatchesProvider).value ?? const <KBoardWatch>[]) w.boardId: w.watching};
+  return {for (final b in ref.watch(boardsProvider).value ?? const <KBoard>[]) b.id: chosen[b.id] ?? (me != null && b.creatorId == me)};
+});
