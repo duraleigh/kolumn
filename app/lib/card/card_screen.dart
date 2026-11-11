@@ -75,40 +75,43 @@ class _CardScreenState extends ConsumerState<CardScreen> {
     final c = context.colors;
     final p = context.palette;
     final priority = card.priorityAt != null;
+    final readOnly = ref.watch(readOnlyProvider).value ?? false;
     final t = Theme.of(context).textTheme;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('#${card.number} · $boardName', style: t.bodyMedium!.copyWith(color: c.onSurfaceVariant)),
-        actions: [
-          IconButton(
-            tooltip: priority ? 'Remove Priority' : 'Make Priority',
-            isSelected: priority,
-            style: IconButton.styleFrom(backgroundColor: priority ? c.primaryContainer : null),
-            onPressed: () => ref.read(repositoryProvider).setPriority(card.id, !priority),
-            icon: Icon(priority ? Icons.star_rounded : Icons.star_outline_rounded, color: priority ? c.onPrimaryContainer : null),
-          ),
-          PopupMenuButton<String>(
-            tooltip: 'Card options',
-            onSelected: (v) async {
-              if (v != 'delete') return;
-              final repo = ref.read(repositoryProvider);
-              final messenger = ScaffoldMessenger.of(context);
-              _save?.cancel();
-              _save = null;
-              await repo.deleteCard(card.id);
-              if (!context.mounted) return;
-              Navigator.pop(context);
-              messenger.showSnackBar(
-                SnackBar(
-                  content: const Text('Card deleted'),
-                  action: SnackBarAction(label: 'Undo', onPressed: () => repo.restoreCard(card.id)),
+        title: Text('${card.synced ? '#${card.number}' : 'New card'} · $boardName', style: t.bodyMedium!.copyWith(color: c.onSurfaceVariant)),
+        actions: readOnly
+            ? null
+            : [
+                IconButton(
+                  tooltip: priority ? 'Remove Priority' : 'Make Priority',
+                  isSelected: priority,
+                  style: IconButton.styleFrom(backgroundColor: priority ? c.primaryContainer : null),
+                  onPressed: () => ref.read(repositoryProvider).setPriority(card.id, !priority),
+                  icon: Icon(priority ? Icons.star_rounded : Icons.star_outline_rounded, color: priority ? c.onPrimaryContainer : null),
                 ),
-              );
-            },
-            itemBuilder: (_) => const [PopupMenuItem(value: 'delete', child: Text('Delete card'))],
-          ),
-        ],
+                PopupMenuButton<String>(
+                  tooltip: 'Card options',
+                  onSelected: (v) async {
+                    if (v != 'delete') return;
+                    final repo = ref.read(repositoryProvider);
+                    final messenger = ScaffoldMessenger.of(context);
+                    _save?.cancel();
+                    _save = null;
+                    await repo.deleteCard(card.id);
+                    if (!context.mounted) return;
+                    Navigator.pop(context);
+                    messenger.showSnackBar(
+                      SnackBar(
+                        content: const Text('Card deleted'),
+                        action: SnackBarAction(label: 'Undo', onPressed: () => repo.restoreCard(card.id)),
+                      ),
+                    );
+                  },
+                  itemBuilder: (_) => const [PopupMenuItem(value: 'delete', child: Text('Delete card'))],
+                ),
+              ],
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(18, 4, 18, 40),
@@ -121,10 +124,12 @@ class _CardScreenState extends ConsumerState<CardScreen> {
               elevation: 0,
               child: InkWell(
                 customBorder: const StadiumBorder(),
-                onTap: () async {
-                  final to = await showMoveSheet(context, lanes: lanes, current: lane, title: card.title);
-                  if (to != null && context.mounted) await moveWithUndo(context, ref, card.id, to, lane, lanes);
-                },
+                onTap: readOnly
+                    ? null
+                    : () async {
+                        final to = await showMoveSheet(context, lanes: lanes, current: lane, title: card.title);
+                        if (to != null && context.mounted) await moveWithUndo(context, ref, card.id, to, lane, lanes);
+                      },
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   child: Row(
@@ -148,6 +153,7 @@ class _CardScreenState extends ConsumerState<CardScreen> {
           const SizedBox(height: 10),
           TextField(
             controller: _title,
+            readOnly: readOnly,
             onChanged: (_) => _changed(),
             maxLines: null,
             textCapitalization: TextCapitalization.sentences,
@@ -181,6 +187,7 @@ class _CardScreenState extends ConsumerState<CardScreen> {
             padding: const EdgeInsets.all(6),
             child: TextField(
               controller: _notes,
+              readOnly: readOnly,
               onChanged: (_) => _changed(),
               minLines: 4,
               maxLines: null,

@@ -9,6 +9,8 @@ import 'package:kolumn/data/lanes.dart';
 import 'package:kolumn/data/repository.dart';
 import 'package:kolumn/main.dart';
 import 'package:kolumn/state/providers.dart';
+import 'package:kolumn/sync/hub_client.dart';
+import 'package:kolumn/sync/sync_service.dart';
 
 /// Phone sizes the board must work on, in logical pixels.
 const smallPhone = Size(320, 640);
@@ -51,7 +53,18 @@ Future<Harness> pumpApp(WidgetTester tester, Size size, {String theme = 'light',
     }
   });
   addTearDown(() => tester.runAsync(db.close));
-  await tester.pumpWidget(ProviderScope(overrides: [repositoryProvider.overrideWithValue(repo)], child: const KolumnApp()));
+  // Signed in and up to date; no hub is contacted in these tests.
+  final sync = SyncService(repo: repo, hub: HubClient(credentials: MemoryCredentialStore(), server: 'https://hub.invalid'));
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [
+        repositoryProvider.overrideWithValue(repo),
+        syncServiceProvider.overrideWithValue(sync),
+        syncStatusProvider.overrideWith((ref) => Stream.value(SyncStatus(SyncState.upToDate, lastSynced: DateTime.now()))),
+      ],
+      child: const KolumnApp(),
+    ),
+  );
   await _settle(tester);
   return Harness(db, repo);
 }

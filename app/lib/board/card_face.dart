@@ -64,7 +64,7 @@ class CardFace extends StatelessWidget {
                   children: [
                     if (priority) _Pill(text: 'Priority', bg: c.primaryContainer, fg: c.onPrimaryContainer),
                     const Spacer(),
-                    Text('#${card.number}', style: Theme.of(context).textTheme.labelMedium),
+                    Text(card.synced ? '#${card.number}' : 'New', style: Theme.of(context).textTheme.labelMedium),
                   ],
                 ),
               ],

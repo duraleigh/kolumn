@@ -5,13 +5,20 @@ import 'board/board_screen.dart';
 import 'data/database.dart';
 import 'data/repository.dart';
 import 'state/providers.dart';
+import 'sync/hub_client.dart';
+import 'sync/sync_service.dart';
 import 'theme/app_theme.dart';
+import 'ui/sign_in_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final repo = KolumnRepository(KolumnDb());
-  await repo.ensureStarterBoard();
-  runApp(ProviderScope(overrides: [repositoryProvider.overrideWithValue(repo)], child: const KolumnApp()));
+  final sync = SyncService(
+    repo: repo,
+    hub: HubClient(credentials: SecureCredentialStore()),
+  );
+  await sync.start();
+  runApp(ProviderScope(overrides: [repositoryProvider.overrideWithValue(repo), syncServiceProvider.overrideWithValue(sync)], child: const KolumnApp()));
 }
 
 class KolumnApp extends ConsumerWidget {
@@ -26,7 +33,21 @@ class KolumnApp extends ConsumerWidget {
       theme: KolumnTheme.light(),
       darkTheme: KolumnTheme.dark(),
       themeMode: mode,
-      home: const BoardScreen(),
+      home: const AppGate(),
     );
+  }
+}
+
+/// Signed in: the board. Signed out: the hub sign-in.
+class AppGate extends ConsumerWidget {
+  const AppGate({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final status = ref.watch(syncStatusProvider).value ?? ref.read(syncServiceProvider).current;
+    if (status.state == SyncState.signedOut) {
+      return SignInScreen(message: status.message == null ? null : 'Your session ended. Please sign in again.');
+    }
+    return const BoardScreen();
   }
 }

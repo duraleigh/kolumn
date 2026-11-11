@@ -9,6 +9,7 @@ import '../card/card_screen.dart';
 import '../data/database.dart';
 import '../data/lanes.dart';
 import '../state/providers.dart';
+import '../sync/sync_service.dart';
 import '../theme/tokens.dart';
 import '../ui/sheets.dart';
 import 'card_face.dart';
@@ -39,9 +40,81 @@ class BoardScreen extends ConsumerWidget {
       if (b.id == boardId) board = b;
     }
     if (board == null) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const _NoBoardYet();
     }
     return BoardView(key: ValueKey(board.id), board: board);
+  }
+}
+
+/// Before the first boards arrive, or when someone can see none.
+class _NoBoardYet extends ConsumerWidget {
+  const _NoBoardYet();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final status = ref.watch(syncStatusProvider).value;
+    final readOnly = ref.watch(readOnlyProvider).value ?? false;
+    final t = Theme.of(context).textTheme;
+    final c = context.colors;
+    final checking = status == null || status.state == SyncState.checking;
+    final noAccess = status?.state == SyncState.noAccess;
+    return Scaffold(
+      body: SafeArea(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(28),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (checking) ...[
+                  const CircularProgressIndicator(),
+                  const SizedBox(height: 16),
+                  Text('Getting your boards…', style: t.titleMedium),
+                ] else if (noAccess) ...[
+                  Icon(Icons.lock_outline_rounded, size: 40, color: c.onSurfaceVariant),
+                  const SizedBox(height: 12),
+                  Text('To-Dos isn\'t part of your hub access yet', textAlign: TextAlign.center, style: t.titleMedium),
+                  const SizedBox(height: 6),
+                  Text(
+                    'A HUB Admin can add it in the hub under Team, People.',
+                    textAlign: TextAlign.center,
+                    style: t.bodyMedium!.copyWith(color: c.onSurfaceVariant),
+                  ),
+                ] else ...[
+                  Text('No boards yet', style: t.titleLarge),
+                  const SizedBox(height: 6),
+                  Text(
+                    status.state == SyncState.offline ? 'Kolumn can\'t reach the hub right now.' : 'Nobody has shared a board with you yet.',
+                    textAlign: TextAlign.center,
+                    style: t.bodyMedium!.copyWith(color: c.onSurfaceVariant),
+                  ),
+                  const SizedBox(height: 18),
+                  if (!readOnly)
+                    FilledButton.icon(
+                      onPressed: () async {
+                        final n = await askText(context, title: 'New board', action: 'Create', hint: 'Board name');
+                        if (n == null) return;
+                        final repo = ref.read(repositoryProvider);
+                        final id = await repo.createBoard(n);
+                        await repo.setSetting('board.current', id);
+                      },
+                      icon: const Icon(Icons.add_rounded),
+                      label: const Text('New board'),
+                    ),
+                ],
+                const SizedBox(height: 10),
+                TextButton.icon(
+                  onPressed: () => ref.read(syncServiceProvider).syncNow(),
+                  icon: const Icon(Icons.refresh_rounded),
+                  label: const Text('Check again'),
+                ),
+                TextButton(onPressed: () => showSettingsSheet(context, ref), child: const Text('Settings and sign out')),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -279,7 +352,7 @@ class _BoardViewState extends ConsumerState<BoardView> {
       );
     }
     children.add(const SizedBox(width: BoardMetrics.gap));
-    children.add(_AddColumnStrip(boardId: _boardId));
+    if (!(ref.watch(readOnlyProvider).value ?? false)) children.add(_AddColumnStrip(boardId: _boardId));
     return SingleChildScrollView(
       controller: _row,
       scrollDirection: Axis.horizontal,
@@ -359,15 +432,55 @@ class _TopBar extends ConsumerWidget {
                         Icon(Icons.expand_more_rounded, color: c.onSurfaceVariant),
                       ],
                     ),
-                    Text('Saved on this phone', style: Theme.of(context).textTheme.bodySmall),
+                    Text(_statusLine(ref), maxLines: 1, overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.bodySmall),
                   ],
                 ),
               ),
             ),
           ),
+          _RefreshButton(),
           IconButton(tooltip: 'Settings', onPressed: () => showSettingsSheet(context, ref), icon: const Icon(Icons.tune_rounded)),
         ],
       ),
+    );
+  }
+}
+
+String _statusLine(WidgetRef ref) {
+  final s = ref.watch(syncStatusProvider).value;
+  final pending = ref.watch(pendingCountProvider).value ?? 0;
+  final readOnly = ref.watch(readOnlyProvider).value ?? false;
+  final view = readOnly ? 'View only · ' : '';
+  String ago(DateTime? t) {
+    if (t == null) return '';
+    final m = DateTime.now().difference(t).inMinutes;
+    return m < 1 ? 'just now' : (m == 1 ? '1 min ago' : '$m min ago');
+  }
+
+  switch (s?.state) {
+    case SyncState.checking:
+      return '${view}Checking for changes…';
+    case SyncState.offline:
+      return pending > 0
+          ? '${view}Offline · $pending ${pending == 1 ? 'change' : 'changes'} waiting to send'
+          : '${view}Offline · showing what\'s on this phone';
+    case SyncState.noAccess:
+      return 'To-Dos isn\'t part of your hub access';
+    case SyncState.upToDate:
+      return pending > 0 ? '${view}Sending $pending ${pending == 1 ? 'change' : 'changes'}…' : '${view}Up to date · ${ago(s?.lastSynced)}';
+    default:
+      return view.isEmpty ? 'Saved on this phone' : 'View only';
+  }
+}
+
+class _RefreshButton extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final checking = ref.watch(syncStatusProvider).value?.state == SyncState.checking;
+    return IconButton(
+      tooltip: 'Check for changes now',
+      onPressed: checking ? null : () => ref.read(syncServiceProvider).syncNow(),
+      icon: AnimatedRotation(turns: checking ? 1 : 0, duration: const Duration(milliseconds: 900), child: const Icon(Icons.refresh_rounded)),
     );
   }
 }
@@ -513,6 +626,7 @@ class OpenLane extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final p = context.palette;
     final isTodo = info.lane == const Lane.todo();
+    final readOnly = ref.watch(readOnlyProvider).value ?? false;
     return DragTarget<String>(
       onWillAcceptWithDetails: (_) => from != info.lane,
       onAcceptWithDetails: (d) => onDrop(d.data, info.lane),
@@ -530,38 +644,44 @@ class OpenLane extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               _LaneHeader(info: info, canFold: canFold, onFold: onFold, boardId: boardId, laneIndex: laneIndex, laneCount: laneCount),
-              if (isTodo)
+              if (isTodo && !readOnly)
                 Padding(
                   padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
                   child: _AddCardButton(onTap: () => showNewCardSheet(context, ref, boardId)),
                 ),
               Expanded(
-                child: info.cards.isEmpty
-                    ? Padding(
-                        padding: const EdgeInsets.all(24),
-                        child: Text(
-                          isTodo ? 'Nothing to do yet. Add a card.' : 'Nothing here. Drag a card in.',
-                          textAlign: TextAlign.center,
-                          style: Theme.of(context).textTheme.bodyMedium!.copyWith(color: context.colors.onSurfaceVariant),
-                        ),
-                      )
-                    : ListView.separated(
-                        padding: const EdgeInsets.fromLTRB(10, 2, 10, 120),
-                        itemCount: info.cards.length,
-                        separatorBuilder: (_, _) => const SizedBox(height: 10),
-                        itemBuilder: (context, i) => DraggableCard(
-                          card: info.cards[i],
-                          dragging: dragId == info.cards[i].id,
-                          onDragStarted: onDragStarted,
-                          onDragUpdate: onDragUpdate,
-                          onDragEnded: onDragEnded,
-                          onTap: () => Navigator.of(context).push(
-                            MaterialPageRoute<void>(
-                              builder: (_) => CardScreen(cardId: info.cards[i].id, boardId: boardId),
+                child: RefreshIndicator(
+                  onRefresh: () => ref.read(syncServiceProvider).syncNow(),
+                  child: info.cards.isEmpty
+                      ? ListView(
+                          padding: const EdgeInsets.all(24),
+                          children: [
+                            Text(
+                              readOnly ? 'Nothing here.' : (isTodo ? 'Nothing to do yet. Add a card.' : 'Nothing here. Drag a card in.'),
+                              textAlign: TextAlign.center,
+                              style: Theme.of(context).textTheme.bodyMedium!.copyWith(color: context.colors.onSurfaceVariant),
+                            ),
+                          ],
+                        )
+                      : ListView.separated(
+                          padding: const EdgeInsets.fromLTRB(10, 2, 10, 120),
+                          itemCount: info.cards.length,
+                          separatorBuilder: (_, _) => const SizedBox(height: 10),
+                          itemBuilder: (context, i) => DraggableCard(
+                            card: info.cards[i],
+                            enabled: !readOnly,
+                            dragging: dragId == info.cards[i].id,
+                            onDragStarted: onDragStarted,
+                            onDragUpdate: onDragUpdate,
+                            onDragEnded: onDragEnded,
+                            onTap: () => Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (_) => CardScreen(cardId: info.cards[i].id, boardId: boardId),
+                              ),
                             ),
                           ),
                         ),
-                      ),
+                ),
               ),
             ],
           ),
@@ -601,7 +721,7 @@ class _LaneHeader extends ConsumerWidget {
           Text('${info.cards.length}', style: t.bodyMedium!.copyWith(color: context.colors.onSurfaceVariant)),
           const Spacer(),
           if (canFold) IconButton(tooltip: 'Fold this column', onPressed: onFold, icon: const Icon(Icons.unfold_less_rounded, size: 20)),
-          if (col != null)
+          if (col != null && !(ref.watch(readOnlyProvider).value ?? false))
             PopupMenuButton<String>(
               tooltip: 'Column options',
               icon: const Icon(Icons.more_horiz_rounded),
@@ -681,6 +801,7 @@ class DraggableCard extends StatelessWidget {
   const DraggableCard({
     super.key,
     required this.card,
+    this.enabled = true,
     required this.dragging,
     required this.onDragStarted,
     required this.onDragUpdate,
@@ -689,6 +810,7 @@ class DraggableCard extends StatelessWidget {
   });
 
   final KCard card;
+  final bool enabled;
   final bool dragging;
   final void Function(KCard) onDragStarted;
   final void Function(DragUpdateDetails) onDragUpdate;
@@ -698,6 +820,7 @@ class DraggableCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = context.palette;
+    if (!enabled) return CardFace(card: card, onTap: onTap);
     return LayoutBuilder(
       builder: (context, box) {
         return LongPressDraggable<String>(

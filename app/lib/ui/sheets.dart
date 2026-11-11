@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -309,6 +311,7 @@ class _BoardsSheet extends ConsumerWidget {
     final boards = ref.watch(boardsProvider).value ?? const <KBoard>[];
     final current = ref.watch(currentBoardIdProvider).value;
     final repo = ref.read(repositoryProvider);
+    final readOnly = ref.watch(readOnlyProvider).value ?? false;
     final c = context.colors;
     return SafeArea(
       child: SingleChildScrollView(
@@ -346,41 +349,53 @@ class _BoardsSheet extends ConsumerWidget {
                                   .copyWith(fontWeight: FontWeight.w600, color: b.id == current ? c.onPrimaryContainer : null),
                             ),
                           ),
-                          PopupMenuButton<String>(
-                            tooltip: 'Board options',
-                            icon: const Icon(Icons.more_horiz_rounded),
-                            onSelected: (v) async {
-                              if (v == 'rename') {
-                                final n = await askText(context, title: 'Rename board', initial: b.name, action: 'Save');
-                                if (n != null) await repo.renameBoard(b.id, n);
-                              } else if (v == 'delete') {
-                                if (boards.length < 2) {
-                                  if (context.mounted) {
-                                    ScaffoldMessenger.of(context)
-                                        .showSnackBar(const SnackBar(content: Text('Make another board first. Kolumn always keeps one.')));
+                          if (!b.allAccess)
+                            Padding(
+                              padding: const EdgeInsets.only(right: 4),
+                              child: Tooltip(
+                                message: 'Only chosen people',
+                                child: Icon(Icons.lock_outline_rounded, size: 18, color: c.onSurfaceVariant),
+                              ),
+                            ),
+                          if (!readOnly && b.canManage)
+                            PopupMenuButton<String>(
+                              tooltip: 'Board options',
+                              icon: const Icon(Icons.more_horiz_rounded),
+                              onSelected: (v) async {
+                                if (v == 'access') {
+                                  await showBoardAccessSheet(context, ref, b);
+                                } else if (v == 'rename') {
+                                  final n = await askText(context, title: 'Rename board', initial: b.name, action: 'Save');
+                                  if (n != null) await repo.renameBoard(b.id, n);
+                                } else if (v == 'delete') {
+                                  if (boards.length < 2) {
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(const SnackBar(content: Text('Make another board first. Kolumn always keeps one.')));
+                                    }
+                                    return;
                                   }
-                                  return;
+                                  if (!context.mounted) return;
+                                  final ok = await confirm(
+                                    context,
+                                    title: 'Delete "${b.name}"?',
+                                    body: 'The board and all its cards are removed for everyone who can see it.',
+                                    action: 'Delete board',
+                                  );
+                                  if (!ok) return;
+                                  await repo.deleteBoard(b.id);
+                                  if (b.id == current) {
+                                    final next = boards.firstWhere((x) => x.id != b.id);
+                                    await repo.setSetting('board.current', next.id);
+                                  }
                                 }
-                                if (!context.mounted) return;
-                                final ok = await confirm(
-                                  context,
-                                  title: 'Delete "${b.name}"?',
-                                  body: 'The board and all its cards are removed from this phone.',
-                                  action: 'Delete board',
-                                );
-                                if (!ok) return;
-                                await repo.deleteBoard(b.id);
-                                if (b.id == current) {
-                                  final next = boards.firstWhere((x) => x.id != b.id);
-                                  await repo.setSetting('board.current', next.id);
-                                }
-                              }
-                            },
-                            itemBuilder: (_) => const [
-                              PopupMenuItem(value: 'rename', child: Text('Rename')),
-                              PopupMenuItem(value: 'delete', child: Text('Delete board')),
-                            ],
-                          ),
+                              },
+                              itemBuilder: (_) => const [
+                                PopupMenuItem(value: 'access', child: Text('Who can see it')),
+                                PopupMenuItem(value: 'rename', child: Text('Rename')),
+                                PopupMenuItem(value: 'delete', child: Text('Delete board')),
+                              ],
+                            ),
                         ],
                       ),
                     ),
@@ -388,17 +403,18 @@ class _BoardsSheet extends ConsumerWidget {
                 ),
               ),
             const SizedBox(height: 8),
-            FilledButton.icon(
-              onPressed: () async {
-                final n = await askText(context, title: 'New board', action: 'Create', hint: 'Board name');
-                if (n == null) return;
-                final id = await repo.createBoard(n);
-                await repo.setSetting('board.current', id);
-                if (context.mounted) Navigator.pop(context);
-              },
-              icon: const Icon(Icons.add_rounded),
-              label: const Text('New board'),
-            ),
+            if (!readOnly)
+              FilledButton.icon(
+                onPressed: () async {
+                  final n = await askText(context, title: 'New board', action: 'Create', hint: 'Board name');
+                  if (n == null) return;
+                  final id = await repo.createBoard(n);
+                  await repo.setSetting('board.current', id);
+                  if (context.mounted) Navigator.pop(context);
+                },
+                icon: const Icon(Icons.add_rounded),
+                label: const Text('New board'),
+              ),
           ],
         ),
       ),
@@ -444,9 +460,107 @@ class _SettingsSheet extends ConsumerWidget {
               },
             ),
             const SizedBox(height: 20),
+            Text('Account', style: Theme.of(context).textTheme.labelLarge),
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                Expanded(
+                  child: Text('Signed in as ${ref.watch(meNameProvider).value ?? 'you'} with your hub login.', style: Theme.of(context).textTheme.bodyMedium),
+                ),
+                TextButton(
+                  onPressed: () async {
+                    final pending = ref.read(pendingCountProvider).value ?? 0;
+                    final ok = await confirm(
+                      context,
+                      title: 'Sign out of Kolumn?',
+                      body: pending > 0
+                          ? '$pending ${pending == 1 ? 'change hasn\'t' : 'changes haven\'t'} reached the hub yet and will be lost. Your boards stay safe in the hub.'
+                          : 'Your boards stay safe in the hub. Sign in again any time to see them.',
+                      action: 'Sign out',
+                    );
+                    if (!ok) return;
+                    if (context.mounted) Navigator.pop(context);
+                    await ref.read(syncServiceProvider).signOut();
+                  },
+                  child: const Text('Sign out'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
             Text(
-              'Kolumn 0.2, test version. Your boards are saved on this phone only for now. Sharing with your team comes next.',
+              'Kolumn 0.3, test version. Boards are shared through the hub and saved on this phone, so they work without a connection.',
               style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ------------------------------------------------------------------ board sharing
+
+/// Who can see a board: everyone with To-Dos, or only the people ticked.
+/// Its maker is always included.
+Future<void> showBoardAccessSheet(BuildContext context, WidgetRef ref, KBoard board) {
+  return showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    builder: (context) => _BoardAccessSheet(board: board),
+  );
+}
+
+class _BoardAccessSheet extends ConsumerStatefulWidget {
+  const _BoardAccessSheet({required this.board});
+  final KBoard board;
+
+  @override
+  ConsumerState<_BoardAccessSheet> createState() => _BoardAccessSheetState();
+}
+
+class _BoardAccessSheetState extends ConsumerState<_BoardAccessSheet> {
+  late bool _all = widget.board.allAccess;
+  late final Set<int> _members = {...(jsonDecode(widget.board.members) as List).map((e) => (e as num).toInt())};
+
+  @override
+  Widget build(BuildContext context) {
+    final people = ref.watch(peopleProvider).value ?? const <KPerson>[];
+    final maker = widget.board.creatorId;
+    final t = Theme.of(context).textTheme;
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('Who can see "${widget.board.name}"', style: t.titleLarge),
+            const SizedBox(height: 12),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Everyone with To-Dos'),
+              subtitle: Text(_all ? 'Anyone the hub lets use To-Dos sees this board.' : 'Only the people ticked below see it.'),
+              value: _all,
+              onChanged: (v) => setState(() => _all = v),
+            ),
+            if (!_all) ...[
+              const Divider(),
+              for (final p in people)
+                CheckboxListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(p.name),
+                  subtitle: p.id == maker ? const Text('Made this board, always included') : null,
+                  value: p.id == maker || _members.contains(p.id),
+                  onChanged: p.id == maker ? null : (v) => setState(() => v == true ? _members.add(p.id) : _members.remove(p.id)),
+                ),
+            ],
+            const SizedBox(height: 12),
+            FilledButton(
+              onPressed: () async {
+                final members = {..._members, ?maker}.toList();
+                await ref.read(repositoryProvider).setBoardAccess(widget.board.id, allAccess: _all, members: members);
+                if (context.mounted) Navigator.pop(context);
+              },
+              child: const Text('Save'),
             ),
           ],
         ),

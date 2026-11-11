@@ -17,6 +17,41 @@ class $KBoardsTable extends KBoards with TableInfo<$KBoardsTable, KBoard> {
   static const VerificationMeta _tidyDaysMeta = const VerificationMeta('tidyDays');
   @override
   late final GeneratedColumn<int> tidyDays = GeneratedColumn<int>('tidy_days', aliasedName, true, type: DriftSqlType.int, requiredDuringInsert: false);
+  static const VerificationMeta _allAccessMeta = const VerificationMeta('allAccess');
+  @override
+  late final GeneratedColumn<bool> allAccess = GeneratedColumn<bool>(
+    'all_access',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways('CHECK ("all_access" IN (0, 1))'),
+    defaultValue: const Constant(true),
+  );
+  static const VerificationMeta _creatorIdMeta = const VerificationMeta('creatorId');
+  @override
+  late final GeneratedColumn<int> creatorId = GeneratedColumn<int>('creator_id', aliasedName, true, type: DriftSqlType.int, requiredDuringInsert: false);
+  static const VerificationMeta _membersMeta = const VerificationMeta('members');
+  @override
+  late final GeneratedColumn<String> members = GeneratedColumn<String>(
+    'members',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('[]'),
+  );
+  static const VerificationMeta _canManageMeta = const VerificationMeta('canManage');
+  @override
+  late final GeneratedColumn<bool> canManage = GeneratedColumn<bool>(
+    'can_manage',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways('CHECK ("can_manage" IN (0, 1))'),
+    defaultValue: const Constant(true),
+  );
   static const VerificationMeta _createdAtMeta = const VerificationMeta('createdAt');
   @override
   late final GeneratedColumn<int> createdAt = GeneratedColumn<int>('created_at', aliasedName, false, type: DriftSqlType.int, requiredDuringInsert: true);
@@ -27,7 +62,7 @@ class $KBoardsTable extends KBoards with TableInfo<$KBoardsTable, KBoard> {
   @override
   late final GeneratedColumn<int> deletedAt = GeneratedColumn<int>('deleted_at', aliasedName, true, type: DriftSqlType.int, requiredDuringInsert: false);
   @override
-  List<GeneratedColumn> get $columns => [id, name, tidyDays, createdAt, updatedAt, deletedAt];
+  List<GeneratedColumn> get $columns => [id, name, tidyDays, allAccess, creatorId, members, canManage, createdAt, updatedAt, deletedAt];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -49,6 +84,18 @@ class $KBoardsTable extends KBoards with TableInfo<$KBoardsTable, KBoard> {
     }
     if (data.containsKey('tidy_days')) {
       context.handle(_tidyDaysMeta, tidyDays.isAcceptableOrUnknown(data['tidy_days']!, _tidyDaysMeta));
+    }
+    if (data.containsKey('all_access')) {
+      context.handle(_allAccessMeta, allAccess.isAcceptableOrUnknown(data['all_access']!, _allAccessMeta));
+    }
+    if (data.containsKey('creator_id')) {
+      context.handle(_creatorIdMeta, creatorId.isAcceptableOrUnknown(data['creator_id']!, _creatorIdMeta));
+    }
+    if (data.containsKey('members')) {
+      context.handle(_membersMeta, members.isAcceptableOrUnknown(data['members']!, _membersMeta));
+    }
+    if (data.containsKey('can_manage')) {
+      context.handle(_canManageMeta, canManage.isAcceptableOrUnknown(data['can_manage']!, _canManageMeta));
     }
     if (data.containsKey('created_at')) {
       context.handle(_createdAtMeta, createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta));
@@ -75,6 +122,10 @@ class $KBoardsTable extends KBoards with TableInfo<$KBoardsTable, KBoard> {
       id: attachedDatabase.typeMapping.read(DriftSqlType.string, data['${effectivePrefix}id'])!,
       name: attachedDatabase.typeMapping.read(DriftSqlType.string, data['${effectivePrefix}name'])!,
       tidyDays: attachedDatabase.typeMapping.read(DriftSqlType.int, data['${effectivePrefix}tidy_days']),
+      allAccess: attachedDatabase.typeMapping.read(DriftSqlType.bool, data['${effectivePrefix}all_access'])!,
+      creatorId: attachedDatabase.typeMapping.read(DriftSqlType.int, data['${effectivePrefix}creator_id']),
+      members: attachedDatabase.typeMapping.read(DriftSqlType.string, data['${effectivePrefix}members'])!,
+      canManage: attachedDatabase.typeMapping.read(DriftSqlType.bool, data['${effectivePrefix}can_manage'])!,
       createdAt: attachedDatabase.typeMapping.read(DriftSqlType.int, data['${effectivePrefix}created_at'])!,
       updatedAt: attachedDatabase.typeMapping.read(DriftSqlType.int, data['${effectivePrefix}updated_at'])!,
       deletedAt: attachedDatabase.typeMapping.read(DriftSqlType.int, data['${effectivePrefix}deleted_at']),
@@ -91,10 +142,25 @@ class KBoard extends DataClass implements Insertable<KBoard> {
   final String id;
   final String name;
   final int? tidyDays;
+  final bool allAccess;
+  final int? creatorId;
+  final String members;
+  final bool canManage;
   final int createdAt;
   final int updatedAt;
   final int? deletedAt;
-  const KBoard({required this.id, required this.name, this.tidyDays, required this.createdAt, required this.updatedAt, this.deletedAt});
+  const KBoard({
+    required this.id,
+    required this.name,
+    this.tidyDays,
+    required this.allAccess,
+    this.creatorId,
+    required this.members,
+    required this.canManage,
+    required this.createdAt,
+    required this.updatedAt,
+    this.deletedAt,
+  });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -103,6 +169,12 @@ class KBoard extends DataClass implements Insertable<KBoard> {
     if (!nullToAbsent || tidyDays != null) {
       map['tidy_days'] = Variable<int>(tidyDays);
     }
+    map['all_access'] = Variable<bool>(allAccess);
+    if (!nullToAbsent || creatorId != null) {
+      map['creator_id'] = Variable<int>(creatorId);
+    }
+    map['members'] = Variable<String>(members);
+    map['can_manage'] = Variable<bool>(canManage);
     map['created_at'] = Variable<int>(createdAt);
     map['updated_at'] = Variable<int>(updatedAt);
     if (!nullToAbsent || deletedAt != null) {
@@ -116,6 +188,10 @@ class KBoard extends DataClass implements Insertable<KBoard> {
       id: Value(id),
       name: Value(name),
       tidyDays: tidyDays == null && nullToAbsent ? const Value.absent() : Value(tidyDays),
+      allAccess: Value(allAccess),
+      creatorId: creatorId == null && nullToAbsent ? const Value.absent() : Value(creatorId),
+      members: Value(members),
+      canManage: Value(canManage),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
       deletedAt: deletedAt == null && nullToAbsent ? const Value.absent() : Value(deletedAt),
@@ -128,6 +204,10 @@ class KBoard extends DataClass implements Insertable<KBoard> {
       id: serializer.fromJson<String>(json['id']),
       name: serializer.fromJson<String>(json['name']),
       tidyDays: serializer.fromJson<int?>(json['tidyDays']),
+      allAccess: serializer.fromJson<bool>(json['allAccess']),
+      creatorId: serializer.fromJson<int?>(json['creatorId']),
+      members: serializer.fromJson<String>(json['members']),
+      canManage: serializer.fromJson<bool>(json['canManage']),
       createdAt: serializer.fromJson<int>(json['createdAt']),
       updatedAt: serializer.fromJson<int>(json['updatedAt']),
       deletedAt: serializer.fromJson<int?>(json['deletedAt']),
@@ -140,6 +220,10 @@ class KBoard extends DataClass implements Insertable<KBoard> {
       'id': serializer.toJson<String>(id),
       'name': serializer.toJson<String>(name),
       'tidyDays': serializer.toJson<int?>(tidyDays),
+      'allAccess': serializer.toJson<bool>(allAccess),
+      'creatorId': serializer.toJson<int?>(creatorId),
+      'members': serializer.toJson<String>(members),
+      'canManage': serializer.toJson<bool>(canManage),
       'createdAt': serializer.toJson<int>(createdAt),
       'updatedAt': serializer.toJson<int>(updatedAt),
       'deletedAt': serializer.toJson<int?>(deletedAt),
@@ -150,6 +234,10 @@ class KBoard extends DataClass implements Insertable<KBoard> {
     String? id,
     String? name,
     Value<int?> tidyDays = const Value.absent(),
+    bool? allAccess,
+    Value<int?> creatorId = const Value.absent(),
+    String? members,
+    bool? canManage,
     int? createdAt,
     int? updatedAt,
     Value<int?> deletedAt = const Value.absent(),
@@ -157,6 +245,10 @@ class KBoard extends DataClass implements Insertable<KBoard> {
     id: id ?? this.id,
     name: name ?? this.name,
     tidyDays: tidyDays.present ? tidyDays.value : this.tidyDays,
+    allAccess: allAccess ?? this.allAccess,
+    creatorId: creatorId.present ? creatorId.value : this.creatorId,
+    members: members ?? this.members,
+    canManage: canManage ?? this.canManage,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
     deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
@@ -166,6 +258,10 @@ class KBoard extends DataClass implements Insertable<KBoard> {
       id: data.id.present ? data.id.value : this.id,
       name: data.name.present ? data.name.value : this.name,
       tidyDays: data.tidyDays.present ? data.tidyDays.value : this.tidyDays,
+      allAccess: data.allAccess.present ? data.allAccess.value : this.allAccess,
+      creatorId: data.creatorId.present ? data.creatorId.value : this.creatorId,
+      members: data.members.present ? data.members.value : this.members,
+      canManage: data.canManage.present ? data.canManage.value : this.canManage,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
       deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
@@ -178,6 +274,10 @@ class KBoard extends DataClass implements Insertable<KBoard> {
           ..write('id: $id, ')
           ..write('name: $name, ')
           ..write('tidyDays: $tidyDays, ')
+          ..write('allAccess: $allAccess, ')
+          ..write('creatorId: $creatorId, ')
+          ..write('members: $members, ')
+          ..write('canManage: $canManage, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('deletedAt: $deletedAt')
@@ -186,7 +286,7 @@ class KBoard extends DataClass implements Insertable<KBoard> {
   }
 
   @override
-  int get hashCode => Object.hash(id, name, tidyDays, createdAt, updatedAt, deletedAt);
+  int get hashCode => Object.hash(id, name, tidyDays, allAccess, creatorId, members, canManage, createdAt, updatedAt, deletedAt);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -194,6 +294,10 @@ class KBoard extends DataClass implements Insertable<KBoard> {
           other.id == this.id &&
           other.name == this.name &&
           other.tidyDays == this.tidyDays &&
+          other.allAccess == this.allAccess &&
+          other.creatorId == this.creatorId &&
+          other.members == this.members &&
+          other.canManage == this.canManage &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt &&
           other.deletedAt == this.deletedAt);
@@ -203,6 +307,10 @@ class KBoardsCompanion extends UpdateCompanion<KBoard> {
   final Value<String> id;
   final Value<String> name;
   final Value<int?> tidyDays;
+  final Value<bool> allAccess;
+  final Value<int?> creatorId;
+  final Value<String> members;
+  final Value<bool> canManage;
   final Value<int> createdAt;
   final Value<int> updatedAt;
   final Value<int?> deletedAt;
@@ -211,6 +319,10 @@ class KBoardsCompanion extends UpdateCompanion<KBoard> {
     this.id = const Value.absent(),
     this.name = const Value.absent(),
     this.tidyDays = const Value.absent(),
+    this.allAccess = const Value.absent(),
+    this.creatorId = const Value.absent(),
+    this.members = const Value.absent(),
+    this.canManage = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.deletedAt = const Value.absent(),
@@ -220,6 +332,10 @@ class KBoardsCompanion extends UpdateCompanion<KBoard> {
     required String id,
     required String name,
     this.tidyDays = const Value.absent(),
+    this.allAccess = const Value.absent(),
+    this.creatorId = const Value.absent(),
+    this.members = const Value.absent(),
+    this.canManage = const Value.absent(),
     required int createdAt,
     required int updatedAt,
     this.deletedAt = const Value.absent(),
@@ -232,6 +348,10 @@ class KBoardsCompanion extends UpdateCompanion<KBoard> {
     Expression<String>? id,
     Expression<String>? name,
     Expression<int>? tidyDays,
+    Expression<bool>? allAccess,
+    Expression<int>? creatorId,
+    Expression<String>? members,
+    Expression<bool>? canManage,
     Expression<int>? createdAt,
     Expression<int>? updatedAt,
     Expression<int>? deletedAt,
@@ -241,6 +361,10 @@ class KBoardsCompanion extends UpdateCompanion<KBoard> {
       if (id != null) 'id': id,
       if (name != null) 'name': name,
       if (tidyDays != null) 'tidy_days': tidyDays,
+      if (allAccess != null) 'all_access': allAccess,
+      if (creatorId != null) 'creator_id': creatorId,
+      if (members != null) 'members': members,
+      if (canManage != null) 'can_manage': canManage,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (deletedAt != null) 'deleted_at': deletedAt,
@@ -252,6 +376,10 @@ class KBoardsCompanion extends UpdateCompanion<KBoard> {
     Value<String>? id,
     Value<String>? name,
     Value<int?>? tidyDays,
+    Value<bool>? allAccess,
+    Value<int?>? creatorId,
+    Value<String>? members,
+    Value<bool>? canManage,
     Value<int>? createdAt,
     Value<int>? updatedAt,
     Value<int?>? deletedAt,
@@ -261,6 +389,10 @@ class KBoardsCompanion extends UpdateCompanion<KBoard> {
       id: id ?? this.id,
       name: name ?? this.name,
       tidyDays: tidyDays ?? this.tidyDays,
+      allAccess: allAccess ?? this.allAccess,
+      creatorId: creatorId ?? this.creatorId,
+      members: members ?? this.members,
+      canManage: canManage ?? this.canManage,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       deletedAt: deletedAt ?? this.deletedAt,
@@ -279,6 +411,18 @@ class KBoardsCompanion extends UpdateCompanion<KBoard> {
     }
     if (tidyDays.present) {
       map['tidy_days'] = Variable<int>(tidyDays.value);
+    }
+    if (allAccess.present) {
+      map['all_access'] = Variable<bool>(allAccess.value);
+    }
+    if (creatorId.present) {
+      map['creator_id'] = Variable<int>(creatorId.value);
+    }
+    if (members.present) {
+      map['members'] = Variable<String>(members.value);
+    }
+    if (canManage.present) {
+      map['can_manage'] = Variable<bool>(canManage.value);
     }
     if (createdAt.present) {
       map['created_at'] = Variable<int>(createdAt.value);
@@ -301,6 +445,10 @@ class KBoardsCompanion extends UpdateCompanion<KBoard> {
           ..write('id: $id, ')
           ..write('name: $name, ')
           ..write('tidyDays: $tidyDays, ')
+          ..write('allAccess: $allAccess, ')
+          ..write('creatorId: $creatorId, ')
+          ..write('members: $members, ')
+          ..write('canManage: $canManage, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('deletedAt: $deletedAt, ')
@@ -758,6 +906,30 @@ class $KCardsTable extends KCards with TableInfo<$KCardsTable, KCard> {
   static const VerificationMeta _lastActiveAtMeta = const VerificationMeta('lastActiveAt');
   @override
   late final GeneratedColumn<int> lastActiveAt = GeneratedColumn<int>('last_active_at', aliasedName, false, type: DriftSqlType.int, requiredDuringInsert: true);
+  static const VerificationMeta _revMeta = const VerificationMeta('rev');
+  @override
+  late final GeneratedColumn<int> rev = GeneratedColumn<int>(
+    'rev',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _syncedMeta = const VerificationMeta('synced');
+  @override
+  late final GeneratedColumn<bool> synced = GeneratedColumn<bool>(
+    'synced',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways('CHECK ("synced" IN (0, 1))'),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _creatorIdMeta = const VerificationMeta('creatorId');
+  @override
+  late final GeneratedColumn<int> creatorId = GeneratedColumn<int>('creator_id', aliasedName, true, type: DriftSqlType.int, requiredDuringInsert: false);
   static const VerificationMeta _createdAtMeta = const VerificationMeta('createdAt');
   @override
   late final GeneratedColumn<int> createdAt = GeneratedColumn<int>('created_at', aliasedName, false, type: DriftSqlType.int, requiredDuringInsert: true);
@@ -782,6 +954,9 @@ class $KCardsTable extends KCards with TableInfo<$KCardsTable, KCard> {
     dueAt,
     dueHasTime,
     lastActiveAt,
+    rev,
+    synced,
+    creatorId,
     createdAt,
     updatedAt,
     deletedAt,
@@ -844,6 +1019,15 @@ class $KCardsTable extends KCards with TableInfo<$KCardsTable, KCard> {
     } else if (isInserting) {
       context.missing(_lastActiveAtMeta);
     }
+    if (data.containsKey('rev')) {
+      context.handle(_revMeta, rev.isAcceptableOrUnknown(data['rev']!, _revMeta));
+    }
+    if (data.containsKey('synced')) {
+      context.handle(_syncedMeta, synced.isAcceptableOrUnknown(data['synced']!, _syncedMeta));
+    }
+    if (data.containsKey('creator_id')) {
+      context.handle(_creatorIdMeta, creatorId.isAcceptableOrUnknown(data['creator_id']!, _creatorIdMeta));
+    }
     if (data.containsKey('created_at')) {
       context.handle(_createdAtMeta, createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta));
     } else if (isInserting) {
@@ -879,6 +1063,9 @@ class $KCardsTable extends KCards with TableInfo<$KCardsTable, KCard> {
       dueAt: attachedDatabase.typeMapping.read(DriftSqlType.int, data['${effectivePrefix}due_at']),
       dueHasTime: attachedDatabase.typeMapping.read(DriftSqlType.bool, data['${effectivePrefix}due_has_time'])!,
       lastActiveAt: attachedDatabase.typeMapping.read(DriftSqlType.int, data['${effectivePrefix}last_active_at'])!,
+      rev: attachedDatabase.typeMapping.read(DriftSqlType.int, data['${effectivePrefix}rev'])!,
+      synced: attachedDatabase.typeMapping.read(DriftSqlType.bool, data['${effectivePrefix}synced'])!,
+      creatorId: attachedDatabase.typeMapping.read(DriftSqlType.int, data['${effectivePrefix}creator_id']),
       createdAt: attachedDatabase.typeMapping.read(DriftSqlType.int, data['${effectivePrefix}created_at'])!,
       updatedAt: attachedDatabase.typeMapping.read(DriftSqlType.int, data['${effectivePrefix}updated_at'])!,
       deletedAt: attachedDatabase.typeMapping.read(DriftSqlType.int, data['${effectivePrefix}deleted_at']),
@@ -905,6 +1092,9 @@ class KCard extends DataClass implements Insertable<KCard> {
   final int? dueAt;
   final bool dueHasTime;
   final int lastActiveAt;
+  final int rev;
+  final bool synced;
+  final int? creatorId;
   final int createdAt;
   final int updatedAt;
   final int? deletedAt;
@@ -922,6 +1112,9 @@ class KCard extends DataClass implements Insertable<KCard> {
     this.dueAt,
     required this.dueHasTime,
     required this.lastActiveAt,
+    required this.rev,
+    required this.synced,
+    this.creatorId,
     required this.createdAt,
     required this.updatedAt,
     this.deletedAt,
@@ -954,6 +1147,11 @@ class KCard extends DataClass implements Insertable<KCard> {
     }
     map['due_has_time'] = Variable<bool>(dueHasTime);
     map['last_active_at'] = Variable<int>(lastActiveAt);
+    map['rev'] = Variable<int>(rev);
+    map['synced'] = Variable<bool>(synced);
+    if (!nullToAbsent || creatorId != null) {
+      map['creator_id'] = Variable<int>(creatorId);
+    }
     map['created_at'] = Variable<int>(createdAt);
     map['updated_at'] = Variable<int>(updatedAt);
     if (!nullToAbsent || deletedAt != null) {
@@ -977,6 +1175,9 @@ class KCard extends DataClass implements Insertable<KCard> {
       dueAt: dueAt == null && nullToAbsent ? const Value.absent() : Value(dueAt),
       dueHasTime: Value(dueHasTime),
       lastActiveAt: Value(lastActiveAt),
+      rev: Value(rev),
+      synced: Value(synced),
+      creatorId: creatorId == null && nullToAbsent ? const Value.absent() : Value(creatorId),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
       deletedAt: deletedAt == null && nullToAbsent ? const Value.absent() : Value(deletedAt),
@@ -999,6 +1200,9 @@ class KCard extends DataClass implements Insertable<KCard> {
       dueAt: serializer.fromJson<int?>(json['dueAt']),
       dueHasTime: serializer.fromJson<bool>(json['dueHasTime']),
       lastActiveAt: serializer.fromJson<int>(json['lastActiveAt']),
+      rev: serializer.fromJson<int>(json['rev']),
+      synced: serializer.fromJson<bool>(json['synced']),
+      creatorId: serializer.fromJson<int?>(json['creatorId']),
       createdAt: serializer.fromJson<int>(json['createdAt']),
       updatedAt: serializer.fromJson<int>(json['updatedAt']),
       deletedAt: serializer.fromJson<int?>(json['deletedAt']),
@@ -1021,6 +1225,9 @@ class KCard extends DataClass implements Insertable<KCard> {
       'dueAt': serializer.toJson<int?>(dueAt),
       'dueHasTime': serializer.toJson<bool>(dueHasTime),
       'lastActiveAt': serializer.toJson<int>(lastActiveAt),
+      'rev': serializer.toJson<int>(rev),
+      'synced': serializer.toJson<bool>(synced),
+      'creatorId': serializer.toJson<int?>(creatorId),
       'createdAt': serializer.toJson<int>(createdAt),
       'updatedAt': serializer.toJson<int>(updatedAt),
       'deletedAt': serializer.toJson<int?>(deletedAt),
@@ -1041,6 +1248,9 @@ class KCard extends DataClass implements Insertable<KCard> {
     Value<int?> dueAt = const Value.absent(),
     bool? dueHasTime,
     int? lastActiveAt,
+    int? rev,
+    bool? synced,
+    Value<int?> creatorId = const Value.absent(),
     int? createdAt,
     int? updatedAt,
     Value<int?> deletedAt = const Value.absent(),
@@ -1058,6 +1268,9 @@ class KCard extends DataClass implements Insertable<KCard> {
     dueAt: dueAt.present ? dueAt.value : this.dueAt,
     dueHasTime: dueHasTime ?? this.dueHasTime,
     lastActiveAt: lastActiveAt ?? this.lastActiveAt,
+    rev: rev ?? this.rev,
+    synced: synced ?? this.synced,
+    creatorId: creatorId.present ? creatorId.value : this.creatorId,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
     deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
@@ -1077,6 +1290,9 @@ class KCard extends DataClass implements Insertable<KCard> {
       dueAt: data.dueAt.present ? data.dueAt.value : this.dueAt,
       dueHasTime: data.dueHasTime.present ? data.dueHasTime.value : this.dueHasTime,
       lastActiveAt: data.lastActiveAt.present ? data.lastActiveAt.value : this.lastActiveAt,
+      rev: data.rev.present ? data.rev.value : this.rev,
+      synced: data.synced.present ? data.synced.value : this.synced,
+      creatorId: data.creatorId.present ? data.creatorId.value : this.creatorId,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
       deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
@@ -1099,6 +1315,9 @@ class KCard extends DataClass implements Insertable<KCard> {
           ..write('dueAt: $dueAt, ')
           ..write('dueHasTime: $dueHasTime, ')
           ..write('lastActiveAt: $lastActiveAt, ')
+          ..write('rev: $rev, ')
+          ..write('synced: $synced, ')
+          ..write('creatorId: $creatorId, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('deletedAt: $deletedAt')
@@ -1121,6 +1340,9 @@ class KCard extends DataClass implements Insertable<KCard> {
     dueAt,
     dueHasTime,
     lastActiveAt,
+    rev,
+    synced,
+    creatorId,
     createdAt,
     updatedAt,
     deletedAt,
@@ -1142,6 +1364,9 @@ class KCard extends DataClass implements Insertable<KCard> {
           other.dueAt == this.dueAt &&
           other.dueHasTime == this.dueHasTime &&
           other.lastActiveAt == this.lastActiveAt &&
+          other.rev == this.rev &&
+          other.synced == this.synced &&
+          other.creatorId == this.creatorId &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt &&
           other.deletedAt == this.deletedAt);
@@ -1161,6 +1386,9 @@ class KCardsCompanion extends UpdateCompanion<KCard> {
   final Value<int?> dueAt;
   final Value<bool> dueHasTime;
   final Value<int> lastActiveAt;
+  final Value<int> rev;
+  final Value<bool> synced;
+  final Value<int?> creatorId;
   final Value<int> createdAt;
   final Value<int> updatedAt;
   final Value<int?> deletedAt;
@@ -1179,6 +1407,9 @@ class KCardsCompanion extends UpdateCompanion<KCard> {
     this.dueAt = const Value.absent(),
     this.dueHasTime = const Value.absent(),
     this.lastActiveAt = const Value.absent(),
+    this.rev = const Value.absent(),
+    this.synced = const Value.absent(),
+    this.creatorId = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.deletedAt = const Value.absent(),
@@ -1198,6 +1429,9 @@ class KCardsCompanion extends UpdateCompanion<KCard> {
     this.dueAt = const Value.absent(),
     this.dueHasTime = const Value.absent(),
     required int lastActiveAt,
+    this.rev = const Value.absent(),
+    this.synced = const Value.absent(),
+    this.creatorId = const Value.absent(),
     required int createdAt,
     required int updatedAt,
     this.deletedAt = const Value.absent(),
@@ -1223,6 +1457,9 @@ class KCardsCompanion extends UpdateCompanion<KCard> {
     Expression<int>? dueAt,
     Expression<bool>? dueHasTime,
     Expression<int>? lastActiveAt,
+    Expression<int>? rev,
+    Expression<bool>? synced,
+    Expression<int>? creatorId,
     Expression<int>? createdAt,
     Expression<int>? updatedAt,
     Expression<int>? deletedAt,
@@ -1242,6 +1479,9 @@ class KCardsCompanion extends UpdateCompanion<KCard> {
       if (dueAt != null) 'due_at': dueAt,
       if (dueHasTime != null) 'due_has_time': dueHasTime,
       if (lastActiveAt != null) 'last_active_at': lastActiveAt,
+      if (rev != null) 'rev': rev,
+      if (synced != null) 'synced': synced,
+      if (creatorId != null) 'creator_id': creatorId,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (deletedAt != null) 'deleted_at': deletedAt,
@@ -1263,6 +1503,9 @@ class KCardsCompanion extends UpdateCompanion<KCard> {
     Value<int?>? dueAt,
     Value<bool>? dueHasTime,
     Value<int>? lastActiveAt,
+    Value<int>? rev,
+    Value<bool>? synced,
+    Value<int?>? creatorId,
     Value<int>? createdAt,
     Value<int>? updatedAt,
     Value<int?>? deletedAt,
@@ -1282,6 +1525,9 @@ class KCardsCompanion extends UpdateCompanion<KCard> {
       dueAt: dueAt ?? this.dueAt,
       dueHasTime: dueHasTime ?? this.dueHasTime,
       lastActiveAt: lastActiveAt ?? this.lastActiveAt,
+      rev: rev ?? this.rev,
+      synced: synced ?? this.synced,
+      creatorId: creatorId ?? this.creatorId,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       deletedAt: deletedAt ?? this.deletedAt,
@@ -1331,6 +1577,15 @@ class KCardsCompanion extends UpdateCompanion<KCard> {
     if (lastActiveAt.present) {
       map['last_active_at'] = Variable<int>(lastActiveAt.value);
     }
+    if (rev.present) {
+      map['rev'] = Variable<int>(rev.value);
+    }
+    if (synced.present) {
+      map['synced'] = Variable<bool>(synced.value);
+    }
+    if (creatorId.present) {
+      map['creator_id'] = Variable<int>(creatorId.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<int>(createdAt.value);
     }
@@ -1362,10 +1617,144 @@ class KCardsCompanion extends UpdateCompanion<KCard> {
           ..write('dueAt: $dueAt, ')
           ..write('dueHasTime: $dueHasTime, ')
           ..write('lastActiveAt: $lastActiveAt, ')
+          ..write('rev: $rev, ')
+          ..write('synced: $synced, ')
+          ..write('creatorId: $creatorId, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('deletedAt: $deletedAt, ')
           ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $KPeopleTable extends KPeople with TableInfo<$KPeopleTable, KPerson> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $KPeopleTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>('id', aliasedName, false, type: DriftSqlType.int, requiredDuringInsert: false);
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>('name', aliasedName, false, type: DriftSqlType.string, requiredDuringInsert: true);
+  @override
+  List<GeneratedColumn> get $columns => [id, name];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'k_people';
+  @override
+  VerificationContext validateIntegrity(Insertable<KPerson> instance, {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('name')) {
+      context.handle(_nameMeta, name.isAcceptableOrUnknown(data['name']!, _nameMeta));
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  KPerson map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return KPerson(
+      id: attachedDatabase.typeMapping.read(DriftSqlType.int, data['${effectivePrefix}id'])!,
+      name: attachedDatabase.typeMapping.read(DriftSqlType.string, data['${effectivePrefix}name'])!,
+    );
+  }
+
+  @override
+  $KPeopleTable createAlias(String alias) {
+    return $KPeopleTable(attachedDatabase, alias);
+  }
+}
+
+class KPerson extends DataClass implements Insertable<KPerson> {
+  final int id;
+  final String name;
+  const KPerson({required this.id, required this.name});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['name'] = Variable<String>(name);
+    return map;
+  }
+
+  KPeopleCompanion toCompanion(bool nullToAbsent) {
+    return KPeopleCompanion(id: Value(id), name: Value(name));
+  }
+
+  factory KPerson.fromJson(Map<String, dynamic> json, {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return KPerson(id: serializer.fromJson<int>(json['id']), name: serializer.fromJson<String>(json['name']));
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{'id': serializer.toJson<int>(id), 'name': serializer.toJson<String>(name)};
+  }
+
+  KPerson copyWith({int? id, String? name}) => KPerson(id: id ?? this.id, name: name ?? this.name);
+  KPerson copyWithCompanion(KPeopleCompanion data) {
+    return KPerson(id: data.id.present ? data.id.value : this.id, name: data.name.present ? data.name.value : this.name);
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('KPerson(')
+          ..write('id: $id, ')
+          ..write('name: $name')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, name);
+  @override
+  bool operator ==(Object other) => identical(this, other) || (other is KPerson && other.id == this.id && other.name == this.name);
+}
+
+class KPeopleCompanion extends UpdateCompanion<KPerson> {
+  final Value<int> id;
+  final Value<String> name;
+  const KPeopleCompanion({this.id = const Value.absent(), this.name = const Value.absent()});
+  KPeopleCompanion.insert({this.id = const Value.absent(), required String name}) : name = Value(name);
+  static Insertable<KPerson> custom({Expression<int>? id, Expression<String>? name}) {
+    return RawValuesInsertable({if (id != null) 'id': id, if (name != null) 'name': name});
+  }
+
+  KPeopleCompanion copyWith({Value<int>? id, Value<String>? name}) {
+    return KPeopleCompanion(id: id ?? this.id, name: name ?? this.name);
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('KPeopleCompanion(')
+          ..write('id: $id, ')
+          ..write('name: $name')
           ..write(')'))
         .toString();
   }
@@ -1771,18 +2160,23 @@ abstract class _$KolumnDb extends GeneratedDatabase {
   late final $KBoardsTable kBoards = $KBoardsTable(this);
   late final $KColumnsTable kColumns = $KColumnsTable(this);
   late final $KCardsTable kCards = $KCardsTable(this);
+  late final $KPeopleTable kPeople = $KPeopleTable(this);
   late final $KSettingsTable kSettings = $KSettingsTable(this);
   late final $KOutboxTable kOutbox = $KOutboxTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables => allSchemaEntities.whereType<TableInfo<Table, Object?>>();
   @override
-  List<DatabaseSchemaEntity> get allSchemaEntities => [kBoards, kColumns, kCards, kSettings, kOutbox];
+  List<DatabaseSchemaEntity> get allSchemaEntities => [kBoards, kColumns, kCards, kPeople, kSettings, kOutbox];
 }
 
 typedef $$KBoardsTableCreateCompanionBuilder = KBoardsCompanion Function({
   required String id,
   required String name,
   Value<int?> tidyDays,
+  Value<bool> allAccess,
+  Value<int?> creatorId,
+  Value<String> members,
+  Value<bool> canManage,
   required int createdAt,
   required int updatedAt,
   Value<int?> deletedAt,
@@ -1792,6 +2186,10 @@ typedef $$KBoardsTableUpdateCompanionBuilder = KBoardsCompanion Function({
   Value<String> id,
   Value<String> name,
   Value<int?> tidyDays,
+  Value<bool> allAccess,
+  Value<int?> creatorId,
+  Value<String> members,
+  Value<bool> canManage,
   Value<int> createdAt,
   Value<int> updatedAt,
   Value<int?> deletedAt,
@@ -1811,6 +2209,14 @@ class $$KBoardsTableFilterComposer extends Composer<_$KolumnDb, $KBoardsTable> {
   ColumnFilters<String> get name => $composableBuilder(column: $table.name, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<int> get tidyDays => $composableBuilder(column: $table.tidyDays, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<bool> get allAccess => $composableBuilder(column: $table.allAccess, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get creatorId => $composableBuilder(column: $table.creatorId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get members => $composableBuilder(column: $table.members, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<bool> get canManage => $composableBuilder(column: $table.canManage, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<int> get createdAt => $composableBuilder(column: $table.createdAt, builder: (column) => ColumnFilters(column));
 
@@ -1833,6 +2239,14 @@ class $$KBoardsTableOrderingComposer extends Composer<_$KolumnDb, $KBoardsTable>
 
   ColumnOrderings<int> get tidyDays => $composableBuilder(column: $table.tidyDays, builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<bool> get allAccess => $composableBuilder(column: $table.allAccess, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get creatorId => $composableBuilder(column: $table.creatorId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get members => $composableBuilder(column: $table.members, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<bool> get canManage => $composableBuilder(column: $table.canManage, builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<int> get createdAt => $composableBuilder(column: $table.createdAt, builder: (column) => ColumnOrderings(column));
 
   ColumnOrderings<int> get updatedAt => $composableBuilder(column: $table.updatedAt, builder: (column) => ColumnOrderings(column));
@@ -1853,6 +2267,14 @@ class $$KBoardsTableAnnotationComposer extends Composer<_$KolumnDb, $KBoardsTabl
   GeneratedColumn<String> get name => $composableBuilder(column: $table.name, builder: (column) => column);
 
   GeneratedColumn<int> get tidyDays => $composableBuilder(column: $table.tidyDays, builder: (column) => column);
+
+  GeneratedColumn<bool> get allAccess => $composableBuilder(column: $table.allAccess, builder: (column) => column);
+
+  GeneratedColumn<int> get creatorId => $composableBuilder(column: $table.creatorId, builder: (column) => column);
+
+  GeneratedColumn<String> get members => $composableBuilder(column: $table.members, builder: (column) => column);
+
+  GeneratedColumn<bool> get canManage => $composableBuilder(column: $table.canManage, builder: (column) => column);
 
   GeneratedColumn<int> get createdAt => $composableBuilder(column: $table.createdAt, builder: (column) => column);
 
@@ -1884,24 +2306,58 @@ class $$KBoardsTableTableManager
           createFilteringComposer: () => $$KBoardsTableFilterComposer($db: db, $table: table),
           createOrderingComposer: () => $$KBoardsTableOrderingComposer($db: db, $table: table),
           createComputedFieldComposer: () => $$KBoardsTableAnnotationComposer($db: db, $table: table),
-          updateCompanionCallback: ({
-            Value<String> id = const Value.absent(),
-            Value<String> name = const Value.absent(),
-            Value<int?> tidyDays = const Value.absent(),
-            Value<int> createdAt = const Value.absent(),
-            Value<int> updatedAt = const Value.absent(),
-            Value<int?> deletedAt = const Value.absent(),
-            Value<int> rowid = const Value.absent(),
-          }) => KBoardsCompanion(id: id, name: name, tidyDays: tidyDays, createdAt: createdAt, updatedAt: updatedAt, deletedAt: deletedAt, rowid: rowid),
-          createCompanionCallback: ({
-            required String id,
-            required String name,
-            Value<int?> tidyDays = const Value.absent(),
-            required int createdAt,
-            required int updatedAt,
-            Value<int?> deletedAt = const Value.absent(),
-            Value<int> rowid = const Value.absent(),
-          }) => KBoardsCompanion.insert(id: id, name: name, tidyDays: tidyDays, createdAt: createdAt, updatedAt: updatedAt, deletedAt: deletedAt, rowid: rowid),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<int?> tidyDays = const Value.absent(),
+                Value<bool> allAccess = const Value.absent(),
+                Value<int?> creatorId = const Value.absent(),
+                Value<String> members = const Value.absent(),
+                Value<bool> canManage = const Value.absent(),
+                Value<int> createdAt = const Value.absent(),
+                Value<int> updatedAt = const Value.absent(),
+                Value<int?> deletedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => KBoardsCompanion(
+                id: id,
+                name: name,
+                tidyDays: tidyDays,
+                allAccess: allAccess,
+                creatorId: creatorId,
+                members: members,
+                canManage: canManage,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String name,
+                Value<int?> tidyDays = const Value.absent(),
+                Value<bool> allAccess = const Value.absent(),
+                Value<int?> creatorId = const Value.absent(),
+                Value<String> members = const Value.absent(),
+                Value<bool> canManage = const Value.absent(),
+                required int createdAt,
+                required int updatedAt,
+                Value<int?> deletedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => KBoardsCompanion.insert(
+                id: id,
+                name: name,
+                tidyDays: tidyDays,
+                allAccess: allAccess,
+                creatorId: creatorId,
+                members: members,
+                canManage: canManage,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                rowid: rowid,
+              ),
           withReferenceMapper: (p0) =>
               p0.map((e) => (e.readTable<$KBoardsTable, KBoard>(table), BaseReferences<_$KolumnDb, $KBoardsTable, KBoard>(db, table, e))).toList(),
           prefetchHooksCallback: null,
@@ -2123,6 +2579,9 @@ typedef $$KCardsTableCreateCompanionBuilder = KCardsCompanion Function({
   Value<int?> dueAt,
   Value<bool> dueHasTime,
   required int lastActiveAt,
+  Value<int> rev,
+  Value<bool> synced,
+  Value<int?> creatorId,
   required int createdAt,
   required int updatedAt,
   Value<int?> deletedAt,
@@ -2142,6 +2601,9 @@ typedef $$KCardsTableUpdateCompanionBuilder = KCardsCompanion Function({
   Value<int?> dueAt,
   Value<bool> dueHasTime,
   Value<int> lastActiveAt,
+  Value<int> rev,
+  Value<bool> synced,
+  Value<int?> creatorId,
   Value<int> createdAt,
   Value<int> updatedAt,
   Value<int?> deletedAt,
@@ -2181,6 +2643,12 @@ class $$KCardsTableFilterComposer extends Composer<_$KolumnDb, $KCardsTable> {
   ColumnFilters<bool> get dueHasTime => $composableBuilder(column: $table.dueHasTime, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<int> get lastActiveAt => $composableBuilder(column: $table.lastActiveAt, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get rev => $composableBuilder(column: $table.rev, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<bool> get synced => $composableBuilder(column: $table.synced, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get creatorId => $composableBuilder(column: $table.creatorId, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<int> get createdAt => $composableBuilder(column: $table.createdAt, builder: (column) => ColumnFilters(column));
 
@@ -2223,6 +2691,12 @@ class $$KCardsTableOrderingComposer extends Composer<_$KolumnDb, $KCardsTable> {
 
   ColumnOrderings<int> get lastActiveAt => $composableBuilder(column: $table.lastActiveAt, builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<int> get rev => $composableBuilder(column: $table.rev, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<bool> get synced => $composableBuilder(column: $table.synced, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get creatorId => $composableBuilder(column: $table.creatorId, builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<int> get createdAt => $composableBuilder(column: $table.createdAt, builder: (column) => ColumnOrderings(column));
 
   ColumnOrderings<int> get updatedAt => $composableBuilder(column: $table.updatedAt, builder: (column) => ColumnOrderings(column));
@@ -2263,6 +2737,12 @@ class $$KCardsTableAnnotationComposer extends Composer<_$KolumnDb, $KCardsTable>
   GeneratedColumn<bool> get dueHasTime => $composableBuilder(column: $table.dueHasTime, builder: (column) => column);
 
   GeneratedColumn<int> get lastActiveAt => $composableBuilder(column: $table.lastActiveAt, builder: (column) => column);
+
+  GeneratedColumn<int> get rev => $composableBuilder(column: $table.rev, builder: (column) => column);
+
+  GeneratedColumn<bool> get synced => $composableBuilder(column: $table.synced, builder: (column) => column);
+
+  GeneratedColumn<int> get creatorId => $composableBuilder(column: $table.creatorId, builder: (column) => column);
 
   GeneratedColumn<int> get createdAt => $composableBuilder(column: $table.createdAt, builder: (column) => column);
 
@@ -2309,6 +2789,9 @@ class $$KCardsTableTableManager
                 Value<int?> dueAt = const Value.absent(),
                 Value<bool> dueHasTime = const Value.absent(),
                 Value<int> lastActiveAt = const Value.absent(),
+                Value<int> rev = const Value.absent(),
+                Value<bool> synced = const Value.absent(),
+                Value<int?> creatorId = const Value.absent(),
                 Value<int> createdAt = const Value.absent(),
                 Value<int> updatedAt = const Value.absent(),
                 Value<int?> deletedAt = const Value.absent(),
@@ -2327,6 +2810,9 @@ class $$KCardsTableTableManager
                 dueAt: dueAt,
                 dueHasTime: dueHasTime,
                 lastActiveAt: lastActiveAt,
+                rev: rev,
+                synced: synced,
+                creatorId: creatorId,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 deletedAt: deletedAt,
@@ -2347,6 +2833,9 @@ class $$KCardsTableTableManager
                 Value<int?> dueAt = const Value.absent(),
                 Value<bool> dueHasTime = const Value.absent(),
                 required int lastActiveAt,
+                Value<int> rev = const Value.absent(),
+                Value<bool> synced = const Value.absent(),
+                Value<int?> creatorId = const Value.absent(),
                 required int createdAt,
                 required int updatedAt,
                 Value<int?> deletedAt = const Value.absent(),
@@ -2365,6 +2854,9 @@ class $$KCardsTableTableManager
                 dueAt: dueAt,
                 dueHasTime: dueHasTime,
                 lastActiveAt: lastActiveAt,
+                rev: rev,
+                synced: synced,
+                creatorId: creatorId,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 deletedAt: deletedAt,
@@ -2389,6 +2881,94 @@ typedef $$KCardsTableProcessedTableManager =
       $$KCardsTableUpdateCompanionBuilder,
       (KCard, BaseReferences<_$KolumnDb, $KCardsTable, KCard>),
       KCard,
+      PrefetchHooks Function()
+    >;
+typedef $$KPeopleTableCreateCompanionBuilder = KPeopleCompanion Function({Value<int> id, required String name});
+typedef $$KPeopleTableUpdateCompanionBuilder = KPeopleCompanion Function({Value<int> id, Value<String> name});
+
+class $$KPeopleTableFilterComposer extends Composer<_$KolumnDb, $KPeopleTable> {
+  $$KPeopleTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(column: $table.id, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get name => $composableBuilder(column: $table.name, builder: (column) => ColumnFilters(column));
+}
+
+class $$KPeopleTableOrderingComposer extends Composer<_$KolumnDb, $KPeopleTable> {
+  $$KPeopleTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(column: $table.id, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get name => $composableBuilder(column: $table.name, builder: (column) => ColumnOrderings(column));
+}
+
+class $$KPeopleTableAnnotationComposer extends Composer<_$KolumnDb, $KPeopleTable> {
+  $$KPeopleTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id => $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get name => $composableBuilder(column: $table.name, builder: (column) => column);
+}
+
+class $$KPeopleTableTableManager
+    extends
+        RootTableManager<
+          _$KolumnDb,
+          $KPeopleTable,
+          KPerson,
+          $$KPeopleTableFilterComposer,
+          $$KPeopleTableOrderingComposer,
+          $$KPeopleTableAnnotationComposer,
+          $$KPeopleTableCreateCompanionBuilder,
+          $$KPeopleTableUpdateCompanionBuilder,
+          (KPerson, BaseReferences<_$KolumnDb, $KPeopleTable, KPerson>),
+          KPerson,
+          PrefetchHooks Function()
+        > {
+  $$KPeopleTableTableManager(_$KolumnDb db, $KPeopleTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () => $$KPeopleTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () => $$KPeopleTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () => $$KPeopleTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({Value<int> id = const Value.absent(), Value<String> name = const Value.absent()}) => KPeopleCompanion(id: id, name: name),
+          createCompanionCallback: ({Value<int> id = const Value.absent(), required String name}) => KPeopleCompanion.insert(id: id, name: name),
+          withReferenceMapper: (p0) =>
+              p0.map((e) => (e.readTable<$KPeopleTable, KPerson>(table), BaseReferences<_$KolumnDb, $KPeopleTable, KPerson>(db, table, e))).toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$KPeopleTableProcessedTableManager =
+    ProcessedTableManager<
+      _$KolumnDb,
+      $KPeopleTable,
+      KPerson,
+      $$KPeopleTableFilterComposer,
+      $$KPeopleTableOrderingComposer,
+      $$KPeopleTableAnnotationComposer,
+      $$KPeopleTableCreateCompanionBuilder,
+      $$KPeopleTableUpdateCompanionBuilder,
+      (KPerson, BaseReferences<_$KolumnDb, $KPeopleTable, KPerson>),
+      KPerson,
       PrefetchHooks Function()
     >;
 typedef $$KSettingsTableCreateCompanionBuilder = KSettingsCompanion Function({required String key, required String value, Value<int> rowid});
@@ -2621,6 +3201,7 @@ class $KolumnDbManager {
   $$KBoardsTableTableManager get kBoards => $$KBoardsTableTableManager(_db, _db.kBoards);
   $$KColumnsTableTableManager get kColumns => $$KColumnsTableTableManager(_db, _db.kColumns);
   $$KCardsTableTableManager get kCards => $$KCardsTableTableManager(_db, _db.kCards);
+  $$KPeopleTableTableManager get kPeople => $$KPeopleTableTableManager(_db, _db.kPeople);
   $$KSettingsTableTableManager get kSettings => $$KSettingsTableTableManager(_db, _db.kSettings);
   $$KOutboxTableTableManager get kOutbox => $$KOutboxTableTableManager(_db, _db.kOutbox);
 }

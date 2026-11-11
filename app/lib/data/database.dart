@@ -14,6 +14,11 @@ class KBoards extends Table {
   TextColumn get id => text()();
   TextColumn get name => text()();
   IntColumn get tidyDays => integer().nullable()();
+  // Sharing, as the hub last reported it (schema 2).
+  BoolColumn get allAccess => boolean().withDefault(const Constant(true))();
+  IntColumn get creatorId => integer().nullable()();
+  TextColumn get members => text().withDefault(const Constant('[]'))();
+  BoolColumn get canManage => boolean().withDefault(const Constant(true))();
   IntColumn get createdAt => integer()();
   IntColumn get updatedAt => integer()();
   IntColumn get deletedAt => integer().nullable()();
@@ -52,9 +57,24 @@ class KCards extends Table {
   IntColumn get dueAt => integer().nullable()();
   BoolColumn get dueHasTime => boolean().withDefault(const Constant(false))();
   IntColumn get lastActiveAt => integer()();
+  // Schema 2: the hub's revision of this card, whether the hub has it yet,
+  // and who made it.
+  IntColumn get rev => integer().withDefault(const Constant(0))();
+  BoolColumn get synced => boolean().withDefault(const Constant(false))();
+  IntColumn get creatorId => integer().nullable()();
   IntColumn get createdAt => integer()();
   IntColumn get updatedAt => integer()();
   IntColumn get deletedAt => integer().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// The team: everyone who may use To-Dos, as the hub last reported.
+@DataClassName('KPerson')
+class KPeople extends Table {
+  IntColumn get id => integer()();
+  TextColumn get name => text()();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -78,12 +98,28 @@ class KOutbox extends Table {
   IntColumn get clientTs => integer()();
 }
 
-@DriftDatabase(tables: [KBoards, KColumns, KCards, KSettings, KOutbox])
+@DriftDatabase(tables: [KBoards, KColumns, KCards, KPeople, KSettings, KOutbox])
 class KolumnDb extends _$KolumnDb {
   KolumnDb() : super(driftDatabase(name: 'kolumn'));
 
   KolumnDb.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
+
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+    onUpgrade: (m, from, to) async {
+      if (from < 2) {
+        await m.addColumn(kBoards, kBoards.allAccess);
+        await m.addColumn(kBoards, kBoards.creatorId);
+        await m.addColumn(kBoards, kBoards.members);
+        await m.addColumn(kBoards, kBoards.canManage);
+        await m.addColumn(kCards, kCards.rev);
+        await m.addColumn(kCards, kCards.synced);
+        await m.addColumn(kCards, kCards.creatorId);
+        await m.createTable(kPeople);
+      }
+    },
+  );
 }

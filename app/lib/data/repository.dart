@@ -65,7 +65,19 @@ class KolumnRepository {
     final id = newId();
     final now = _now();
     await db.transaction(() async {
-      await db.into(db.kBoards).insert(KBoardsCompanion.insert(id: id, name: name.trim(), createdAt: now, updatedAt: now));
+      final me = int.tryParse(await setting('me.id') ?? '');
+      await db
+          .into(db.kBoards)
+          .insert(
+            KBoardsCompanion.insert(
+              id: id,
+              name: name.trim(),
+              creatorId: Value(me),
+              members: Value(jsonEncode(me == null ? const <int>[] : [me])),
+              createdAt: now,
+              updatedAt: now,
+            ),
+          );
       await _record('board.create', {'id': id, 'name': name.trim()});
     });
     return id;
@@ -197,6 +209,7 @@ class KolumnRepository {
 
   Future<void> editCard(String id, {String? title, String? description}) => db.transaction(() async {
     final now = _now();
+    final before = await card(id);
     await (db.update(db.kCards)..where((c) => c.id.equals(id))).write(
       KCardsCompanion(
         title: title == null ? const Value.absent() : Value(title.trim().isEmpty ? 'Untitled' : title.trim()),
@@ -205,7 +218,7 @@ class KolumnRepository {
         updatedAt: Value(now),
       ),
     );
-    await _record('card.edit', {'id': id, 'title': title?.trim(), 'description': description});
+    await _record('card.edit', {'id': id, 'title': title?.trim(), 'description': description, 'baseRev': before?.rev ?? 0});
   });
 
   Future<void> deleteCard(String id) => db.transaction(() async {
@@ -217,6 +230,206 @@ class KolumnRepository {
   Future<void> restoreCard(String id) => db.transaction(() async {
     await (db.update(db.kCards)..where((c) => c.id.equals(id))).write(KCardsCompanion(deletedAt: const Value(null), updatedAt: Value(_now())));
     await _record('card.restore', {'id': id});
+  });
+
+  // ---------------------------------------------------------------- sharing
+
+  /// Who sees a board: everyone with To-Dos ([allAccess]), or only [members]
+  /// (its maker is always one; the hub adds them back if left out).
+  Future<void> setBoardAccess(String id, {required bool allAccess, required List<int> members}) => db.transaction(() async {
+    await (db.update(
+      db.kBoards,
+    )..where((b) => b.id.equals(id))).write(KBoardsCompanion(allAccess: Value(allAccess), members: Value(jsonEncode(members)), updatedAt: Value(_now())));
+    await _record('board.access', {'id': id, 'allAccess': allAccess, 'members': members});
+  });
+
+  Stream<List<KPerson>> watchPeople() => (db.select(db.kPeople)..orderBy([(p) => OrderingTerm.asc(p.name)])).watch();
+
+  // ---------------------------------------------------------------- sync plumbing
+
+  Future<List<KOutboxEntry>> pendingOutbox({int limit = 200}) =>
+      (db.select(db.kOutbox)
+            ..orderBy([(o) => OrderingTerm.asc(o.id)])
+            ..limit(limit))
+          .get();
+
+  Stream<int> watchPendingCount() {
+    final count = db.kOutbox.id.count();
+    return (db.selectOnly(db.kOutbox)..addColumns([count])).map((r) => r.read(count) ?? 0).watchSingle();
+  }
+
+  Future<int> pendingCount() async => (await db.select(db.kOutbox).get()).length;
+
+  Future<void> removeOutbox(Iterable<String> mutationIds) => (db.delete(db.kOutbox)..where((o) => o.mutationId.isIn(mutationIds.toList()))).go();
+
+  Future<Set<String>> _pendingIds() async {
+    final ids = <String>{};
+    for (final e in await db.select(db.kOutbox).get()) {
+      final a = jsonDecode(e.args);
+      if (a is Map) {
+        for (final k in const ['id', 'swappedWith']) {
+          final v = a[k];
+          if (v is String) ids.add(v);
+        }
+      }
+    }
+    return ids;
+  }
+
+  /// Takes in what the hub sent. The hub is the authority, except for rows
+  /// this phone has changed and not yet sent: those keep their local state
+  /// until the change goes out and comes back.
+  ///
+  /// With [replaceAll] (a full refresh), columns and cards the hub does not
+  /// have are dropped, unless still waiting to be sent.
+  Future<void> applyPull(Map<String, dynamic> body, {bool replaceAll = false}) => db.transaction(() async {
+    final pending = await _pendingIds();
+    final visible = ((body['boardIds'] as List?) ?? const []).cast<String>().toSet();
+
+    int? i(Object? v) => v == null ? null : (v as num).toInt();
+
+    // Boards the person can no longer see go, with everything on them.
+    for (final b in await db.select(db.kBoards).get()) {
+      if (!visible.contains(b.id) && !pending.contains(b.id)) {
+        await (db.delete(db.kCards)..where((c) => c.boardId.equals(b.id))).go();
+        await (db.delete(db.kColumns)..where((c) => c.boardId.equals(b.id))).go();
+        await (db.delete(db.kBoards)..where((x) => x.id.equals(b.id))).go();
+      }
+    }
+
+    final serverCards = <String>{};
+    final serverColumns = <String>{};
+
+    for (final raw in (body['boards'] as List? ?? const [])) {
+      final b = raw as Map<String, dynamic>;
+      final id = b['id'] as String;
+      if (pending.contains(id)) continue;
+      await db
+          .into(db.kBoards)
+          .insertOnConflictUpdate(
+            KBoardsCompanion.insert(
+              id: id,
+              name: b['name'] as String? ?? '',
+              tidyDays: Value(i(b['tidyDays'])),
+              allAccess: Value(b['allAccess'] == true),
+              creatorId: Value(i(b['creatorId'])),
+              members: Value(jsonEncode(b['members'] ?? const [])),
+              canManage: Value(b['canManage'] == true),
+              createdAt: i(b['createdAt']) ?? 0,
+              updatedAt: i(b['updatedAt']) ?? 0,
+              deletedAt: Value(i(b['deletedAt'])),
+            ),
+          );
+    }
+
+    for (final raw in (body['columns'] as List? ?? const [])) {
+      final c = raw as Map<String, dynamic>;
+      final id = c['id'] as String;
+      serverColumns.add(id);
+      if (pending.contains(id)) continue;
+      await db
+          .into(db.kColumns)
+          .insertOnConflictUpdate(
+            KColumnsCompanion.insert(
+              id: id,
+              boardId: c['boardId'] as String,
+              name: c['name'] as String? ?? '',
+              color: Value(i(c['color']) ?? 0),
+              position: (c['position'] as num?)?.toDouble() ?? 0,
+              createdAt: i(c['createdAt']) ?? 0,
+              updatedAt: i(c['updatedAt']) ?? 0,
+              deletedAt: Value(i(c['deletedAt'])),
+            ),
+          );
+    }
+
+    for (final raw in (body['cards'] as List? ?? const [])) {
+      final c = raw as Map<String, dynamic>;
+      final id = c['id'] as String;
+      serverCards.add(id);
+      if (pending.contains(id)) continue;
+      await db
+          .into(db.kCards)
+          .insertOnConflictUpdate(
+            KCardsCompanion.insert(
+              id: id,
+              boardId: c['boardId'] as String,
+              number: i(c['number']) ?? 0,
+              title: c['title'] as String? ?? '',
+              description: Value(c['description'] as String? ?? ''),
+              columnId: Value(c['columnId'] as String?),
+              closedAt: Value(i(c['closedAt'])),
+              laterAt: Value(i(c['laterAt'])),
+              laterReason: Value(c['laterReason'] as String?),
+              priorityAt: Value(i(c['priorityAt'])),
+              dueAt: Value(i(c['dueAt'])),
+              dueHasTime: Value(c['dueHasTime'] == true),
+              lastActiveAt: i(c['lastActiveAt']) ?? 0,
+              rev: Value(i(c['rev']) ?? 0),
+              synced: const Value(true),
+              creatorId: Value(i(c['creatorId'])),
+              createdAt: i(c['createdAt']) ?? 0,
+              updatedAt: i(c['updatedAt']) ?? 0,
+              deletedAt: Value(i(c['deletedAt'])),
+            ),
+          );
+    }
+
+    if (replaceAll) {
+      for (final c in await db.select(db.kCards).get()) {
+        if (!serverCards.contains(c.id) && !pending.contains(c.id)) {
+          await (db.delete(db.kCards)..where((x) => x.id.equals(c.id))).go();
+        }
+      }
+      for (final c in await db.select(db.kColumns).get()) {
+        if (!serverColumns.contains(c.id) && !pending.contains(c.id)) {
+          await (db.delete(db.kColumns)..where((x) => x.id.equals(c.id))).go();
+        }
+      }
+    }
+
+    await db.delete(db.kPeople).go();
+    for (final raw in (body['people'] as List?) ?? const []) {
+      final p = raw as Map<String, dynamic>;
+      await db.into(db.kPeople).insert(KPeopleCompanion.insert(id: Value(i(p['id'])!), name: p['name'] as String? ?? ''));
+    }
+
+    final me = body['me'] as Map<String, dynamic>?;
+    if (me != null) {
+      await setSetting('me.id', '${me['id']}');
+      await setSetting('me.name', '${me['name'] ?? ''}');
+      await setSetting('me.level', '${me['level'] ?? 'write'}');
+      await setSetting('me.manager', me['manager'] == true ? '1' : '0');
+    }
+    await setSetting('sync.cursor', '${i(body['cursor']) ?? 0}');
+    await setSetting('sync.boardIds', jsonEncode(visible.toList()));
+
+    // Keep the chosen board pointing at one that still exists.
+    final current = await setting('board.current');
+    final boards = await (db.select(db.kBoards)..where((b) => b.deletedAt.isNull())).get();
+    if (boards.isNotEmpty && (current == null || !boards.any((b) => b.id == current))) {
+      await setSetting('board.current', boards.first.id);
+    }
+  });
+
+  /// Boards this phone already holds that the hub also knows, for "what changed since".
+  Future<List<String>> knownBoardIds() async {
+    final raw = await setting('sync.boardIds');
+    final server = raw == null ? <String>{} : (jsonDecode(raw) as List).cast<String>().toSet();
+    final local = (await db.select(db.kBoards).get()).map((b) => b.id).toSet();
+    return local.intersection(server).toList();
+  }
+
+  /// Signing out: everything shared leaves this phone, unsent changes included.
+  Future<void> forgetSharedData() => db.transaction(() async {
+    await db.delete(db.kCards).go();
+    await db.delete(db.kColumns).go();
+    await db.delete(db.kBoards).go();
+    await db.delete(db.kPeople).go();
+    await db.delete(db.kOutbox).go();
+    for (final k in const ['sync.cursor', 'sync.boardIds', 'board.current', 'me.id', 'me.name', 'me.level', 'me.manager', 'sync.last']) {
+      await (db.delete(db.kSettings)..where((s) => s.key.equals(k))).go();
+    }
   });
 
   // ---------------------------------------------------------------- first run

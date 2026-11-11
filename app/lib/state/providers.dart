@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/database.dart';
 import '../data/lanes.dart';
 import '../data/repository.dart';
+import '../sync/sync_service.dart';
 
 /// Replaced in main() (and in tests) with the real repository.
 final repositoryProvider = Provider<KolumnRepository>((ref) => throw UnimplementedError('repositoryProvider not overridden'));
@@ -35,3 +36,20 @@ final themeModeProvider = StreamProvider<ThemeMode>(
     }
   }),
 );
+
+/// Replaced in main() (and in tests) with the running sync.
+final syncServiceProvider = Provider<SyncService>((ref) => throw UnimplementedError('syncServiceProvider not overridden'));
+
+final syncStatusProvider = StreamProvider<SyncStatus>((ref) => ref.watch(syncServiceProvider).status);
+
+final pendingCountProvider = StreamProvider<int>((ref) => ref.watch(repositoryProvider).watchPendingCount());
+
+final peopleProvider = StreamProvider<List<KPerson>>((ref) => ref.watch(repositoryProvider).watchPeople());
+
+final meNameProvider = StreamProvider<String?>((ref) => ref.watch(repositoryProvider).watchSetting('me.name'));
+
+final meIdProvider = StreamProvider<int?>((ref) => ref.watch(repositoryProvider).watchSetting('me.id').map((v) => int.tryParse(v ?? '')));
+
+/// True when this person's hub access to To-Dos is read-only: they can look
+/// at boards but not change them.
+final readOnlyProvider = StreamProvider<bool>((ref) => ref.watch(repositoryProvider).watchSetting('me.level').map((v) => v == 'read'));
