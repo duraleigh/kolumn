@@ -140,6 +140,29 @@ void main() {
     await pa.repo.deletePlanner(planner);
     await pa.sync.syncNow();
 
+    // Phase 6: alerts. A assigns B; B is told. B mentions A; A is told, and reads it.
+    final meB6 = int.parse((await pb.repo.setting('me.id'))!);
+    await pa.repo.setAssigned(card, meB6, true);
+    await pa.sync.syncNow();
+    await pb.sync.syncNow();
+    final bAlert = (await pb.repo.watchNotifications().first).where((n) => n.cardId == card).single;
+    expect(bAlert.action, 'card_assigned', reason: 'B hears about being assigned');
+    expect(bAlert.readAt, isNull);
+    await pb.repo.addComment(card, 'Done, @[A]($me0) — dock is 4 ft');
+    await pb.sync.syncNow();
+    await pa.sync.syncNow();
+    final aAlert = (await pa.repo.watchNotifications().first).where((n) => n.cardId == card).single;
+    expect(aAlert.action, 'mentioned', reason: 'A hears about the @mention');
+    await pa.repo.setAlertRead(card, true);
+    await pa.repo.saveView('Two-phone view', {'status': 'all'});
+    await pa.sync.syncNow();
+    final pa2 = Phone('A2');
+    expect(await pa2.sync.signIn(ua, wa), isNull, reason: 'A signs in on a second phone');
+    expect((await pa2.repo.watchNotifications().first).where((n) => n.cardId == card).single.readAt, isNotNull, reason: 'read on one phone, read on the other');
+    expect((await pa2.repo.watchViews().first).map((v) => v.name), contains('Two-phone view'), reason: 'saved views follow the person');
+    await pa2.sync.signOut();
+    await pa2.db.close();
+
     // A makes the board private to themselves: it leaves B's phone.
       final meA = int.parse((await pa.repo.setting('me.id'))!);
       await pa.repo.setBoardAccess(board, allAccess: false, members: [meA]);
