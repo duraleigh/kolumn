@@ -54,7 +54,10 @@ Future<Harness> pumpApp(WidgetTester tester, Size size, {String theme = 'light',
   });
   addTearDown(() => tester.runAsync(db.close));
   // Signed in and up to date; no hub is contacted in these tests.
-  final sync = SyncService(repo: repo, hub: HubClient(credentials: MemoryCredentialStore(), server: 'https://hub.invalid'));
+  final sync = SyncService(
+    repo: repo,
+    hub: HubClient(credentials: MemoryCredentialStore(), server: 'https://hub.invalid'),
+  );
   await tester.pumpWidget(
     ProviderScope(
       overrides: [

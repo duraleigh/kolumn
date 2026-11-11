@@ -438,6 +438,7 @@ class _TopBar extends ConsumerWidget {
               ),
             ),
           ),
+          _PinsButton(),
           _RefreshButton(),
           IconButton(tooltip: 'Settings', onPressed: () => showSettingsSheet(context, ref), icon: const Icon(Icons.tune_rounded)),
         ],
@@ -470,6 +471,25 @@ String _statusLine(WidgetRef ref) {
       return pending > 0 ? '${view}Sending $pending ${pending == 1 ? 'change' : 'changes'}…' : '${view}Up to date · ${ago(s?.lastSynced)}';
     default:
       return view.isEmpty ? 'Saved on this phone' : 'View only';
+  }
+}
+
+class _PinsButton extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final n = (ref.watch(pinsProvider).value ?? const <KPin>[]).length;
+    return IconButton(
+      tooltip: 'Pinned cards',
+      onPressed: () => showPinsSheet(
+        context,
+        (card) => Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => CardScreen(cardId: card.id, boardId: card.boardId),
+          ),
+        ),
+      ),
+      icon: Badge(isLabelVisible: n > 0, label: Text('$n'), child: const Icon(Icons.push_pin_outlined)),
+    );
   }
 }
 
@@ -720,6 +740,7 @@ class _LaneHeader extends ConsumerWidget {
           const SizedBox(width: 6),
           Text('${info.cards.length}', style: t.bodyMedium!.copyWith(color: context.colors.onSurfaceVariant)),
           const Spacer(),
+          if (info.isTodoLane) _DraftsChip(boardId: boardId),
           if (canFold) IconButton(tooltip: 'Fold this column', onPressed: onFold, icon: const Icon(Icons.unfold_less_rounded, size: 20)),
           if (col != null && !(ref.watch(readOnlyProvider).value ?? false))
             PopupMenuButton<String>(
@@ -755,6 +776,33 @@ class _LaneHeader extends ConsumerWidget {
             const SizedBox(width: 8, height: 44),
         ],
       ),
+    );
+  }
+}
+
+class _DraftsChip extends ConsumerWidget {
+  const _DraftsChip({required this.boardId});
+  final String boardId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final me = ref.watch(meIdProvider).value;
+    final n = (ref.watch(cardsProvider(boardId)).value ?? const <KCard>[])
+        .where((c) => c.status == 'draft' && (me == null || c.creatorId == null || c.creatorId == me))
+        .length;
+    if (n == 0) return const SizedBox.shrink();
+    return TextButton.icon(
+      onPressed: () => showDraftsSheet(
+        context,
+        boardId,
+        (card) => Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => CardScreen(cardId: card.id, boardId: card.boardId),
+          ),
+        ),
+      ),
+      icon: const Icon(Icons.edit_note_rounded, size: 18),
+      label: Text('Drafts $n'),
     );
   }
 }

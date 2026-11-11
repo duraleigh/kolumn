@@ -8,7 +8,7 @@ import 'package:http/http.dart' as http;
 /// practice site with `--dart-define=KOLUMN_SERVER=https://stage5230ca.clayaiken.com`.
 const String kolumnServer = String.fromEnvironment('KOLUMN_SERVER', defaultValue: 'https://clayaiken.com');
 
-const String _ua = 'Kolumn/0.3.1 (Android)';
+const String _ua = 'Kolumn/0.4 (Android)';
 
 /// Something the hub refused, with the hub's own plain message.
 class HubRefusal implements Exception {
@@ -176,6 +176,34 @@ class HubClient {
 
   Future<Map<String, dynamic>> pull({required int cursor, required List<String> known}) =>
       _authed((h) => _http.get(Uri.parse('$_base/kolumn/sync').replace(queryParameters: {'cursor': '$cursor', 'known': known.join(',')}), headers: h));
+
+  /// Sends one file as the request body. Safe to repeat: the hub keeps one copy per id.
+  Future<Map<String, dynamic>> uploadFile({
+    required String id,
+    required String cardId,
+    required String filename,
+    required bool cover,
+    required List<int> bytes,
+  }) => _authed(
+    (h) => _http.post(
+      Uri.parse('$_base/kolumn/files').replace(queryParameters: {'id': id, 'cardId': cardId, 'filename': filename, 'cover': cover ? '1' : '0'}),
+      headers: {...h, 'Content-Type': 'application/octet-stream'},
+      body: bytes,
+    ),
+  );
+
+  /// A file's bytes (or its small preview), after the hub's board check.
+  Future<List<int>> downloadFile(String id, {bool thumb = false}) async {
+    if (_token == null || DateTime.now().isAfter(_tokenExpires)) await _refresh();
+    final uri = Uri.parse('$_base/kolumn/files/$id').replace(queryParameters: thumb ? {'size': 'thumb'} : null);
+    var r = await _send(() => _http.get(uri, headers: {'Authorization': 'Bearer $_token', 'User-Agent': _ua}));
+    if (r.statusCode == 401) {
+      await _refresh();
+      r = await _send(() => _http.get(uri, headers: {'Authorization': 'Bearer $_token', 'User-Agent': _ua}));
+    }
+    if (r.statusCode != 200) _decode(r);
+    return r.bodyBytes;
+  }
 
   Future<Map<String, dynamic>> push(List<Map<String, dynamic>> mutations) =>
       _authed((h) => _http.post(Uri.parse('$_base/kolumn/sync'), headers: h, body: jsonEncode({'mutations': mutations})));

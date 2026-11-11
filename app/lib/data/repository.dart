@@ -151,7 +151,7 @@ class KolumnRepository {
     return next;
   }
 
-  Future<String> addCard(String boardId, String title, {Lane lane = const Lane.todo(), bool priority = false}) async {
+  Future<String> addCard(String boardId, String title, {Lane lane = const Lane.todo(), bool priority = false, bool draft = false}) async {
     final id = newId();
     await db.transaction(() async {
       final now = _now();
@@ -170,11 +170,20 @@ class KolumnRepository {
               laterReason: Value(lane.kind == LaneKind.later ? 'manual' : null),
               priorityAt: Value(priority ? now : null),
               lastActiveAt: now,
+              status: Value(draft ? 'draft' : 'published'),
               createdAt: now,
               updatedAt: now,
             ),
           );
-      await _record('card.create', {'id': id, 'boardId': boardId, 'number': number, 'title': title.trim(), 'lane': lane.key, 'priority': priority});
+      await _record('card.create', {
+        'id': id,
+        'boardId': boardId,
+        'number': number,
+        'title': title.trim(),
+        'lane': lane.key,
+        'priority': priority,
+        'draft': draft,
+      });
     });
     return id;
   }
@@ -232,6 +241,334 @@ class KolumnRepository {
     await _record('card.restore', {'id': id});
   });
 
+  // ---------------------------------------------------------------- everything on a card (Phase 4)
+
+  int? _me;
+
+  /// Who "I" am on this phone, as the hub last said.
+  Future<int?> meId() async => _me ??= int.tryParse(await setting('me.id') ?? '');
+
+  Future<void> _touch(String cardId, {bool activity = true}) async {
+    final now = _now();
+    await (db.update(
+      db.kCards,
+    )..where((c) => c.id.equals(cardId))).write(KCardsCompanion(updatedAt: Value(now), lastActiveAt: activity ? Value(now) : const Value.absent()));
+  }
+
+  Future<String> addStep(String cardId, String content) async {
+    final id = newId();
+    await db.transaction(() async {
+      final existing = await (db.select(db.kSteps)..where((s) => s.cardId.equals(cardId))).get();
+      final pos = existing.isEmpty ? 1.0 : existing.map((e) => e.position).reduce((a, b) => a > b ? a : b) + 1;
+      await db.into(db.kSteps).insert(KStepsCompanion.insert(id: id, cardId: cardId, content: content.trim(), position: Value(pos), createdAt: _now()));
+      await _touch(cardId);
+      await _record('step.create', {'id': id, 'cardId': cardId, 'content': content.trim(), 'position': pos});
+    });
+    return id;
+  }
+
+  Future<void> updateStep(KStep step, {String? content, bool? done}) => db.transaction(() async {
+    await (db.update(db.kSteps)..where((s) => s.id.equals(step.id))).write(
+      KStepsCompanion(content: content == null ? const Value.absent() : Value(content.trim()), done: done == null ? const Value.absent() : Value(done)),
+    );
+    await _touch(step.cardId);
+    await _record('step.update', {'id': step.id, 'content': ?content?.trim(), 'done': ?done});
+  });
+
+  Future<void> deleteStep(KStep step) => db.transaction(() async {
+    await (db.update(db.kSteps)..where((s) => s.id.equals(step.id))).write(KStepsCompanion(deletedAt: Value(_now())));
+    await _record('step.delete', {'id': step.id});
+  });
+
+  Future<String> addComment(String cardId, String body) async {
+    final id = newId();
+    await db.transaction(() async {
+      await db.into(db.kComments).insert(KCommentsCompanion.insert(id: id, cardId: cardId, userId: await meId() ?? 0, body: body.trim(), createdAt: _now()));
+      await _touch(cardId);
+      await _setWatch(cardId, true, record: false);
+      await _record('comment.create', {'id': id, 'cardId': cardId, 'body': body.trim()});
+    });
+    return id;
+  }
+
+  Future<void> editComment(String id, String body) => db.transaction(() async {
+    await (db.update(db.kComments)..where((c) => c.id.equals(id))).write(KCommentsCompanion(body: Value(body.trim()), editedAt: Value(_now())));
+    await _record('comment.edit', {'id': id, 'body': body.trim()});
+  });
+
+  Future<void> deleteComment(String id) => db.transaction(() async {
+    await (db.update(db.kComments)..where((c) => c.id.equals(id))).write(KCommentsCompanion(deletedAt: Value(_now())));
+    await _record('comment.delete', {'id': id});
+  });
+
+  /// Tapping a reaction: adds mine, or takes mine back if it is already there.
+  Future<void> toggleReaction(String cardId, String emoji, {String? commentId}) => db.transaction(() async {
+    final me = await meId() ?? 0;
+    final mine =
+        await (db.select(db.kReactions)..where(
+              (r) =>
+                  r.cardId.equals(cardId) &
+                  r.userId.equals(me) &
+                  r.emoji.equals(emoji) &
+                  r.deletedAt.isNull() &
+                  (commentId == null ? r.commentId.isNull() : r.commentId.equals(commentId)),
+            ))
+            .get();
+    if (mine.isNotEmpty) {
+      for (final r in mine) {
+        await (db.update(db.kReactions)..where((x) => x.id.equals(r.id))).write(KReactionsCompanion(deletedAt: Value(_now())));
+        await _record('reaction.remove', {'id': r.id});
+      }
+      return;
+    }
+    final id = newId();
+    await db
+        .into(db.kReactions)
+        .insert(KReactionsCompanion.insert(id: id, cardId: cardId, commentId: Value(commentId), userId: me, emoji: emoji, createdAt: _now()));
+    await _record('reaction.add', {'id': id, 'cardId': cardId, 'commentId': commentId, 'emoji': emoji});
+  });
+
+  static String cleanTag(String t) => t.trim().replaceAll(RegExp(r'^#+'), '').replaceAll(RegExp(r'\s+'), ' ').toLowerCase();
+
+  Future<void> setTag(String cardId, String tag, bool on) => db.transaction(() async {
+    final t = cleanTag(tag);
+    if (t.isEmpty) return;
+    await db.into(db.kTags).insertOnConflictUpdate(KTagsCompanion.insert(cardId: cardId, tag: t, deletedAt: Value(on ? null : _now())));
+    await _touch(cardId);
+    await _record(on ? 'tag.add' : 'tag.remove', {'id': cardId, 'tag': t});
+  });
+
+  Future<void> setAssigned(String cardId, int userId, bool on) => db.transaction(() async {
+    await db.into(db.kAssignees).insertOnConflictUpdate(KAssigneesCompanion.insert(cardId: cardId, userId: userId, deletedAt: Value(on ? null : _now())));
+    await _touch(cardId);
+    if (on && userId == await meId()) await _setWatch(cardId, true, record: false);
+    await _record(on ? 'assign.add' : 'assign.remove', {'id': cardId, 'userId': userId});
+  });
+
+  Future<void> _setWatch(String cardId, bool on, {bool record = true}) async {
+    await db.into(db.kWatches).insertOnConflictUpdate(KWatchesCompanion.insert(cardId: cardId, watching: on));
+    if (record) await _record('watch.set', {'id': cardId, 'on': on});
+  }
+
+  Future<void> setWatching(String cardId, bool on) => db.transaction(() => _setWatch(cardId, on));
+
+  Future<void> setPinned(String cardId, bool on) => db.transaction(() async {
+    await db.into(db.kPins).insertOnConflictUpdate(KPinsCompanion.insert(cardId: cardId, pinnedAt: _now(), deletedAt: Value(on ? null : _now())));
+    await _record('pin.set', {'id': cardId, 'on': on});
+  });
+
+  Future<void> publishCard(String cardId) => db.transaction(() async {
+    await (db.update(db.kCards)..where((c) => c.id.equals(cardId))).write(const KCardsCompanion(status: Value('published')));
+    await _touch(cardId);
+    await _record('card.publish', {'id': cardId});
+  });
+
+  /// Moves a card to another board; it lands in To-do there, as in Fizzy.
+  Future<void> moveCardToBoard(String cardId, String boardId) => db.transaction(() async {
+    await (db.update(db.kCards)..where((c) => c.id.equals(cardId))).write(KCardsCompanion(boardId: Value(boardId), columnId: const Value(null)));
+    await _touch(cardId);
+    await _record('card.board', {'id': cardId, 'boardId': boardId});
+  });
+
+  Future<void> setCover(String cardId, String? fileId) => db.transaction(() async {
+    await (db.update(db.kCards)..where((c) => c.id.equals(cardId))).write(KCardsCompanion(coverId: Value(fileId)));
+    await _record('card.cover', {'id': cardId, 'fileId': fileId});
+  });
+
+  /// Attaches a file kept at [localPath]. It goes to the hub with the next
+  /// sync (or when back online), and shows here at once from the phone's copy.
+  Future<String> addFile(
+    String cardId, {
+    required String localPath,
+    required String filename,
+    required String mime,
+    required int size,
+    bool cover = false,
+  }) async {
+    final id = newId();
+    await db.transaction(() async {
+      await db
+          .into(db.kFiles)
+          .insert(
+            KFilesCompanion.insert(
+              id: id,
+              cardId: cardId,
+              userId: Value(await meId() ?? 0),
+              filename: filename,
+              mime: Value(mime),
+              size: Value(size),
+              createdAt: _now(),
+              localPath: Value(localPath),
+            ),
+          );
+      if (cover) {
+        await (db.update(db.kCards)..where((c) => c.id.equals(cardId))).write(KCardsCompanion(coverId: Value(id)));
+      }
+      await _touch(cardId);
+      await _record('file.upload', {'id': id, 'cardId': cardId, 'filename': filename, 'cover': cover, 'path': localPath});
+    });
+    return id;
+  }
+
+  Future<void> deleteFile(KFile f) => db.transaction(() async {
+    await (db.update(db.kFiles)..where((x) => x.id.equals(f.id))).write(KFilesCompanion(deletedAt: Value(_now())));
+    await (db.update(db.kCards)..where((c) => c.id.equals(f.cardId) & c.coverId.equals(f.id))).write(const KCardsCompanion(coverId: Value(null)));
+    await _record('file.delete', {'id': f.id});
+  });
+
+  Future<void> markFileUploaded(String id) => (db.update(db.kFiles)..where((f) => f.id.equals(id))).write(const KFilesCompanion(uploaded: Value(true)));
+
+  Future<void> setFileLocalPath(String id, String path) => (db.update(db.kFiles)..where((f) => f.id.equals(id))).write(KFilesCompanion(localPath: Value(path)));
+
+  Stream<List<KStep>> watchSteps(String cardId) =>
+      (db.select(db.kSteps)
+            ..where((s) => s.cardId.equals(cardId) & s.deletedAt.isNull())
+            ..orderBy([(s) => OrderingTerm.asc(s.position), (s) => OrderingTerm.asc(s.createdAt)]))
+          .watch();
+  Stream<List<KComment>> watchComments(String cardId) =>
+      (db.select(db.kComments)
+            ..where((c) => c.cardId.equals(cardId) & c.deletedAt.isNull())
+            ..orderBy([(c) => OrderingTerm.asc(c.createdAt)]))
+          .watch();
+  Stream<List<KReaction>> watchReactions(String cardId) => (db.select(db.kReactions)..where((r) => r.cardId.equals(cardId) & r.deletedAt.isNull())).watch();
+  Stream<List<KTag>> watchTags() => (db.select(db.kTags)..where((t) => t.deletedAt.isNull())).watch();
+  Stream<List<KAssignee>> watchAssignees() => (db.select(db.kAssignees)..where((a) => a.deletedAt.isNull())).watch();
+  Stream<List<KStep>> watchAllSteps() => (db.select(db.kSteps)..where((s) => s.deletedAt.isNull())).watch();
+  Stream<List<KComment>> watchAllComments() => (db.select(db.kComments)..where((c) => c.deletedAt.isNull())).watch();
+  Stream<List<KFile>> watchAllFiles() => (db.select(db.kFiles)..where((f) => f.deletedAt.isNull())).watch();
+  Stream<List<KFile>> watchFiles(String cardId) =>
+      (db.select(db.kFiles)
+            ..where((f) => f.cardId.equals(cardId) & f.deletedAt.isNull())
+            ..orderBy([(f) => OrderingTerm.asc(f.createdAt)]))
+          .watch();
+  Stream<KWatch?> watchWatch(String cardId) => (db.select(db.kWatches)..where((w) => w.cardId.equals(cardId))).watchSingleOrNull();
+  Stream<List<KPin>> watchPins() =>
+      (db.select(db.kPins)
+            ..where((p) => p.deletedAt.isNull())
+            ..orderBy([(p) => OrderingTerm.desc(p.pinnedAt)]))
+          .watch();
+  Stream<List<KEvent>> watchEvents(String cardId) =>
+      (db.select(db.kEvents)
+            ..where((e) => e.cardId.equals(cardId))
+            ..orderBy([(e) => OrderingTerm.desc(e.createdAt)]))
+          .watch();
+  Stream<List<KCard>> watchAllCards() => (db.select(db.kCards)..where((c) => c.deletedAt.isNull())).watch();
+  Future<KFile?> file(String id) => (db.select(db.kFiles)..where((f) => f.id.equals(id))).getSingleOrNull();
+
+  Future<void> _applyDetails(Map<String, dynamic> body, Set<String> pending) async {
+    int? i(Object? v) => v == null ? null : (v as num).toInt();
+    List<Map<String, dynamic>> list(String k) => ((body[k] as List?) ?? const []).cast<Map<String, dynamic>>();
+    for (final s in list('steps')) {
+      if (pending.contains(s['id'])) continue;
+      await db
+          .into(db.kSteps)
+          .insertOnConflictUpdate(
+            KStepsCompanion.insert(
+              id: s['id'] as String,
+              cardId: s['cardId'] as String,
+              content: s['content'] as String? ?? '',
+              done: Value(s['done'] == true),
+              position: Value((s['position'] as num?)?.toDouble() ?? 0),
+              createdAt: i(s['createdAt']) ?? 0,
+              deletedAt: Value(i(s['deletedAt'])),
+            ),
+          );
+    }
+    for (final c in list('comments')) {
+      if (pending.contains(c['id'])) continue;
+      await db
+          .into(db.kComments)
+          .insertOnConflictUpdate(
+            KCommentsCompanion.insert(
+              id: c['id'] as String,
+              cardId: c['cardId'] as String,
+              userId: i(c['userId']) ?? 0,
+              body: c['body'] as String? ?? '',
+              createdAt: i(c['createdAt']) ?? 0,
+              editedAt: Value(i(c['editedAt'])),
+              deletedAt: Value(i(c['deletedAt'])),
+              synced: const Value(true),
+            ),
+          );
+    }
+    for (final r in list('reactions')) {
+      if (pending.contains(r['id'])) continue;
+      await db
+          .into(db.kReactions)
+          .insertOnConflictUpdate(
+            KReactionsCompanion.insert(
+              id: r['id'] as String,
+              cardId: r['cardId'] as String,
+              commentId: Value(r['commentId'] as String?),
+              userId: i(r['userId']) ?? 0,
+              emoji: r['emoji'] as String? ?? '',
+              createdAt: i(r['createdAt']) ?? 0,
+              deletedAt: Value(i(r['deletedAt'])),
+            ),
+          );
+    }
+    for (final t in list('tags')) {
+      if (pending.contains(t['cardId'])) continue;
+      await db
+          .into(db.kTags)
+          .insertOnConflictUpdate(KTagsCompanion.insert(cardId: t['cardId'] as String, tag: t['tag'] as String, deletedAt: Value(i(t['deletedAt']))));
+    }
+    for (final a in list('assignees')) {
+      if (pending.contains(a['cardId'])) continue;
+      await db
+          .into(db.kAssignees)
+          .insertOnConflictUpdate(KAssigneesCompanion.insert(cardId: a['cardId'] as String, userId: i(a['userId']) ?? 0, deletedAt: Value(i(a['deletedAt']))));
+    }
+    for (final w in list('watches')) {
+      if (pending.contains(w['cardId'])) continue;
+      await db.into(db.kWatches).insertOnConflictUpdate(KWatchesCompanion.insert(cardId: w['cardId'] as String, watching: w['watching'] == true));
+    }
+    for (final p in list('pins')) {
+      if (pending.contains(p['cardId'])) continue;
+      await db
+          .into(db.kPins)
+          .insertOnConflictUpdate(KPinsCompanion.insert(cardId: p['cardId'] as String, pinnedAt: i(p['pinnedAt']) ?? 0, deletedAt: Value(i(p['deletedAt']))));
+    }
+    for (final f in list('files')) {
+      if (pending.contains(f['id'])) continue;
+      final existing = await file(f['id'] as String);
+      await db
+          .into(db.kFiles)
+          .insertOnConflictUpdate(
+            KFilesCompanion.insert(
+              id: f['id'] as String,
+              cardId: f['cardId'] as String,
+              commentId: Value(f['commentId'] as String?),
+              userId: Value(i(f['userId']) ?? 0),
+              filename: f['filename'] as String? ?? 'file',
+              mime: Value(f['mime'] as String? ?? 'application/octet-stream'),
+              size: Value(i(f['size']) ?? 0),
+              width: Value(i(f['width'])),
+              height: Value(i(f['height'])),
+              hasThumb: Value(f['hasThumb'] == true),
+              createdAt: i(f['createdAt']) ?? 0,
+              deletedAt: Value(i(f['deletedAt'])),
+              localPath: Value(existing?.localPath),
+              uploaded: const Value(true),
+            ),
+          );
+    }
+    for (final e in list('events')) {
+      await db
+          .into(db.kEvents)
+          .insertOnConflictUpdate(
+            KEventsCompanion.insert(
+              id: Value(i(e['id'])!),
+              cardId: e['cardId'] as String,
+              userId: i(e['userId']) ?? 0,
+              action: e['action'] as String? ?? '',
+              particulars: Value(jsonEncode(e['particulars'] ?? const {})),
+              createdAt: i(e['createdAt']) ?? 0,
+            ),
+          );
+    }
+  }
+
   // ---------------------------------------------------------------- sharing
 
   /// Who sees a board: everyone with To-Dos ([allAccess]), or only [members]
@@ -267,7 +604,7 @@ class KolumnRepository {
     for (final e in await db.select(db.kOutbox).get()) {
       final a = jsonDecode(e.args);
       if (a is Map) {
-        for (final k in const ['id', 'swappedWith']) {
+        for (final k in const ['id', 'swappedWith', 'commentId']) {
           final v = a[k];
           if (v is String) ids.add(v);
         }
@@ -367,6 +704,8 @@ class KolumnRepository {
               lastActiveAt: i(c['lastActiveAt']) ?? 0,
               rev: Value(i(c['rev']) ?? 0),
               synced: const Value(true),
+              status: Value(c['status'] as String? ?? 'published'),
+              coverId: Value(c['coverId'] as String?),
               creatorId: Value(i(c['creatorId'])),
               createdAt: i(c['createdAt']) ?? 0,
               updatedAt: i(c['updatedAt']) ?? 0,
@@ -388,6 +727,8 @@ class KolumnRepository {
       }
     }
 
+    await _applyDetails(body, pending);
+
     await db.delete(db.kPeople).go();
     for (final raw in (body['people'] as List?) ?? const []) {
       final p = raw as Map<String, dynamic>;
@@ -397,6 +738,7 @@ class KolumnRepository {
     final me = body['me'] as Map<String, dynamic>?;
     if (me != null) {
       await setSetting('me.id', '${me['id']}');
+      _me = (me['id'] as num?)?.toInt();
       await setSetting('me.name', '${me['name'] ?? ''}');
       await setSetting('me.level', '${me['level'] ?? 'write'}');
       await setSetting('me.manager', me['manager'] == true ? '1' : '0');
@@ -427,6 +769,10 @@ class KolumnRepository {
     await db.delete(db.kBoards).go();
     await db.delete(db.kPeople).go();
     await db.delete(db.kOutbox).go();
+    for (final t in <TableInfo>[db.kSteps, db.kComments, db.kReactions, db.kTags, db.kAssignees, db.kWatches, db.kPins, db.kFiles, db.kEvents]) {
+      await db.delete(t).go();
+    }
+    _me = null;
     for (final k in const ['sync.cursor', 'sync.boardIds', 'board.current', 'me.id', 'me.name', 'me.level', 'me.manager', 'sync.last']) {
       await (db.delete(db.kSettings)..where((s) => s.key.equals(k))).go();
     }

@@ -62,9 +62,133 @@ class KCards extends Table {
   IntColumn get rev => integer().withDefault(const Constant(0))();
   BoolColumn get synced => boolean().withDefault(const Constant(false))();
   IntColumn get creatorId => integer().nullable()();
+  // Schema 3: drafts and the cover picture.
+  TextColumn get status => text().withDefault(const Constant('published'))();
+  TextColumn get coverId => text().nullable()();
   IntColumn get createdAt => integer()();
   IntColumn get updatedAt => integer()();
   IntColumn get deletedAt => integer().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+// ---------------------------------------------------------------- schema 3: everything on a card
+
+@DataClassName('KStep')
+class KSteps extends Table {
+  TextColumn get id => text()();
+  TextColumn get cardId => text()();
+  TextColumn get content => text()();
+  BoolColumn get done => boolean().withDefault(const Constant(false))();
+  RealColumn get position => real().withDefault(const Constant(0))();
+  IntColumn get createdAt => integer()();
+  IntColumn get deletedAt => integer().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+@DataClassName('KComment')
+class KComments extends Table {
+  TextColumn get id => text()();
+  TextColumn get cardId => text()();
+  IntColumn get userId => integer()();
+  TextColumn get body => text()();
+  IntColumn get createdAt => integer()();
+  IntColumn get editedAt => integer().nullable()();
+  IntColumn get deletedAt => integer().nullable()();
+  BoolColumn get synced => boolean().withDefault(const Constant(false))();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+@DataClassName('KReaction')
+class KReactions extends Table {
+  TextColumn get id => text()();
+  TextColumn get cardId => text()();
+  TextColumn get commentId => text().nullable()();
+  IntColumn get userId => integer()();
+  TextColumn get emoji => text()();
+  IntColumn get createdAt => integer()();
+  IntColumn get deletedAt => integer().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+@DataClassName('KTag')
+class KTags extends Table {
+  TextColumn get cardId => text()();
+  TextColumn get tag => text()();
+  IntColumn get deletedAt => integer().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {cardId, tag};
+}
+
+@DataClassName('KAssignee')
+class KAssignees extends Table {
+  TextColumn get cardId => text()();
+  IntColumn get userId => integer()();
+  IntColumn get deletedAt => integer().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {cardId, userId};
+}
+
+/// The cards this person follows (their own list only).
+@DataClassName('KWatch')
+class KWatches extends Table {
+  TextColumn get cardId => text()();
+  BoolColumn get watching => boolean()();
+
+  @override
+  Set<Column> get primaryKey => {cardId};
+}
+
+/// This person's own pins.
+@DataClassName('KPin')
+class KPins extends Table {
+  TextColumn get cardId => text()();
+  IntColumn get pinnedAt => integer()();
+  IntColumn get deletedAt => integer().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {cardId};
+}
+
+@DataClassName('KFile')
+class KFiles extends Table {
+  TextColumn get id => text()();
+  TextColumn get cardId => text()();
+  TextColumn get commentId => text().nullable()();
+  IntColumn get userId => integer().withDefault(const Constant(0))();
+  TextColumn get filename => text()();
+  TextColumn get mime => text().withDefault(const Constant('application/octet-stream'))();
+  IntColumn get size => integer().withDefault(const Constant(0))();
+  IntColumn get width => integer().nullable()();
+  IntColumn get height => integer().nullable()();
+  BoolColumn get hasThumb => boolean().withDefault(const Constant(false))();
+  IntColumn get createdAt => integer()();
+  IntColumn get deletedAt => integer().nullable()();
+  // A copy on this phone: the original until it is sent, or a download.
+  TextColumn get localPath => text().nullable()();
+  BoolColumn get uploaded => boolean().withDefault(const Constant(false))();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+@DataClassName('KEvent')
+class KEvents extends Table {
+  IntColumn get id => integer()();
+  TextColumn get cardId => text()();
+  IntColumn get userId => integer()();
+  TextColumn get action => text()();
+  TextColumn get particulars => text().withDefault(const Constant('{}'))();
+  IntColumn get createdAt => integer()();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -98,14 +222,16 @@ class KOutbox extends Table {
   IntColumn get clientTs => integer()();
 }
 
-@DriftDatabase(tables: [KBoards, KColumns, KCards, KPeople, KSettings, KOutbox])
+@DriftDatabase(
+  tables: [KBoards, KColumns, KCards, KPeople, KSettings, KOutbox, KSteps, KComments, KReactions, KTags, KAssignees, KWatches, KPins, KFiles, KEvents],
+)
 class KolumnDb extends _$KolumnDb {
   KolumnDb() : super(driftDatabase(name: 'kolumn'));
 
   KolumnDb.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -119,6 +245,13 @@ class KolumnDb extends _$KolumnDb {
         await m.addColumn(kCards, kCards.synced);
         await m.addColumn(kCards, kCards.creatorId);
         await m.createTable(kPeople);
+      }
+      if (from < 3) {
+        await m.addColumn(kCards, kCards.status);
+        await m.addColumn(kCards, kCards.coverId);
+        for (final t in <TableInfo>[kSteps, kComments, kReactions, kTags, kAssignees, kWatches, kPins, kFiles, kEvents]) {
+          await m.createTable(t);
+        }
       }
     },
   );

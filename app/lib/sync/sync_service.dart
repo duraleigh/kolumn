@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/widgets.dart';
 
+import '../data/database.dart';
 import '../data/repository.dart';
 import 'hub_client.dart';
 
@@ -154,13 +156,20 @@ class SyncService with WidgetsBindingObserver {
     }
   }
 
-  /// Sends everything waiting. True when the hub turned something down, so
-  /// the next fetch should be a full one to put this phone right.
+  /// Sends everything waiting, in order. Files go one at a time between the
+  /// other changes, so a card always reaches the hub before its photo. True
+  /// when the hub turned something down, so the next fetch should be a full
+  /// one to put this phone right.
   Future<bool> _pushAll() async {
     var refused = false;
-    for (var round = 0; round < 50; round++) {
-      final batch = await repo.pendingOutbox(limit: 200);
-      if (batch.isEmpty) break;
+    for (var round = 0; round < 100; round++) {
+      final waiting = await repo.pendingOutbox(limit: 200);
+      if (waiting.isEmpty) break;
+      if (waiting.first.name == 'file.upload') {
+        refused = await _uploadOne(waiting.first) || refused;
+        continue;
+      }
+      final batch = waiting.takeWhile((e) => e.name != 'file.upload').toList();
       Map<String, dynamic> reply;
       try {
         reply = await hub.push([
@@ -169,7 +178,7 @@ class SyncService with WidgetsBindingObserver {
       } on HubRefusal catch (e) {
         if (e.readOnly) {
           // This person may look but not change: what is waiting can never go.
-          await repo.removeOutbox(batch.map((b) => b.mutationId));
+          await repo.removeOutbox(waiting.map((b) => b.mutationId));
           return true;
         }
         rethrow;
@@ -185,6 +194,34 @@ class SyncService with WidgetsBindingObserver {
       await repo.removeOutbox(done);
     }
     return refused;
+  }
+
+  /// One waiting file. A file that has gone from the phone, or a card the
+  /// hub no longer lets this person reach, is dropped rather than retried.
+  Future<bool> _uploadOne(KOutboxEntry e) async {
+    final a = jsonDecode(e.args) as Map<String, dynamic>;
+    final id = a['id'] as String;
+    final f = File(a['path'] as String? ?? '');
+    if (!f.existsSync()) {
+      await repo.removeOutbox([e.mutationId]);
+      return true;
+    }
+    try {
+      await hub.uploadFile(
+        id: id,
+        cardId: a['cardId'] as String,
+        filename: a['filename'] as String? ?? 'file',
+        cover: a['cover'] == true,
+        bytes: await f.readAsBytes(),
+      );
+    } on HubRefusal catch (r) {
+      if (r.signedOut) rethrow;
+      await repo.removeOutbox([e.mutationId]);
+      return true;
+    }
+    await repo.markFileUploaded(id);
+    await repo.removeOutbox([e.mutationId]);
+    return false;
   }
 
   Future<void> _pull({required bool full}) async {

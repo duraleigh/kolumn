@@ -81,10 +81,10 @@ class _NewCardSheetState extends ConsumerState<_NewCardSheet> {
     super.dispose();
   }
 
-  Future<void> _add({required bool another}) async {
+  Future<void> _add({required bool another, bool draft = false}) async {
     final t = _ctl.text.trim();
     if (t.isEmpty) return;
-    await ref.read(repositoryProvider).addCard(widget.boardId, t);
+    await ref.read(repositoryProvider).addCard(widget.boardId, t, draft: draft);
     if (!mounted) return;
     if (another) {
       _ctl.clear();
@@ -120,6 +120,7 @@ class _NewCardSheetState extends ConsumerState<_NewCardSheet> {
           FilledButton(onPressed: () => _add(another: false), child: const Text('Add card')),
           const SizedBox(height: 6),
           TextButton(onPressed: () => _add(another: true), child: const Text('Add and start another')),
+          TextButton(onPressed: () => _add(another: false, draft: true), child: const Text('Save as a draft (only you see it)')),
         ],
       ),
     );
@@ -568,3 +569,176 @@ class _BoardAccessSheetState extends ConsumerState<_BoardAccessSheet> {
     );
   }
 }
+
+// ------------------------------------------------------------------ pickers (Phase 4)
+
+/// Choose another board (for moving a card).
+Future<KBoard?> pickBoard(BuildContext context, List<KBoard> boards) => showModalBottomSheet<KBoard>(
+  context: context,
+  isScrollControlled: true,
+  builder: (context) => SafeArea(
+    child: SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text('Move to which board?', style: Theme.of(context).textTheme.titleLarge),
+          const SizedBox(height: 4),
+          Text('The card, its steps, comments and files go with it, into To-do.', style: Theme.of(context).textTheme.bodySmall),
+          const SizedBox(height: 12),
+          for (final b in boards)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Material(
+                color: context.palette.lane,
+                borderRadius: BorderRadius.circular(KShapes.lg),
+                child: ListTile(
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(KShapes.lg)),
+                  leading: const Icon(Icons.view_kanban_outlined),
+                  title: Text(b.name),
+                  trailing: b.allAccess ? null : const Icon(Icons.lock_outline_rounded, size: 18),
+                  onTap: () => Navigator.pop(context, b),
+                ),
+              ),
+            ),
+        ],
+      ),
+    ),
+  ),
+);
+
+/// Choose or type a tag.
+Future<String?> pickTag(BuildContext context, List<String> known) {
+  final ctl = TextEditingController();
+  return showModalBottomSheet<String>(
+    context: context,
+    isScrollControlled: true,
+    builder: (context) => Padding(
+      padding: EdgeInsets.fromLTRB(16, 0, 16, 16 + MediaQuery.viewInsetsOf(context).bottom),
+      child: StatefulBuilder(
+        builder: (context, setState) {
+          final q = ctl.text.trim().toLowerCase().replaceAll(RegExp(r'^#+'), '');
+          final matches = known.where((t) => q.isEmpty || t.contains(q)).take(20).toList();
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text('Add a tag', style: Theme.of(context).textTheme.titleLarge),
+              const SizedBox(height: 12),
+              TextField(
+                controller: ctl,
+                autofocus: true,
+                decoration: const InputDecoration(hintText: 'venue, travel, merch…'),
+                onChanged: (_) => setState(() {}),
+                onSubmitted: (v) => Navigator.pop(context, v.trim().isEmpty ? null : v),
+              ),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: [
+                  for (final t in matches) ActionChip(label: Text(t), onPressed: () => Navigator.pop(context, t)),
+                  if (q.isNotEmpty && !known.contains(q))
+                    ActionChip(avatar: const Icon(Icons.add_rounded, size: 18), label: Text('New tag "$q"'), onPressed: () => Navigator.pop(context, q)),
+                ],
+              ),
+            ],
+          );
+        },
+      ),
+    ),
+  );
+}
+
+/// My pinned cards, from any board.
+Future<void> showPinsSheet(BuildContext context, void Function(KCard) open) => showModalBottomSheet<void>(
+  context: context,
+  isScrollControlled: true,
+  builder: (context) => Consumer(
+    builder: (context, ref, _) {
+      final pins = ref.watch(pinsProvider).value ?? const <KPin>[];
+      final cards = {for (final c in ref.watch(allCardsProvider).value ?? const <KCard>[]) c.id: c};
+      final boards = {for (final b in ref.watch(boardsProvider).value ?? const <KBoard>[]) b.id: b.name};
+      final list = [for (final p in pins) ?cards[p.cardId]];
+      return SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text('Pinned', style: Theme.of(context).textTheme.titleLarge),
+              const SizedBox(height: 4),
+              Text('Your own shortcuts. Pin a card from its screen.', style: Theme.of(context).textTheme.bodySmall),
+              const SizedBox(height: 12),
+              if (list.isEmpty) const Padding(padding: EdgeInsets.all(16), child: Text('Nothing pinned yet.')),
+              for (final c in list)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Material(
+                    color: context.palette.lane,
+                    borderRadius: BorderRadius.circular(KShapes.lg),
+                    child: ListTile(
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(KShapes.lg)),
+                      leading: const Icon(Icons.push_pin_rounded),
+                      title: Text(c.title, maxLines: 2, overflow: TextOverflow.ellipsis),
+                      subtitle: Text(boards[c.boardId] ?? ''),
+                      onTap: () {
+                        Navigator.pop(context);
+                        open(c);
+                      },
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      );
+    },
+  ),
+);
+
+/// My drafts on a board.
+Future<void> showDraftsSheet(BuildContext context, String boardId, void Function(KCard) open) => showModalBottomSheet<void>(
+  context: context,
+  isScrollControlled: true,
+  builder: (context) => Consumer(
+    builder: (context, ref, _) {
+      final me = ref.watch(meIdProvider).value;
+      final drafts = (ref.watch(cardsProvider(boardId)).value ?? const <KCard>[])
+          .where((c) => c.status == 'draft' && (me == null || c.creatorId == null || c.creatorId == me))
+          .toList();
+      return SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text('Your drafts', style: Theme.of(context).textTheme.titleLarge),
+              const SizedBox(height: 4),
+              Text('Only you can see these until you post them.', style: Theme.of(context).textTheme.bodySmall),
+              const SizedBox(height: 12),
+              if (drafts.isEmpty) const Padding(padding: EdgeInsets.all(16), child: Text('No drafts.')),
+              for (final c in drafts)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Material(
+                    color: context.palette.lane,
+                    borderRadius: BorderRadius.circular(KShapes.lg),
+                    child: ListTile(
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(KShapes.lg)),
+                      leading: const Icon(Icons.edit_note_rounded),
+                      title: Text(c.title),
+                      onTap: () {
+                        Navigator.pop(context);
+                        open(c);
+                      },
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      );
+    },
+  ),
+);

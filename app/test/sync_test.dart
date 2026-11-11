@@ -14,7 +14,15 @@ import 'package:kolumn/sync/sync_service.dart';
 /// A stand-in hub with the same answers as the real one, in memory.
 class FakeHub {
   final received = <Map<String, dynamic>>[];
-  Map<String, dynamic> pullBody = {'cursor': 1, 'boardIds': <String>[], 'boards': [], 'columns': [], 'cards': [], 'people': [], 'me': {'id': 7, 'name': 'Clay', 'level': 'write', 'manager': true}};
+  Map<String, dynamic> pullBody = {
+    'cursor': 1,
+    'boardIds': <String>[],
+    'boards': [],
+    'columns': [],
+    'cards': [],
+    'people': [],
+    'me': {'id': 7, 'name': 'Clay', 'level': 'write', 'manager': true},
+  };
   final pulls = <Uri>[];
   String rejectName = '';
   bool offline = false;
@@ -24,31 +32,73 @@ class FakeHub {
   String password = 'right';
 
   late final MockClient client = MockClient((req) async {
-    if (offline) throw http.ClientException('no connection');
+    if (offline) {
+      throw http.ClientException('no connection');
+    }
     final path = req.url.path;
     if (path.endsWith('/auth/device/login')) {
       final b = jsonDecode(req.body) as Map;
       if (b['password'] != password) {
-        return http.Response(jsonEncode({'code': 'ca_hub_invalid_credentials', 'message': 'Those sign-in details were not recognised.', 'data': {'status': 401}}), 401);
+        return http.Response(
+          jsonEncode({
+            'code': 'ca_hub_invalid_credentials',
+            'message': 'Those sign-in details were not recognised.',
+            'data': {'status': 401},
+          }),
+          401,
+        );
       }
-      return http.Response(jsonEncode({'token': 't1', 'expires_in': 900, 'refresh': 'r1', 'user': {'id': 7, 'display_name': 'Clay'}}), 200);
+      return http.Response(
+        jsonEncode({
+          'token': 't1',
+          'expires_in': 900,
+          'refresh': 'r1',
+          'user': {'id': 7, 'display_name': 'Clay'},
+        }),
+        200,
+      );
     }
     if (path.endsWith('/auth/device/refresh')) {
       refreshes++;
-      if (refreshRefused) return http.Response(jsonEncode({'code': 'ca_hub_refresh_failed', 'message': 'Session is not valid.', 'data': {'status': 401}}), 401);
-      return http.Response(jsonEncode({'token': 't2', 'expires_in': 900, 'refresh': 'r2', 'user': {'id': 7, 'display_name': 'Clay'}}), 200);
+      if (refreshRefused)
+        return http.Response(
+          jsonEncode({
+            'code': 'ca_hub_refresh_failed',
+            'message': 'Session is not valid.',
+            'data': {'status': 401},
+          }),
+          401,
+        );
+      return http.Response(
+        jsonEncode({
+          'token': 't2',
+          'expires_in': 900,
+          'refresh': 'r2',
+          'user': {'id': 7, 'display_name': 'Clay'},
+        }),
+        200,
+      );
     }
     if (path.endsWith('/kolumn/sync')) {
       if (expireNextCall > 0) {
         expireNextCall--;
-        return http.Response(jsonEncode({'code': 'rest_forbidden', 'message': 'expired', 'data': {'status': 401}}), 401);
+        return http.Response(
+          jsonEncode({
+            'code': 'rest_forbidden',
+            'message': 'expired',
+            'data': {'status': 401},
+          }),
+          401,
+        );
       }
       if (req.method == 'POST') {
         final muts = ((jsonDecode(req.body) as Map)['mutations'] as List).cast<Map<String, dynamic>>();
         received.addAll(muts);
         return http.Response(
           jsonEncode({
-            'results': [for (final m in muts) {'mutation_id': m['mutation_id'], 'outcome': m['name'] == rejectName ? 'rejected' : 'applied'}],
+            'results': [
+              for (final m in muts) {'mutation_id': m['mutation_id'], 'outcome': m['name'] == rejectName ? 'rejected' : 'applied'},
+            ],
           }),
           200,
         );
@@ -72,17 +122,45 @@ void main() {
     repo = KolumnRepository(db);
     hub = FakeHub();
     creds = MemoryCredentialStore();
-    sync = SyncService(repo: repo, hub: HubClient(credentials: creds, httpClient: hub.client, server: 'https://hub.test'));
+    sync = SyncService(
+      repo: repo,
+      hub: HubClient(credentials: creds, httpClient: hub.client, server: 'https://hub.test'),
+    );
   });
 
   tearDown(() => db.close());
 
-  Map<String, dynamic> board(String id, {bool all = true, List<int> members = const []}) =>
-      {'id': id, 'name': 'Tour', 'tidyDays': null, 'allAccess': all, 'creatorId': 7, 'members': members, 'canManage': true, 'createdAt': 1, 'updatedAt': 1, 'deletedAt': null};
+  Map<String, dynamic> board(String id, {bool all = true, List<int> members = const []}) => {
+    'id': id,
+    'name': 'Tour',
+    'tidyDays': null,
+    'allAccess': all,
+    'creatorId': 7,
+    'members': members,
+    'canManage': true,
+    'createdAt': 1,
+    'updatedAt': 1,
+    'deletedAt': null,
+  };
   Map<String, dynamic> card(String id, String boardId, {String title = 'A', int number = 5, int rev = 1}) => {
-    'id': id, 'boardId': boardId, 'number': number, 'title': title, 'description': '', 'columnId': null, 'closedAt': null, 'laterAt': null,
-    'laterReason': null, 'priorityAt': null, 'dueAt': null, 'dueHasTime': false, 'lastActiveAt': 10, 'creatorId': 7, 'rev': rev,
-    'createdAt': 1, 'updatedAt': 1, 'deletedAt': null,
+    'id': id,
+    'boardId': boardId,
+    'number': number,
+    'title': title,
+    'description': '',
+    'columnId': null,
+    'closedAt': null,
+    'laterAt': null,
+    'laterReason': null,
+    'priorityAt': null,
+    'dueAt': null,
+    'dueHasTime': false,
+    'lastActiveAt': 10,
+    'creatorId': 7,
+    'rev': rev,
+    'createdAt': 1,
+    'updatedAt': 1,
+    'deletedAt': null,
   };
 
   test('wrong details are refused with the hub\'s own message', () async {
@@ -92,7 +170,12 @@ void main() {
   });
 
   test('signing in keeps the session in safe storage and fetches everything', () async {
-    hub.pullBody = {...hub.pullBody, 'boardIds': ['b1'], 'boards': [board('b1')], 'cards': [card('c1', 'b1')]};
+    hub.pullBody = {
+      ...hub.pullBody,
+      'boardIds': ['b1'],
+      'boards': [board('b1')],
+      'cards': [card('c1', 'b1')],
+    };
     expect(await sync.signIn('clay', 'right'), isNull);
     expect(await creds.read(), 'r1');
     expect(hub.pulls.single.queryParameters['cursor'], '0', reason: 'the first fetch is a full one');
@@ -114,7 +197,12 @@ void main() {
     final b = await repo.createBoard('Tour');
     final c = await repo.addCard(b, 'Book the van');
     await repo.moveCard(c, const Lane.done());
-    hub.pullBody = {...hub.pullBody, 'boardIds': [b], 'boards': [board(b)], 'cards': [card(c, b)]};
+    hub.pullBody = {
+      ...hub.pullBody,
+      'boardIds': [b],
+      'boards': [board(b)],
+      'cards': [card(c, b)],
+    };
     await sync.syncNow();
     expect(hub.received.map((m) => m['name']), ['board.create', 'card.create', 'card.move']);
     expect(hub.received.map((m) => m['mutation_id']).toSet(), hasLength(3));
@@ -131,7 +219,11 @@ void main() {
     expect(await repo.pendingCount(), 2);
     expect(await creds.read(), 'r1', reason: 'no connection never signs anyone out');
     hub.offline = false;
-    hub.pullBody = {...hub.pullBody, 'boardIds': [b], 'boards': [board(b)]};
+    hub.pullBody = {
+      ...hub.pullBody,
+      'boardIds': [b],
+      'boards': [board(b)],
+    };
     await sync.syncNow();
     expect(await repo.pendingCount(), 0);
     expect(hub.received, hasLength(2));
@@ -160,7 +252,12 @@ void main() {
     final b = await repo.createBoard('Tour');
     final stray = await repo.addCard(b, 'Not allowed');
     hub.rejectName = 'card.create';
-    hub.pullBody = {...hub.pullBody, 'boardIds': [b], 'boards': [board(b)], 'cards': []};
+    hub.pullBody = {
+      ...hub.pullBody,
+      'boardIds': [b],
+      'boards': [board(b)],
+      'cards': [],
+    };
     await sync.syncNow();
     expect(hub.pulls.last.queryParameters['cursor'], '0');
     expect(await repo.card(stray), isNull, reason: 'the card the hub refused is taken back off the phone');
@@ -168,10 +265,21 @@ void main() {
 
   test('a board taken away disappears from the phone with its cards', () async {
     await creds.write('r1');
-    hub.pullBody = {...hub.pullBody, 'boardIds': ['b1', 'b2'], 'boards': [board('b1'), board('b2')], 'cards': [card('c1', 'b1'), card('c2', 'b2')]};
+    hub.pullBody = {
+      ...hub.pullBody,
+      'boardIds': ['b1', 'b2'],
+      'boards': [board('b1'), board('b2')],
+      'cards': [card('c1', 'b1'), card('c2', 'b2')],
+    };
     await sync.syncNow(full: true);
     expect(await repo.card('c2'), isNotNull);
-    hub.pullBody = {...hub.pullBody, 'cursor': 2, 'boardIds': ['b1'], 'boards': [], 'cards': []};
+    hub.pullBody = {
+      ...hub.pullBody,
+      'cursor': 2,
+      'boardIds': ['b1'],
+      'boards': [],
+      'cards': [],
+    };
     await sync.syncNow();
     expect(await repo.card('c2'), isNull);
     expect(await repo.card('c1'), isNotNull);
@@ -180,7 +288,12 @@ void main() {
 
   test('what the phone changed but has not sent is not overwritten by an older copy', () async {
     await creds.write('r1');
-    hub.pullBody = {...hub.pullBody, 'boardIds': ['b1'], 'boards': [board('b1')], 'cards': [card('c1', 'b1', title: 'Old title')]};
+    hub.pullBody = {
+      ...hub.pullBody,
+      'boardIds': ['b1'],
+      'boards': [board('b1')],
+      'cards': [card('c1', 'b1', title: 'Old title')],
+    };
     await sync.syncNow(full: true);
     await repo.editCard('c1', title: 'New title');
     hub.offline = true;
@@ -195,7 +308,12 @@ void main() {
 
   test('signing out takes the shared boards off the phone', () async {
     await creds.write('r1');
-    hub.pullBody = {...hub.pullBody, 'boardIds': ['b1'], 'boards': [board('b1')], 'cards': [card('c1', 'b1')]};
+    hub.pullBody = {
+      ...hub.pullBody,
+      'boardIds': ['b1'],
+      'boards': [board('b1')],
+      'cards': [card('c1', 'b1')],
+    };
     await sync.syncNow(full: true);
     await sync.signOut();
     expect(await repo.card('c1'), isNull);
@@ -208,6 +326,10 @@ void main() {
     await repo.setBoardAccess(b, allAccess: false, members: [7, 9]);
     final last = (await repo.pendingOutbox()).last;
     expect(last.name, 'board.access');
-    expect(jsonDecode(last.args), {'id': b, 'allAccess': false, 'members': [7, 9]});
+    expect(jsonDecode(last.args), {
+      'id': b,
+      'allAccess': false,
+      'members': [7, 9],
+    });
   });
 }

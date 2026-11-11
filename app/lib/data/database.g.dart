@@ -930,6 +930,19 @@ class $KCardsTable extends KCards with TableInfo<$KCardsTable, KCard> {
   static const VerificationMeta _creatorIdMeta = const VerificationMeta('creatorId');
   @override
   late final GeneratedColumn<int> creatorId = GeneratedColumn<int>('creator_id', aliasedName, true, type: DriftSqlType.int, requiredDuringInsert: false);
+  static const VerificationMeta _statusMeta = const VerificationMeta('status');
+  @override
+  late final GeneratedColumn<String> status = GeneratedColumn<String>(
+    'status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('published'),
+  );
+  static const VerificationMeta _coverIdMeta = const VerificationMeta('coverId');
+  @override
+  late final GeneratedColumn<String> coverId = GeneratedColumn<String>('cover_id', aliasedName, true, type: DriftSqlType.string, requiredDuringInsert: false);
   static const VerificationMeta _createdAtMeta = const VerificationMeta('createdAt');
   @override
   late final GeneratedColumn<int> createdAt = GeneratedColumn<int>('created_at', aliasedName, false, type: DriftSqlType.int, requiredDuringInsert: true);
@@ -957,6 +970,8 @@ class $KCardsTable extends KCards with TableInfo<$KCardsTable, KCard> {
     rev,
     synced,
     creatorId,
+    status,
+    coverId,
     createdAt,
     updatedAt,
     deletedAt,
@@ -1028,6 +1043,12 @@ class $KCardsTable extends KCards with TableInfo<$KCardsTable, KCard> {
     if (data.containsKey('creator_id')) {
       context.handle(_creatorIdMeta, creatorId.isAcceptableOrUnknown(data['creator_id']!, _creatorIdMeta));
     }
+    if (data.containsKey('status')) {
+      context.handle(_statusMeta, status.isAcceptableOrUnknown(data['status']!, _statusMeta));
+    }
+    if (data.containsKey('cover_id')) {
+      context.handle(_coverIdMeta, coverId.isAcceptableOrUnknown(data['cover_id']!, _coverIdMeta));
+    }
     if (data.containsKey('created_at')) {
       context.handle(_createdAtMeta, createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta));
     } else if (isInserting) {
@@ -1066,6 +1087,8 @@ class $KCardsTable extends KCards with TableInfo<$KCardsTable, KCard> {
       rev: attachedDatabase.typeMapping.read(DriftSqlType.int, data['${effectivePrefix}rev'])!,
       synced: attachedDatabase.typeMapping.read(DriftSqlType.bool, data['${effectivePrefix}synced'])!,
       creatorId: attachedDatabase.typeMapping.read(DriftSqlType.int, data['${effectivePrefix}creator_id']),
+      status: attachedDatabase.typeMapping.read(DriftSqlType.string, data['${effectivePrefix}status'])!,
+      coverId: attachedDatabase.typeMapping.read(DriftSqlType.string, data['${effectivePrefix}cover_id']),
       createdAt: attachedDatabase.typeMapping.read(DriftSqlType.int, data['${effectivePrefix}created_at'])!,
       updatedAt: attachedDatabase.typeMapping.read(DriftSqlType.int, data['${effectivePrefix}updated_at'])!,
       deletedAt: attachedDatabase.typeMapping.read(DriftSqlType.int, data['${effectivePrefix}deleted_at']),
@@ -1095,6 +1118,8 @@ class KCard extends DataClass implements Insertable<KCard> {
   final int rev;
   final bool synced;
   final int? creatorId;
+  final String status;
+  final String? coverId;
   final int createdAt;
   final int updatedAt;
   final int? deletedAt;
@@ -1115,6 +1140,8 @@ class KCard extends DataClass implements Insertable<KCard> {
     required this.rev,
     required this.synced,
     this.creatorId,
+    required this.status,
+    this.coverId,
     required this.createdAt,
     required this.updatedAt,
     this.deletedAt,
@@ -1152,6 +1179,10 @@ class KCard extends DataClass implements Insertable<KCard> {
     if (!nullToAbsent || creatorId != null) {
       map['creator_id'] = Variable<int>(creatorId);
     }
+    map['status'] = Variable<String>(status);
+    if (!nullToAbsent || coverId != null) {
+      map['cover_id'] = Variable<String>(coverId);
+    }
     map['created_at'] = Variable<int>(createdAt);
     map['updated_at'] = Variable<int>(updatedAt);
     if (!nullToAbsent || deletedAt != null) {
@@ -1178,6 +1209,8 @@ class KCard extends DataClass implements Insertable<KCard> {
       rev: Value(rev),
       synced: Value(synced),
       creatorId: creatorId == null && nullToAbsent ? const Value.absent() : Value(creatorId),
+      status: Value(status),
+      coverId: coverId == null && nullToAbsent ? const Value.absent() : Value(coverId),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
       deletedAt: deletedAt == null && nullToAbsent ? const Value.absent() : Value(deletedAt),
@@ -1203,6 +1236,8 @@ class KCard extends DataClass implements Insertable<KCard> {
       rev: serializer.fromJson<int>(json['rev']),
       synced: serializer.fromJson<bool>(json['synced']),
       creatorId: serializer.fromJson<int?>(json['creatorId']),
+      status: serializer.fromJson<String>(json['status']),
+      coverId: serializer.fromJson<String?>(json['coverId']),
       createdAt: serializer.fromJson<int>(json['createdAt']),
       updatedAt: serializer.fromJson<int>(json['updatedAt']),
       deletedAt: serializer.fromJson<int?>(json['deletedAt']),
@@ -1228,6 +1263,8 @@ class KCard extends DataClass implements Insertable<KCard> {
       'rev': serializer.toJson<int>(rev),
       'synced': serializer.toJson<bool>(synced),
       'creatorId': serializer.toJson<int?>(creatorId),
+      'status': serializer.toJson<String>(status),
+      'coverId': serializer.toJson<String?>(coverId),
       'createdAt': serializer.toJson<int>(createdAt),
       'updatedAt': serializer.toJson<int>(updatedAt),
       'deletedAt': serializer.toJson<int?>(deletedAt),
@@ -1251,6 +1288,8 @@ class KCard extends DataClass implements Insertable<KCard> {
     int? rev,
     bool? synced,
     Value<int?> creatorId = const Value.absent(),
+    String? status,
+    Value<String?> coverId = const Value.absent(),
     int? createdAt,
     int? updatedAt,
     Value<int?> deletedAt = const Value.absent(),
@@ -1271,6 +1310,8 @@ class KCard extends DataClass implements Insertable<KCard> {
     rev: rev ?? this.rev,
     synced: synced ?? this.synced,
     creatorId: creatorId.present ? creatorId.value : this.creatorId,
+    status: status ?? this.status,
+    coverId: coverId.present ? coverId.value : this.coverId,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
     deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
@@ -1293,6 +1334,8 @@ class KCard extends DataClass implements Insertable<KCard> {
       rev: data.rev.present ? data.rev.value : this.rev,
       synced: data.synced.present ? data.synced.value : this.synced,
       creatorId: data.creatorId.present ? data.creatorId.value : this.creatorId,
+      status: data.status.present ? data.status.value : this.status,
+      coverId: data.coverId.present ? data.coverId.value : this.coverId,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
       deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
@@ -1318,6 +1361,8 @@ class KCard extends DataClass implements Insertable<KCard> {
           ..write('rev: $rev, ')
           ..write('synced: $synced, ')
           ..write('creatorId: $creatorId, ')
+          ..write('status: $status, ')
+          ..write('coverId: $coverId, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('deletedAt: $deletedAt')
@@ -1326,7 +1371,7 @@ class KCard extends DataClass implements Insertable<KCard> {
   }
 
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => Object.hashAll([
     id,
     boardId,
     number,
@@ -1343,10 +1388,12 @@ class KCard extends DataClass implements Insertable<KCard> {
     rev,
     synced,
     creatorId,
+    status,
+    coverId,
     createdAt,
     updatedAt,
     deletedAt,
-  );
+  ]);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -1367,6 +1414,8 @@ class KCard extends DataClass implements Insertable<KCard> {
           other.rev == this.rev &&
           other.synced == this.synced &&
           other.creatorId == this.creatorId &&
+          other.status == this.status &&
+          other.coverId == this.coverId &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt &&
           other.deletedAt == this.deletedAt);
@@ -1389,6 +1438,8 @@ class KCardsCompanion extends UpdateCompanion<KCard> {
   final Value<int> rev;
   final Value<bool> synced;
   final Value<int?> creatorId;
+  final Value<String> status;
+  final Value<String?> coverId;
   final Value<int> createdAt;
   final Value<int> updatedAt;
   final Value<int?> deletedAt;
@@ -1410,6 +1461,8 @@ class KCardsCompanion extends UpdateCompanion<KCard> {
     this.rev = const Value.absent(),
     this.synced = const Value.absent(),
     this.creatorId = const Value.absent(),
+    this.status = const Value.absent(),
+    this.coverId = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.deletedAt = const Value.absent(),
@@ -1432,6 +1485,8 @@ class KCardsCompanion extends UpdateCompanion<KCard> {
     this.rev = const Value.absent(),
     this.synced = const Value.absent(),
     this.creatorId = const Value.absent(),
+    this.status = const Value.absent(),
+    this.coverId = const Value.absent(),
     required int createdAt,
     required int updatedAt,
     this.deletedAt = const Value.absent(),
@@ -1460,6 +1515,8 @@ class KCardsCompanion extends UpdateCompanion<KCard> {
     Expression<int>? rev,
     Expression<bool>? synced,
     Expression<int>? creatorId,
+    Expression<String>? status,
+    Expression<String>? coverId,
     Expression<int>? createdAt,
     Expression<int>? updatedAt,
     Expression<int>? deletedAt,
@@ -1482,6 +1539,8 @@ class KCardsCompanion extends UpdateCompanion<KCard> {
       if (rev != null) 'rev': rev,
       if (synced != null) 'synced': synced,
       if (creatorId != null) 'creator_id': creatorId,
+      if (status != null) 'status': status,
+      if (coverId != null) 'cover_id': coverId,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (deletedAt != null) 'deleted_at': deletedAt,
@@ -1506,6 +1565,8 @@ class KCardsCompanion extends UpdateCompanion<KCard> {
     Value<int>? rev,
     Value<bool>? synced,
     Value<int?>? creatorId,
+    Value<String>? status,
+    Value<String?>? coverId,
     Value<int>? createdAt,
     Value<int>? updatedAt,
     Value<int?>? deletedAt,
@@ -1528,6 +1589,8 @@ class KCardsCompanion extends UpdateCompanion<KCard> {
       rev: rev ?? this.rev,
       synced: synced ?? this.synced,
       creatorId: creatorId ?? this.creatorId,
+      status: status ?? this.status,
+      coverId: coverId ?? this.coverId,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       deletedAt: deletedAt ?? this.deletedAt,
@@ -1586,6 +1649,12 @@ class KCardsCompanion extends UpdateCompanion<KCard> {
     if (creatorId.present) {
       map['creator_id'] = Variable<int>(creatorId.value);
     }
+    if (status.present) {
+      map['status'] = Variable<String>(status.value);
+    }
+    if (coverId.present) {
+      map['cover_id'] = Variable<String>(coverId.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<int>(createdAt.value);
     }
@@ -1620,6 +1689,8 @@ class KCardsCompanion extends UpdateCompanion<KCard> {
           ..write('rev: $rev, ')
           ..write('synced: $synced, ')
           ..write('creatorId: $creatorId, ')
+          ..write('status: $status, ')
+          ..write('coverId: $coverId, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('deletedAt: $deletedAt, ')
@@ -2154,6 +2225,2698 @@ class KOutboxCompanion extends UpdateCompanion<KOutboxEntry> {
   }
 }
 
+class $KStepsTable extends KSteps with TableInfo<$KStepsTable, KStep> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $KStepsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>('id', aliasedName, false, type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _cardIdMeta = const VerificationMeta('cardId');
+  @override
+  late final GeneratedColumn<String> cardId = GeneratedColumn<String>('card_id', aliasedName, false, type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _contentMeta = const VerificationMeta('content');
+  @override
+  late final GeneratedColumn<String> content = GeneratedColumn<String>('content', aliasedName, false, type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _doneMeta = const VerificationMeta('done');
+  @override
+  late final GeneratedColumn<bool> done = GeneratedColumn<bool>(
+    'done',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways('CHECK ("done" IN (0, 1))'),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _positionMeta = const VerificationMeta('position');
+  @override
+  late final GeneratedColumn<double> position = GeneratedColumn<double>(
+    'position',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta('createdAt');
+  @override
+  late final GeneratedColumn<int> createdAt = GeneratedColumn<int>('created_at', aliasedName, false, type: DriftSqlType.int, requiredDuringInsert: true);
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta('deletedAt');
+  @override
+  late final GeneratedColumn<int> deletedAt = GeneratedColumn<int>('deleted_at', aliasedName, true, type: DriftSqlType.int, requiredDuringInsert: false);
+  @override
+  List<GeneratedColumn> get $columns => [id, cardId, content, done, position, createdAt, deletedAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'k_steps';
+  @override
+  VerificationContext validateIntegrity(Insertable<KStep> instance, {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('card_id')) {
+      context.handle(_cardIdMeta, cardId.isAcceptableOrUnknown(data['card_id']!, _cardIdMeta));
+    } else if (isInserting) {
+      context.missing(_cardIdMeta);
+    }
+    if (data.containsKey('content')) {
+      context.handle(_contentMeta, content.isAcceptableOrUnknown(data['content']!, _contentMeta));
+    } else if (isInserting) {
+      context.missing(_contentMeta);
+    }
+    if (data.containsKey('done')) {
+      context.handle(_doneMeta, done.isAcceptableOrUnknown(data['done']!, _doneMeta));
+    }
+    if (data.containsKey('position')) {
+      context.handle(_positionMeta, position.isAcceptableOrUnknown(data['position']!, _positionMeta));
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(_createdAtMeta, createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta));
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(_deletedAtMeta, deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta));
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  KStep map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return KStep(
+      id: attachedDatabase.typeMapping.read(DriftSqlType.string, data['${effectivePrefix}id'])!,
+      cardId: attachedDatabase.typeMapping.read(DriftSqlType.string, data['${effectivePrefix}card_id'])!,
+      content: attachedDatabase.typeMapping.read(DriftSqlType.string, data['${effectivePrefix}content'])!,
+      done: attachedDatabase.typeMapping.read(DriftSqlType.bool, data['${effectivePrefix}done'])!,
+      position: attachedDatabase.typeMapping.read(DriftSqlType.double, data['${effectivePrefix}position'])!,
+      createdAt: attachedDatabase.typeMapping.read(DriftSqlType.int, data['${effectivePrefix}created_at'])!,
+      deletedAt: attachedDatabase.typeMapping.read(DriftSqlType.int, data['${effectivePrefix}deleted_at']),
+    );
+  }
+
+  @override
+  $KStepsTable createAlias(String alias) {
+    return $KStepsTable(attachedDatabase, alias);
+  }
+}
+
+class KStep extends DataClass implements Insertable<KStep> {
+  final String id;
+  final String cardId;
+  final String content;
+  final bool done;
+  final double position;
+  final int createdAt;
+  final int? deletedAt;
+  const KStep({
+    required this.id,
+    required this.cardId,
+    required this.content,
+    required this.done,
+    required this.position,
+    required this.createdAt,
+    this.deletedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['card_id'] = Variable<String>(cardId);
+    map['content'] = Variable<String>(content);
+    map['done'] = Variable<bool>(done);
+    map['position'] = Variable<double>(position);
+    map['created_at'] = Variable<int>(createdAt);
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<int>(deletedAt);
+    }
+    return map;
+  }
+
+  KStepsCompanion toCompanion(bool nullToAbsent) {
+    return KStepsCompanion(
+      id: Value(id),
+      cardId: Value(cardId),
+      content: Value(content),
+      done: Value(done),
+      position: Value(position),
+      createdAt: Value(createdAt),
+      deletedAt: deletedAt == null && nullToAbsent ? const Value.absent() : Value(deletedAt),
+    );
+  }
+
+  factory KStep.fromJson(Map<String, dynamic> json, {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return KStep(
+      id: serializer.fromJson<String>(json['id']),
+      cardId: serializer.fromJson<String>(json['cardId']),
+      content: serializer.fromJson<String>(json['content']),
+      done: serializer.fromJson<bool>(json['done']),
+      position: serializer.fromJson<double>(json['position']),
+      createdAt: serializer.fromJson<int>(json['createdAt']),
+      deletedAt: serializer.fromJson<int?>(json['deletedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'cardId': serializer.toJson<String>(cardId),
+      'content': serializer.toJson<String>(content),
+      'done': serializer.toJson<bool>(done),
+      'position': serializer.toJson<double>(position),
+      'createdAt': serializer.toJson<int>(createdAt),
+      'deletedAt': serializer.toJson<int?>(deletedAt),
+    };
+  }
+
+  KStep copyWith({String? id, String? cardId, String? content, bool? done, double? position, int? createdAt, Value<int?> deletedAt = const Value.absent()}) =>
+      KStep(
+        id: id ?? this.id,
+        cardId: cardId ?? this.cardId,
+        content: content ?? this.content,
+        done: done ?? this.done,
+        position: position ?? this.position,
+        createdAt: createdAt ?? this.createdAt,
+        deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+      );
+  KStep copyWithCompanion(KStepsCompanion data) {
+    return KStep(
+      id: data.id.present ? data.id.value : this.id,
+      cardId: data.cardId.present ? data.cardId.value : this.cardId,
+      content: data.content.present ? data.content.value : this.content,
+      done: data.done.present ? data.done.value : this.done,
+      position: data.position.present ? data.position.value : this.position,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('KStep(')
+          ..write('id: $id, ')
+          ..write('cardId: $cardId, ')
+          ..write('content: $content, ')
+          ..write('done: $done, ')
+          ..write('position: $position, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('deletedAt: $deletedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, cardId, content, done, position, createdAt, deletedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is KStep &&
+          other.id == this.id &&
+          other.cardId == this.cardId &&
+          other.content == this.content &&
+          other.done == this.done &&
+          other.position == this.position &&
+          other.createdAt == this.createdAt &&
+          other.deletedAt == this.deletedAt);
+}
+
+class KStepsCompanion extends UpdateCompanion<KStep> {
+  final Value<String> id;
+  final Value<String> cardId;
+  final Value<String> content;
+  final Value<bool> done;
+  final Value<double> position;
+  final Value<int> createdAt;
+  final Value<int?> deletedAt;
+  final Value<int> rowid;
+  const KStepsCompanion({
+    this.id = const Value.absent(),
+    this.cardId = const Value.absent(),
+    this.content = const Value.absent(),
+    this.done = const Value.absent(),
+    this.position = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  KStepsCompanion.insert({
+    required String id,
+    required String cardId,
+    required String content,
+    this.done = const Value.absent(),
+    this.position = const Value.absent(),
+    required int createdAt,
+    this.deletedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       cardId = Value(cardId),
+       content = Value(content),
+       createdAt = Value(createdAt);
+  static Insertable<KStep> custom({
+    Expression<String>? id,
+    Expression<String>? cardId,
+    Expression<String>? content,
+    Expression<bool>? done,
+    Expression<double>? position,
+    Expression<int>? createdAt,
+    Expression<int>? deletedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (cardId != null) 'card_id': cardId,
+      if (content != null) 'content': content,
+      if (done != null) 'done': done,
+      if (position != null) 'position': position,
+      if (createdAt != null) 'created_at': createdAt,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  KStepsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? cardId,
+    Value<String>? content,
+    Value<bool>? done,
+    Value<double>? position,
+    Value<int>? createdAt,
+    Value<int?>? deletedAt,
+    Value<int>? rowid,
+  }) {
+    return KStepsCompanion(
+      id: id ?? this.id,
+      cardId: cardId ?? this.cardId,
+      content: content ?? this.content,
+      done: done ?? this.done,
+      position: position ?? this.position,
+      createdAt: createdAt ?? this.createdAt,
+      deletedAt: deletedAt ?? this.deletedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (cardId.present) {
+      map['card_id'] = Variable<String>(cardId.value);
+    }
+    if (content.present) {
+      map['content'] = Variable<String>(content.value);
+    }
+    if (done.present) {
+      map['done'] = Variable<bool>(done.value);
+    }
+    if (position.present) {
+      map['position'] = Variable<double>(position.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<int>(createdAt.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<int>(deletedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('KStepsCompanion(')
+          ..write('id: $id, ')
+          ..write('cardId: $cardId, ')
+          ..write('content: $content, ')
+          ..write('done: $done, ')
+          ..write('position: $position, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $KCommentsTable extends KComments with TableInfo<$KCommentsTable, KComment> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $KCommentsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>('id', aliasedName, false, type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _cardIdMeta = const VerificationMeta('cardId');
+  @override
+  late final GeneratedColumn<String> cardId = GeneratedColumn<String>('card_id', aliasedName, false, type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _userIdMeta = const VerificationMeta('userId');
+  @override
+  late final GeneratedColumn<int> userId = GeneratedColumn<int>('user_id', aliasedName, false, type: DriftSqlType.int, requiredDuringInsert: true);
+  static const VerificationMeta _bodyMeta = const VerificationMeta('body');
+  @override
+  late final GeneratedColumn<String> body = GeneratedColumn<String>('body', aliasedName, false, type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _createdAtMeta = const VerificationMeta('createdAt');
+  @override
+  late final GeneratedColumn<int> createdAt = GeneratedColumn<int>('created_at', aliasedName, false, type: DriftSqlType.int, requiredDuringInsert: true);
+  static const VerificationMeta _editedAtMeta = const VerificationMeta('editedAt');
+  @override
+  late final GeneratedColumn<int> editedAt = GeneratedColumn<int>('edited_at', aliasedName, true, type: DriftSqlType.int, requiredDuringInsert: false);
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta('deletedAt');
+  @override
+  late final GeneratedColumn<int> deletedAt = GeneratedColumn<int>('deleted_at', aliasedName, true, type: DriftSqlType.int, requiredDuringInsert: false);
+  static const VerificationMeta _syncedMeta = const VerificationMeta('synced');
+  @override
+  late final GeneratedColumn<bool> synced = GeneratedColumn<bool>(
+    'synced',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways('CHECK ("synced" IN (0, 1))'),
+    defaultValue: const Constant(false),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [id, cardId, userId, body, createdAt, editedAt, deletedAt, synced];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'k_comments';
+  @override
+  VerificationContext validateIntegrity(Insertable<KComment> instance, {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('card_id')) {
+      context.handle(_cardIdMeta, cardId.isAcceptableOrUnknown(data['card_id']!, _cardIdMeta));
+    } else if (isInserting) {
+      context.missing(_cardIdMeta);
+    }
+    if (data.containsKey('user_id')) {
+      context.handle(_userIdMeta, userId.isAcceptableOrUnknown(data['user_id']!, _userIdMeta));
+    } else if (isInserting) {
+      context.missing(_userIdMeta);
+    }
+    if (data.containsKey('body')) {
+      context.handle(_bodyMeta, body.isAcceptableOrUnknown(data['body']!, _bodyMeta));
+    } else if (isInserting) {
+      context.missing(_bodyMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(_createdAtMeta, createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta));
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('edited_at')) {
+      context.handle(_editedAtMeta, editedAt.isAcceptableOrUnknown(data['edited_at']!, _editedAtMeta));
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(_deletedAtMeta, deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta));
+    }
+    if (data.containsKey('synced')) {
+      context.handle(_syncedMeta, synced.isAcceptableOrUnknown(data['synced']!, _syncedMeta));
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  KComment map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return KComment(
+      id: attachedDatabase.typeMapping.read(DriftSqlType.string, data['${effectivePrefix}id'])!,
+      cardId: attachedDatabase.typeMapping.read(DriftSqlType.string, data['${effectivePrefix}card_id'])!,
+      userId: attachedDatabase.typeMapping.read(DriftSqlType.int, data['${effectivePrefix}user_id'])!,
+      body: attachedDatabase.typeMapping.read(DriftSqlType.string, data['${effectivePrefix}body'])!,
+      createdAt: attachedDatabase.typeMapping.read(DriftSqlType.int, data['${effectivePrefix}created_at'])!,
+      editedAt: attachedDatabase.typeMapping.read(DriftSqlType.int, data['${effectivePrefix}edited_at']),
+      deletedAt: attachedDatabase.typeMapping.read(DriftSqlType.int, data['${effectivePrefix}deleted_at']),
+      synced: attachedDatabase.typeMapping.read(DriftSqlType.bool, data['${effectivePrefix}synced'])!,
+    );
+  }
+
+  @override
+  $KCommentsTable createAlias(String alias) {
+    return $KCommentsTable(attachedDatabase, alias);
+  }
+}
+
+class KComment extends DataClass implements Insertable<KComment> {
+  final String id;
+  final String cardId;
+  final int userId;
+  final String body;
+  final int createdAt;
+  final int? editedAt;
+  final int? deletedAt;
+  final bool synced;
+  const KComment({
+    required this.id,
+    required this.cardId,
+    required this.userId,
+    required this.body,
+    required this.createdAt,
+    this.editedAt,
+    this.deletedAt,
+    required this.synced,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['card_id'] = Variable<String>(cardId);
+    map['user_id'] = Variable<int>(userId);
+    map['body'] = Variable<String>(body);
+    map['created_at'] = Variable<int>(createdAt);
+    if (!nullToAbsent || editedAt != null) {
+      map['edited_at'] = Variable<int>(editedAt);
+    }
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<int>(deletedAt);
+    }
+    map['synced'] = Variable<bool>(synced);
+    return map;
+  }
+
+  KCommentsCompanion toCompanion(bool nullToAbsent) {
+    return KCommentsCompanion(
+      id: Value(id),
+      cardId: Value(cardId),
+      userId: Value(userId),
+      body: Value(body),
+      createdAt: Value(createdAt),
+      editedAt: editedAt == null && nullToAbsent ? const Value.absent() : Value(editedAt),
+      deletedAt: deletedAt == null && nullToAbsent ? const Value.absent() : Value(deletedAt),
+      synced: Value(synced),
+    );
+  }
+
+  factory KComment.fromJson(Map<String, dynamic> json, {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return KComment(
+      id: serializer.fromJson<String>(json['id']),
+      cardId: serializer.fromJson<String>(json['cardId']),
+      userId: serializer.fromJson<int>(json['userId']),
+      body: serializer.fromJson<String>(json['body']),
+      createdAt: serializer.fromJson<int>(json['createdAt']),
+      editedAt: serializer.fromJson<int?>(json['editedAt']),
+      deletedAt: serializer.fromJson<int?>(json['deletedAt']),
+      synced: serializer.fromJson<bool>(json['synced']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'cardId': serializer.toJson<String>(cardId),
+      'userId': serializer.toJson<int>(userId),
+      'body': serializer.toJson<String>(body),
+      'createdAt': serializer.toJson<int>(createdAt),
+      'editedAt': serializer.toJson<int?>(editedAt),
+      'deletedAt': serializer.toJson<int?>(deletedAt),
+      'synced': serializer.toJson<bool>(synced),
+    };
+  }
+
+  KComment copyWith({
+    String? id,
+    String? cardId,
+    int? userId,
+    String? body,
+    int? createdAt,
+    Value<int?> editedAt = const Value.absent(),
+    Value<int?> deletedAt = const Value.absent(),
+    bool? synced,
+  }) => KComment(
+    id: id ?? this.id,
+    cardId: cardId ?? this.cardId,
+    userId: userId ?? this.userId,
+    body: body ?? this.body,
+    createdAt: createdAt ?? this.createdAt,
+    editedAt: editedAt.present ? editedAt.value : this.editedAt,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+    synced: synced ?? this.synced,
+  );
+  KComment copyWithCompanion(KCommentsCompanion data) {
+    return KComment(
+      id: data.id.present ? data.id.value : this.id,
+      cardId: data.cardId.present ? data.cardId.value : this.cardId,
+      userId: data.userId.present ? data.userId.value : this.userId,
+      body: data.body.present ? data.body.value : this.body,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      editedAt: data.editedAt.present ? data.editedAt.value : this.editedAt,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+      synced: data.synced.present ? data.synced.value : this.synced,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('KComment(')
+          ..write('id: $id, ')
+          ..write('cardId: $cardId, ')
+          ..write('userId: $userId, ')
+          ..write('body: $body, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('editedAt: $editedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('synced: $synced')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, cardId, userId, body, createdAt, editedAt, deletedAt, synced);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is KComment &&
+          other.id == this.id &&
+          other.cardId == this.cardId &&
+          other.userId == this.userId &&
+          other.body == this.body &&
+          other.createdAt == this.createdAt &&
+          other.editedAt == this.editedAt &&
+          other.deletedAt == this.deletedAt &&
+          other.synced == this.synced);
+}
+
+class KCommentsCompanion extends UpdateCompanion<KComment> {
+  final Value<String> id;
+  final Value<String> cardId;
+  final Value<int> userId;
+  final Value<String> body;
+  final Value<int> createdAt;
+  final Value<int?> editedAt;
+  final Value<int?> deletedAt;
+  final Value<bool> synced;
+  final Value<int> rowid;
+  const KCommentsCompanion({
+    this.id = const Value.absent(),
+    this.cardId = const Value.absent(),
+    this.userId = const Value.absent(),
+    this.body = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.editedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.synced = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  KCommentsCompanion.insert({
+    required String id,
+    required String cardId,
+    required int userId,
+    required String body,
+    required int createdAt,
+    this.editedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.synced = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       cardId = Value(cardId),
+       userId = Value(userId),
+       body = Value(body),
+       createdAt = Value(createdAt);
+  static Insertable<KComment> custom({
+    Expression<String>? id,
+    Expression<String>? cardId,
+    Expression<int>? userId,
+    Expression<String>? body,
+    Expression<int>? createdAt,
+    Expression<int>? editedAt,
+    Expression<int>? deletedAt,
+    Expression<bool>? synced,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (cardId != null) 'card_id': cardId,
+      if (userId != null) 'user_id': userId,
+      if (body != null) 'body': body,
+      if (createdAt != null) 'created_at': createdAt,
+      if (editedAt != null) 'edited_at': editedAt,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+      if (synced != null) 'synced': synced,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  KCommentsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? cardId,
+    Value<int>? userId,
+    Value<String>? body,
+    Value<int>? createdAt,
+    Value<int?>? editedAt,
+    Value<int?>? deletedAt,
+    Value<bool>? synced,
+    Value<int>? rowid,
+  }) {
+    return KCommentsCompanion(
+      id: id ?? this.id,
+      cardId: cardId ?? this.cardId,
+      userId: userId ?? this.userId,
+      body: body ?? this.body,
+      createdAt: createdAt ?? this.createdAt,
+      editedAt: editedAt ?? this.editedAt,
+      deletedAt: deletedAt ?? this.deletedAt,
+      synced: synced ?? this.synced,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (cardId.present) {
+      map['card_id'] = Variable<String>(cardId.value);
+    }
+    if (userId.present) {
+      map['user_id'] = Variable<int>(userId.value);
+    }
+    if (body.present) {
+      map['body'] = Variable<String>(body.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<int>(createdAt.value);
+    }
+    if (editedAt.present) {
+      map['edited_at'] = Variable<int>(editedAt.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<int>(deletedAt.value);
+    }
+    if (synced.present) {
+      map['synced'] = Variable<bool>(synced.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('KCommentsCompanion(')
+          ..write('id: $id, ')
+          ..write('cardId: $cardId, ')
+          ..write('userId: $userId, ')
+          ..write('body: $body, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('editedAt: $editedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('synced: $synced, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $KReactionsTable extends KReactions with TableInfo<$KReactionsTable, KReaction> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $KReactionsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>('id', aliasedName, false, type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _cardIdMeta = const VerificationMeta('cardId');
+  @override
+  late final GeneratedColumn<String> cardId = GeneratedColumn<String>('card_id', aliasedName, false, type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _commentIdMeta = const VerificationMeta('commentId');
+  @override
+  late final GeneratedColumn<String> commentId = GeneratedColumn<String>(
+    'comment_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _userIdMeta = const VerificationMeta('userId');
+  @override
+  late final GeneratedColumn<int> userId = GeneratedColumn<int>('user_id', aliasedName, false, type: DriftSqlType.int, requiredDuringInsert: true);
+  static const VerificationMeta _emojiMeta = const VerificationMeta('emoji');
+  @override
+  late final GeneratedColumn<String> emoji = GeneratedColumn<String>('emoji', aliasedName, false, type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _createdAtMeta = const VerificationMeta('createdAt');
+  @override
+  late final GeneratedColumn<int> createdAt = GeneratedColumn<int>('created_at', aliasedName, false, type: DriftSqlType.int, requiredDuringInsert: true);
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta('deletedAt');
+  @override
+  late final GeneratedColumn<int> deletedAt = GeneratedColumn<int>('deleted_at', aliasedName, true, type: DriftSqlType.int, requiredDuringInsert: false);
+  @override
+  List<GeneratedColumn> get $columns => [id, cardId, commentId, userId, emoji, createdAt, deletedAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'k_reactions';
+  @override
+  VerificationContext validateIntegrity(Insertable<KReaction> instance, {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('card_id')) {
+      context.handle(_cardIdMeta, cardId.isAcceptableOrUnknown(data['card_id']!, _cardIdMeta));
+    } else if (isInserting) {
+      context.missing(_cardIdMeta);
+    }
+    if (data.containsKey('comment_id')) {
+      context.handle(_commentIdMeta, commentId.isAcceptableOrUnknown(data['comment_id']!, _commentIdMeta));
+    }
+    if (data.containsKey('user_id')) {
+      context.handle(_userIdMeta, userId.isAcceptableOrUnknown(data['user_id']!, _userIdMeta));
+    } else if (isInserting) {
+      context.missing(_userIdMeta);
+    }
+    if (data.containsKey('emoji')) {
+      context.handle(_emojiMeta, emoji.isAcceptableOrUnknown(data['emoji']!, _emojiMeta));
+    } else if (isInserting) {
+      context.missing(_emojiMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(_createdAtMeta, createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta));
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(_deletedAtMeta, deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta));
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  KReaction map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return KReaction(
+      id: attachedDatabase.typeMapping.read(DriftSqlType.string, data['${effectivePrefix}id'])!,
+      cardId: attachedDatabase.typeMapping.read(DriftSqlType.string, data['${effectivePrefix}card_id'])!,
+      commentId: attachedDatabase.typeMapping.read(DriftSqlType.string, data['${effectivePrefix}comment_id']),
+      userId: attachedDatabase.typeMapping.read(DriftSqlType.int, data['${effectivePrefix}user_id'])!,
+      emoji: attachedDatabase.typeMapping.read(DriftSqlType.string, data['${effectivePrefix}emoji'])!,
+      createdAt: attachedDatabase.typeMapping.read(DriftSqlType.int, data['${effectivePrefix}created_at'])!,
+      deletedAt: attachedDatabase.typeMapping.read(DriftSqlType.int, data['${effectivePrefix}deleted_at']),
+    );
+  }
+
+  @override
+  $KReactionsTable createAlias(String alias) {
+    return $KReactionsTable(attachedDatabase, alias);
+  }
+}
+
+class KReaction extends DataClass implements Insertable<KReaction> {
+  final String id;
+  final String cardId;
+  final String? commentId;
+  final int userId;
+  final String emoji;
+  final int createdAt;
+  final int? deletedAt;
+  const KReaction({required this.id, required this.cardId, this.commentId, required this.userId, required this.emoji, required this.createdAt, this.deletedAt});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['card_id'] = Variable<String>(cardId);
+    if (!nullToAbsent || commentId != null) {
+      map['comment_id'] = Variable<String>(commentId);
+    }
+    map['user_id'] = Variable<int>(userId);
+    map['emoji'] = Variable<String>(emoji);
+    map['created_at'] = Variable<int>(createdAt);
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<int>(deletedAt);
+    }
+    return map;
+  }
+
+  KReactionsCompanion toCompanion(bool nullToAbsent) {
+    return KReactionsCompanion(
+      id: Value(id),
+      cardId: Value(cardId),
+      commentId: commentId == null && nullToAbsent ? const Value.absent() : Value(commentId),
+      userId: Value(userId),
+      emoji: Value(emoji),
+      createdAt: Value(createdAt),
+      deletedAt: deletedAt == null && nullToAbsent ? const Value.absent() : Value(deletedAt),
+    );
+  }
+
+  factory KReaction.fromJson(Map<String, dynamic> json, {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return KReaction(
+      id: serializer.fromJson<String>(json['id']),
+      cardId: serializer.fromJson<String>(json['cardId']),
+      commentId: serializer.fromJson<String?>(json['commentId']),
+      userId: serializer.fromJson<int>(json['userId']),
+      emoji: serializer.fromJson<String>(json['emoji']),
+      createdAt: serializer.fromJson<int>(json['createdAt']),
+      deletedAt: serializer.fromJson<int?>(json['deletedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'cardId': serializer.toJson<String>(cardId),
+      'commentId': serializer.toJson<String?>(commentId),
+      'userId': serializer.toJson<int>(userId),
+      'emoji': serializer.toJson<String>(emoji),
+      'createdAt': serializer.toJson<int>(createdAt),
+      'deletedAt': serializer.toJson<int?>(deletedAt),
+    };
+  }
+
+  KReaction copyWith({
+    String? id,
+    String? cardId,
+    Value<String?> commentId = const Value.absent(),
+    int? userId,
+    String? emoji,
+    int? createdAt,
+    Value<int?> deletedAt = const Value.absent(),
+  }) => KReaction(
+    id: id ?? this.id,
+    cardId: cardId ?? this.cardId,
+    commentId: commentId.present ? commentId.value : this.commentId,
+    userId: userId ?? this.userId,
+    emoji: emoji ?? this.emoji,
+    createdAt: createdAt ?? this.createdAt,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+  );
+  KReaction copyWithCompanion(KReactionsCompanion data) {
+    return KReaction(
+      id: data.id.present ? data.id.value : this.id,
+      cardId: data.cardId.present ? data.cardId.value : this.cardId,
+      commentId: data.commentId.present ? data.commentId.value : this.commentId,
+      userId: data.userId.present ? data.userId.value : this.userId,
+      emoji: data.emoji.present ? data.emoji.value : this.emoji,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('KReaction(')
+          ..write('id: $id, ')
+          ..write('cardId: $cardId, ')
+          ..write('commentId: $commentId, ')
+          ..write('userId: $userId, ')
+          ..write('emoji: $emoji, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('deletedAt: $deletedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, cardId, commentId, userId, emoji, createdAt, deletedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is KReaction &&
+          other.id == this.id &&
+          other.cardId == this.cardId &&
+          other.commentId == this.commentId &&
+          other.userId == this.userId &&
+          other.emoji == this.emoji &&
+          other.createdAt == this.createdAt &&
+          other.deletedAt == this.deletedAt);
+}
+
+class KReactionsCompanion extends UpdateCompanion<KReaction> {
+  final Value<String> id;
+  final Value<String> cardId;
+  final Value<String?> commentId;
+  final Value<int> userId;
+  final Value<String> emoji;
+  final Value<int> createdAt;
+  final Value<int?> deletedAt;
+  final Value<int> rowid;
+  const KReactionsCompanion({
+    this.id = const Value.absent(),
+    this.cardId = const Value.absent(),
+    this.commentId = const Value.absent(),
+    this.userId = const Value.absent(),
+    this.emoji = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  KReactionsCompanion.insert({
+    required String id,
+    required String cardId,
+    this.commentId = const Value.absent(),
+    required int userId,
+    required String emoji,
+    required int createdAt,
+    this.deletedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       cardId = Value(cardId),
+       userId = Value(userId),
+       emoji = Value(emoji),
+       createdAt = Value(createdAt);
+  static Insertable<KReaction> custom({
+    Expression<String>? id,
+    Expression<String>? cardId,
+    Expression<String>? commentId,
+    Expression<int>? userId,
+    Expression<String>? emoji,
+    Expression<int>? createdAt,
+    Expression<int>? deletedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (cardId != null) 'card_id': cardId,
+      if (commentId != null) 'comment_id': commentId,
+      if (userId != null) 'user_id': userId,
+      if (emoji != null) 'emoji': emoji,
+      if (createdAt != null) 'created_at': createdAt,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  KReactionsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? cardId,
+    Value<String?>? commentId,
+    Value<int>? userId,
+    Value<String>? emoji,
+    Value<int>? createdAt,
+    Value<int?>? deletedAt,
+    Value<int>? rowid,
+  }) {
+    return KReactionsCompanion(
+      id: id ?? this.id,
+      cardId: cardId ?? this.cardId,
+      commentId: commentId ?? this.commentId,
+      userId: userId ?? this.userId,
+      emoji: emoji ?? this.emoji,
+      createdAt: createdAt ?? this.createdAt,
+      deletedAt: deletedAt ?? this.deletedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (cardId.present) {
+      map['card_id'] = Variable<String>(cardId.value);
+    }
+    if (commentId.present) {
+      map['comment_id'] = Variable<String>(commentId.value);
+    }
+    if (userId.present) {
+      map['user_id'] = Variable<int>(userId.value);
+    }
+    if (emoji.present) {
+      map['emoji'] = Variable<String>(emoji.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<int>(createdAt.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<int>(deletedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('KReactionsCompanion(')
+          ..write('id: $id, ')
+          ..write('cardId: $cardId, ')
+          ..write('commentId: $commentId, ')
+          ..write('userId: $userId, ')
+          ..write('emoji: $emoji, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $KTagsTable extends KTags with TableInfo<$KTagsTable, KTag> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $KTagsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _cardIdMeta = const VerificationMeta('cardId');
+  @override
+  late final GeneratedColumn<String> cardId = GeneratedColumn<String>('card_id', aliasedName, false, type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _tagMeta = const VerificationMeta('tag');
+  @override
+  late final GeneratedColumn<String> tag = GeneratedColumn<String>('tag', aliasedName, false, type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta('deletedAt');
+  @override
+  late final GeneratedColumn<int> deletedAt = GeneratedColumn<int>('deleted_at', aliasedName, true, type: DriftSqlType.int, requiredDuringInsert: false);
+  @override
+  List<GeneratedColumn> get $columns => [cardId, tag, deletedAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'k_tags';
+  @override
+  VerificationContext validateIntegrity(Insertable<KTag> instance, {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('card_id')) {
+      context.handle(_cardIdMeta, cardId.isAcceptableOrUnknown(data['card_id']!, _cardIdMeta));
+    } else if (isInserting) {
+      context.missing(_cardIdMeta);
+    }
+    if (data.containsKey('tag')) {
+      context.handle(_tagMeta, tag.isAcceptableOrUnknown(data['tag']!, _tagMeta));
+    } else if (isInserting) {
+      context.missing(_tagMeta);
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(_deletedAtMeta, deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta));
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {cardId, tag};
+  @override
+  KTag map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return KTag(
+      cardId: attachedDatabase.typeMapping.read(DriftSqlType.string, data['${effectivePrefix}card_id'])!,
+      tag: attachedDatabase.typeMapping.read(DriftSqlType.string, data['${effectivePrefix}tag'])!,
+      deletedAt: attachedDatabase.typeMapping.read(DriftSqlType.int, data['${effectivePrefix}deleted_at']),
+    );
+  }
+
+  @override
+  $KTagsTable createAlias(String alias) {
+    return $KTagsTable(attachedDatabase, alias);
+  }
+}
+
+class KTag extends DataClass implements Insertable<KTag> {
+  final String cardId;
+  final String tag;
+  final int? deletedAt;
+  const KTag({required this.cardId, required this.tag, this.deletedAt});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['card_id'] = Variable<String>(cardId);
+    map['tag'] = Variable<String>(tag);
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<int>(deletedAt);
+    }
+    return map;
+  }
+
+  KTagsCompanion toCompanion(bool nullToAbsent) {
+    return KTagsCompanion(cardId: Value(cardId), tag: Value(tag), deletedAt: deletedAt == null && nullToAbsent ? const Value.absent() : Value(deletedAt));
+  }
+
+  factory KTag.fromJson(Map<String, dynamic> json, {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return KTag(
+      cardId: serializer.fromJson<String>(json['cardId']),
+      tag: serializer.fromJson<String>(json['tag']),
+      deletedAt: serializer.fromJson<int?>(json['deletedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'cardId': serializer.toJson<String>(cardId),
+      'tag': serializer.toJson<String>(tag),
+      'deletedAt': serializer.toJson<int?>(deletedAt),
+    };
+  }
+
+  KTag copyWith({String? cardId, String? tag, Value<int?> deletedAt = const Value.absent()}) =>
+      KTag(cardId: cardId ?? this.cardId, tag: tag ?? this.tag, deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt);
+  KTag copyWithCompanion(KTagsCompanion data) {
+    return KTag(
+      cardId: data.cardId.present ? data.cardId.value : this.cardId,
+      tag: data.tag.present ? data.tag.value : this.tag,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('KTag(')
+          ..write('cardId: $cardId, ')
+          ..write('tag: $tag, ')
+          ..write('deletedAt: $deletedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(cardId, tag, deletedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) || (other is KTag && other.cardId == this.cardId && other.tag == this.tag && other.deletedAt == this.deletedAt);
+}
+
+class KTagsCompanion extends UpdateCompanion<KTag> {
+  final Value<String> cardId;
+  final Value<String> tag;
+  final Value<int?> deletedAt;
+  final Value<int> rowid;
+  const KTagsCompanion({
+    this.cardId = const Value.absent(),
+    this.tag = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  KTagsCompanion.insert({required String cardId, required String tag, this.deletedAt = const Value.absent(), this.rowid = const Value.absent()})
+    : cardId = Value(cardId),
+      tag = Value(tag);
+  static Insertable<KTag> custom({Expression<String>? cardId, Expression<String>? tag, Expression<int>? deletedAt, Expression<int>? rowid}) {
+    return RawValuesInsertable({
+      if (cardId != null) 'card_id': cardId,
+      if (tag != null) 'tag': tag,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  KTagsCompanion copyWith({Value<String>? cardId, Value<String>? tag, Value<int?>? deletedAt, Value<int>? rowid}) {
+    return KTagsCompanion(cardId: cardId ?? this.cardId, tag: tag ?? this.tag, deletedAt: deletedAt ?? this.deletedAt, rowid: rowid ?? this.rowid);
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (cardId.present) {
+      map['card_id'] = Variable<String>(cardId.value);
+    }
+    if (tag.present) {
+      map['tag'] = Variable<String>(tag.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<int>(deletedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('KTagsCompanion(')
+          ..write('cardId: $cardId, ')
+          ..write('tag: $tag, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $KAssigneesTable extends KAssignees with TableInfo<$KAssigneesTable, KAssignee> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $KAssigneesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _cardIdMeta = const VerificationMeta('cardId');
+  @override
+  late final GeneratedColumn<String> cardId = GeneratedColumn<String>('card_id', aliasedName, false, type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _userIdMeta = const VerificationMeta('userId');
+  @override
+  late final GeneratedColumn<int> userId = GeneratedColumn<int>('user_id', aliasedName, false, type: DriftSqlType.int, requiredDuringInsert: true);
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta('deletedAt');
+  @override
+  late final GeneratedColumn<int> deletedAt = GeneratedColumn<int>('deleted_at', aliasedName, true, type: DriftSqlType.int, requiredDuringInsert: false);
+  @override
+  List<GeneratedColumn> get $columns => [cardId, userId, deletedAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'k_assignees';
+  @override
+  VerificationContext validateIntegrity(Insertable<KAssignee> instance, {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('card_id')) {
+      context.handle(_cardIdMeta, cardId.isAcceptableOrUnknown(data['card_id']!, _cardIdMeta));
+    } else if (isInserting) {
+      context.missing(_cardIdMeta);
+    }
+    if (data.containsKey('user_id')) {
+      context.handle(_userIdMeta, userId.isAcceptableOrUnknown(data['user_id']!, _userIdMeta));
+    } else if (isInserting) {
+      context.missing(_userIdMeta);
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(_deletedAtMeta, deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta));
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {cardId, userId};
+  @override
+  KAssignee map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return KAssignee(
+      cardId: attachedDatabase.typeMapping.read(DriftSqlType.string, data['${effectivePrefix}card_id'])!,
+      userId: attachedDatabase.typeMapping.read(DriftSqlType.int, data['${effectivePrefix}user_id'])!,
+      deletedAt: attachedDatabase.typeMapping.read(DriftSqlType.int, data['${effectivePrefix}deleted_at']),
+    );
+  }
+
+  @override
+  $KAssigneesTable createAlias(String alias) {
+    return $KAssigneesTable(attachedDatabase, alias);
+  }
+}
+
+class KAssignee extends DataClass implements Insertable<KAssignee> {
+  final String cardId;
+  final int userId;
+  final int? deletedAt;
+  const KAssignee({required this.cardId, required this.userId, this.deletedAt});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['card_id'] = Variable<String>(cardId);
+    map['user_id'] = Variable<int>(userId);
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<int>(deletedAt);
+    }
+    return map;
+  }
+
+  KAssigneesCompanion toCompanion(bool nullToAbsent) {
+    return KAssigneesCompanion(
+      cardId: Value(cardId),
+      userId: Value(userId),
+      deletedAt: deletedAt == null && nullToAbsent ? const Value.absent() : Value(deletedAt),
+    );
+  }
+
+  factory KAssignee.fromJson(Map<String, dynamic> json, {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return KAssignee(
+      cardId: serializer.fromJson<String>(json['cardId']),
+      userId: serializer.fromJson<int>(json['userId']),
+      deletedAt: serializer.fromJson<int?>(json['deletedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'cardId': serializer.toJson<String>(cardId),
+      'userId': serializer.toJson<int>(userId),
+      'deletedAt': serializer.toJson<int?>(deletedAt),
+    };
+  }
+
+  KAssignee copyWith({String? cardId, int? userId, Value<int?> deletedAt = const Value.absent()}) =>
+      KAssignee(cardId: cardId ?? this.cardId, userId: userId ?? this.userId, deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt);
+  KAssignee copyWithCompanion(KAssigneesCompanion data) {
+    return KAssignee(
+      cardId: data.cardId.present ? data.cardId.value : this.cardId,
+      userId: data.userId.present ? data.userId.value : this.userId,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('KAssignee(')
+          ..write('cardId: $cardId, ')
+          ..write('userId: $userId, ')
+          ..write('deletedAt: $deletedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(cardId, userId, deletedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) || (other is KAssignee && other.cardId == this.cardId && other.userId == this.userId && other.deletedAt == this.deletedAt);
+}
+
+class KAssigneesCompanion extends UpdateCompanion<KAssignee> {
+  final Value<String> cardId;
+  final Value<int> userId;
+  final Value<int?> deletedAt;
+  final Value<int> rowid;
+  const KAssigneesCompanion({
+    this.cardId = const Value.absent(),
+    this.userId = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  KAssigneesCompanion.insert({required String cardId, required int userId, this.deletedAt = const Value.absent(), this.rowid = const Value.absent()})
+    : cardId = Value(cardId),
+      userId = Value(userId);
+  static Insertable<KAssignee> custom({Expression<String>? cardId, Expression<int>? userId, Expression<int>? deletedAt, Expression<int>? rowid}) {
+    return RawValuesInsertable({
+      if (cardId != null) 'card_id': cardId,
+      if (userId != null) 'user_id': userId,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  KAssigneesCompanion copyWith({Value<String>? cardId, Value<int>? userId, Value<int?>? deletedAt, Value<int>? rowid}) {
+    return KAssigneesCompanion(
+      cardId: cardId ?? this.cardId,
+      userId: userId ?? this.userId,
+      deletedAt: deletedAt ?? this.deletedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (cardId.present) {
+      map['card_id'] = Variable<String>(cardId.value);
+    }
+    if (userId.present) {
+      map['user_id'] = Variable<int>(userId.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<int>(deletedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('KAssigneesCompanion(')
+          ..write('cardId: $cardId, ')
+          ..write('userId: $userId, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $KWatchesTable extends KWatches with TableInfo<$KWatchesTable, KWatch> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $KWatchesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _cardIdMeta = const VerificationMeta('cardId');
+  @override
+  late final GeneratedColumn<String> cardId = GeneratedColumn<String>('card_id', aliasedName, false, type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _watchingMeta = const VerificationMeta('watching');
+  @override
+  late final GeneratedColumn<bool> watching = GeneratedColumn<bool>(
+    'watching',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways('CHECK ("watching" IN (0, 1))'),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [cardId, watching];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'k_watches';
+  @override
+  VerificationContext validateIntegrity(Insertable<KWatch> instance, {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('card_id')) {
+      context.handle(_cardIdMeta, cardId.isAcceptableOrUnknown(data['card_id']!, _cardIdMeta));
+    } else if (isInserting) {
+      context.missing(_cardIdMeta);
+    }
+    if (data.containsKey('watching')) {
+      context.handle(_watchingMeta, watching.isAcceptableOrUnknown(data['watching']!, _watchingMeta));
+    } else if (isInserting) {
+      context.missing(_watchingMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {cardId};
+  @override
+  KWatch map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return KWatch(
+      cardId: attachedDatabase.typeMapping.read(DriftSqlType.string, data['${effectivePrefix}card_id'])!,
+      watching: attachedDatabase.typeMapping.read(DriftSqlType.bool, data['${effectivePrefix}watching'])!,
+    );
+  }
+
+  @override
+  $KWatchesTable createAlias(String alias) {
+    return $KWatchesTable(attachedDatabase, alias);
+  }
+}
+
+class KWatch extends DataClass implements Insertable<KWatch> {
+  final String cardId;
+  final bool watching;
+  const KWatch({required this.cardId, required this.watching});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['card_id'] = Variable<String>(cardId);
+    map['watching'] = Variable<bool>(watching);
+    return map;
+  }
+
+  KWatchesCompanion toCompanion(bool nullToAbsent) {
+    return KWatchesCompanion(cardId: Value(cardId), watching: Value(watching));
+  }
+
+  factory KWatch.fromJson(Map<String, dynamic> json, {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return KWatch(cardId: serializer.fromJson<String>(json['cardId']), watching: serializer.fromJson<bool>(json['watching']));
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{'cardId': serializer.toJson<String>(cardId), 'watching': serializer.toJson<bool>(watching)};
+  }
+
+  KWatch copyWith({String? cardId, bool? watching}) => KWatch(cardId: cardId ?? this.cardId, watching: watching ?? this.watching);
+  KWatch copyWithCompanion(KWatchesCompanion data) {
+    return KWatch(cardId: data.cardId.present ? data.cardId.value : this.cardId, watching: data.watching.present ? data.watching.value : this.watching);
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('KWatch(')
+          ..write('cardId: $cardId, ')
+          ..write('watching: $watching')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(cardId, watching);
+  @override
+  bool operator ==(Object other) => identical(this, other) || (other is KWatch && other.cardId == this.cardId && other.watching == this.watching);
+}
+
+class KWatchesCompanion extends UpdateCompanion<KWatch> {
+  final Value<String> cardId;
+  final Value<bool> watching;
+  final Value<int> rowid;
+  const KWatchesCompanion({this.cardId = const Value.absent(), this.watching = const Value.absent(), this.rowid = const Value.absent()});
+  KWatchesCompanion.insert({required String cardId, required bool watching, this.rowid = const Value.absent()})
+    : cardId = Value(cardId),
+      watching = Value(watching);
+  static Insertable<KWatch> custom({Expression<String>? cardId, Expression<bool>? watching, Expression<int>? rowid}) {
+    return RawValuesInsertable({if (cardId != null) 'card_id': cardId, if (watching != null) 'watching': watching, if (rowid != null) 'rowid': rowid});
+  }
+
+  KWatchesCompanion copyWith({Value<String>? cardId, Value<bool>? watching, Value<int>? rowid}) {
+    return KWatchesCompanion(cardId: cardId ?? this.cardId, watching: watching ?? this.watching, rowid: rowid ?? this.rowid);
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (cardId.present) {
+      map['card_id'] = Variable<String>(cardId.value);
+    }
+    if (watching.present) {
+      map['watching'] = Variable<bool>(watching.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('KWatchesCompanion(')
+          ..write('cardId: $cardId, ')
+          ..write('watching: $watching, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $KPinsTable extends KPins with TableInfo<$KPinsTable, KPin> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $KPinsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _cardIdMeta = const VerificationMeta('cardId');
+  @override
+  late final GeneratedColumn<String> cardId = GeneratedColumn<String>('card_id', aliasedName, false, type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _pinnedAtMeta = const VerificationMeta('pinnedAt');
+  @override
+  late final GeneratedColumn<int> pinnedAt = GeneratedColumn<int>('pinned_at', aliasedName, false, type: DriftSqlType.int, requiredDuringInsert: true);
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta('deletedAt');
+  @override
+  late final GeneratedColumn<int> deletedAt = GeneratedColumn<int>('deleted_at', aliasedName, true, type: DriftSqlType.int, requiredDuringInsert: false);
+  @override
+  List<GeneratedColumn> get $columns => [cardId, pinnedAt, deletedAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'k_pins';
+  @override
+  VerificationContext validateIntegrity(Insertable<KPin> instance, {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('card_id')) {
+      context.handle(_cardIdMeta, cardId.isAcceptableOrUnknown(data['card_id']!, _cardIdMeta));
+    } else if (isInserting) {
+      context.missing(_cardIdMeta);
+    }
+    if (data.containsKey('pinned_at')) {
+      context.handle(_pinnedAtMeta, pinnedAt.isAcceptableOrUnknown(data['pinned_at']!, _pinnedAtMeta));
+    } else if (isInserting) {
+      context.missing(_pinnedAtMeta);
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(_deletedAtMeta, deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta));
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {cardId};
+  @override
+  KPin map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return KPin(
+      cardId: attachedDatabase.typeMapping.read(DriftSqlType.string, data['${effectivePrefix}card_id'])!,
+      pinnedAt: attachedDatabase.typeMapping.read(DriftSqlType.int, data['${effectivePrefix}pinned_at'])!,
+      deletedAt: attachedDatabase.typeMapping.read(DriftSqlType.int, data['${effectivePrefix}deleted_at']),
+    );
+  }
+
+  @override
+  $KPinsTable createAlias(String alias) {
+    return $KPinsTable(attachedDatabase, alias);
+  }
+}
+
+class KPin extends DataClass implements Insertable<KPin> {
+  final String cardId;
+  final int pinnedAt;
+  final int? deletedAt;
+  const KPin({required this.cardId, required this.pinnedAt, this.deletedAt});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['card_id'] = Variable<String>(cardId);
+    map['pinned_at'] = Variable<int>(pinnedAt);
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<int>(deletedAt);
+    }
+    return map;
+  }
+
+  KPinsCompanion toCompanion(bool nullToAbsent) {
+    return KPinsCompanion(
+      cardId: Value(cardId),
+      pinnedAt: Value(pinnedAt),
+      deletedAt: deletedAt == null && nullToAbsent ? const Value.absent() : Value(deletedAt),
+    );
+  }
+
+  factory KPin.fromJson(Map<String, dynamic> json, {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return KPin(
+      cardId: serializer.fromJson<String>(json['cardId']),
+      pinnedAt: serializer.fromJson<int>(json['pinnedAt']),
+      deletedAt: serializer.fromJson<int?>(json['deletedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'cardId': serializer.toJson<String>(cardId),
+      'pinnedAt': serializer.toJson<int>(pinnedAt),
+      'deletedAt': serializer.toJson<int?>(deletedAt),
+    };
+  }
+
+  KPin copyWith({String? cardId, int? pinnedAt, Value<int?> deletedAt = const Value.absent()}) =>
+      KPin(cardId: cardId ?? this.cardId, pinnedAt: pinnedAt ?? this.pinnedAt, deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt);
+  KPin copyWithCompanion(KPinsCompanion data) {
+    return KPin(
+      cardId: data.cardId.present ? data.cardId.value : this.cardId,
+      pinnedAt: data.pinnedAt.present ? data.pinnedAt.value : this.pinnedAt,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('KPin(')
+          ..write('cardId: $cardId, ')
+          ..write('pinnedAt: $pinnedAt, ')
+          ..write('deletedAt: $deletedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(cardId, pinnedAt, deletedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) || (other is KPin && other.cardId == this.cardId && other.pinnedAt == this.pinnedAt && other.deletedAt == this.deletedAt);
+}
+
+class KPinsCompanion extends UpdateCompanion<KPin> {
+  final Value<String> cardId;
+  final Value<int> pinnedAt;
+  final Value<int?> deletedAt;
+  final Value<int> rowid;
+  const KPinsCompanion({
+    this.cardId = const Value.absent(),
+    this.pinnedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  KPinsCompanion.insert({required String cardId, required int pinnedAt, this.deletedAt = const Value.absent(), this.rowid = const Value.absent()})
+    : cardId = Value(cardId),
+      pinnedAt = Value(pinnedAt);
+  static Insertable<KPin> custom({Expression<String>? cardId, Expression<int>? pinnedAt, Expression<int>? deletedAt, Expression<int>? rowid}) {
+    return RawValuesInsertable({
+      if (cardId != null) 'card_id': cardId,
+      if (pinnedAt != null) 'pinned_at': pinnedAt,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  KPinsCompanion copyWith({Value<String>? cardId, Value<int>? pinnedAt, Value<int?>? deletedAt, Value<int>? rowid}) {
+    return KPinsCompanion(
+      cardId: cardId ?? this.cardId,
+      pinnedAt: pinnedAt ?? this.pinnedAt,
+      deletedAt: deletedAt ?? this.deletedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (cardId.present) {
+      map['card_id'] = Variable<String>(cardId.value);
+    }
+    if (pinnedAt.present) {
+      map['pinned_at'] = Variable<int>(pinnedAt.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<int>(deletedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('KPinsCompanion(')
+          ..write('cardId: $cardId, ')
+          ..write('pinnedAt: $pinnedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $KFilesTable extends KFiles with TableInfo<$KFilesTable, KFile> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $KFilesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>('id', aliasedName, false, type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _cardIdMeta = const VerificationMeta('cardId');
+  @override
+  late final GeneratedColumn<String> cardId = GeneratedColumn<String>('card_id', aliasedName, false, type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _commentIdMeta = const VerificationMeta('commentId');
+  @override
+  late final GeneratedColumn<String> commentId = GeneratedColumn<String>(
+    'comment_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _userIdMeta = const VerificationMeta('userId');
+  @override
+  late final GeneratedColumn<int> userId = GeneratedColumn<int>(
+    'user_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _filenameMeta = const VerificationMeta('filename');
+  @override
+  late final GeneratedColumn<String> filename = GeneratedColumn<String>('filename', aliasedName, false, type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _mimeMeta = const VerificationMeta('mime');
+  @override
+  late final GeneratedColumn<String> mime = GeneratedColumn<String>(
+    'mime',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('application/octet-stream'),
+  );
+  static const VerificationMeta _sizeMeta = const VerificationMeta('size');
+  @override
+  late final GeneratedColumn<int> size = GeneratedColumn<int>(
+    'size',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _widthMeta = const VerificationMeta('width');
+  @override
+  late final GeneratedColumn<int> width = GeneratedColumn<int>('width', aliasedName, true, type: DriftSqlType.int, requiredDuringInsert: false);
+  static const VerificationMeta _heightMeta = const VerificationMeta('height');
+  @override
+  late final GeneratedColumn<int> height = GeneratedColumn<int>('height', aliasedName, true, type: DriftSqlType.int, requiredDuringInsert: false);
+  static const VerificationMeta _hasThumbMeta = const VerificationMeta('hasThumb');
+  @override
+  late final GeneratedColumn<bool> hasThumb = GeneratedColumn<bool>(
+    'has_thumb',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways('CHECK ("has_thumb" IN (0, 1))'),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta('createdAt');
+  @override
+  late final GeneratedColumn<int> createdAt = GeneratedColumn<int>('created_at', aliasedName, false, type: DriftSqlType.int, requiredDuringInsert: true);
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta('deletedAt');
+  @override
+  late final GeneratedColumn<int> deletedAt = GeneratedColumn<int>('deleted_at', aliasedName, true, type: DriftSqlType.int, requiredDuringInsert: false);
+  static const VerificationMeta _localPathMeta = const VerificationMeta('localPath');
+  @override
+  late final GeneratedColumn<String> localPath = GeneratedColumn<String>(
+    'local_path',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _uploadedMeta = const VerificationMeta('uploaded');
+  @override
+  late final GeneratedColumn<bool> uploaded = GeneratedColumn<bool>(
+    'uploaded',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways('CHECK ("uploaded" IN (0, 1))'),
+    defaultValue: const Constant(false),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    cardId,
+    commentId,
+    userId,
+    filename,
+    mime,
+    size,
+    width,
+    height,
+    hasThumb,
+    createdAt,
+    deletedAt,
+    localPath,
+    uploaded,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'k_files';
+  @override
+  VerificationContext validateIntegrity(Insertable<KFile> instance, {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('card_id')) {
+      context.handle(_cardIdMeta, cardId.isAcceptableOrUnknown(data['card_id']!, _cardIdMeta));
+    } else if (isInserting) {
+      context.missing(_cardIdMeta);
+    }
+    if (data.containsKey('comment_id')) {
+      context.handle(_commentIdMeta, commentId.isAcceptableOrUnknown(data['comment_id']!, _commentIdMeta));
+    }
+    if (data.containsKey('user_id')) {
+      context.handle(_userIdMeta, userId.isAcceptableOrUnknown(data['user_id']!, _userIdMeta));
+    }
+    if (data.containsKey('filename')) {
+      context.handle(_filenameMeta, filename.isAcceptableOrUnknown(data['filename']!, _filenameMeta));
+    } else if (isInserting) {
+      context.missing(_filenameMeta);
+    }
+    if (data.containsKey('mime')) {
+      context.handle(_mimeMeta, mime.isAcceptableOrUnknown(data['mime']!, _mimeMeta));
+    }
+    if (data.containsKey('size')) {
+      context.handle(_sizeMeta, size.isAcceptableOrUnknown(data['size']!, _sizeMeta));
+    }
+    if (data.containsKey('width')) {
+      context.handle(_widthMeta, width.isAcceptableOrUnknown(data['width']!, _widthMeta));
+    }
+    if (data.containsKey('height')) {
+      context.handle(_heightMeta, height.isAcceptableOrUnknown(data['height']!, _heightMeta));
+    }
+    if (data.containsKey('has_thumb')) {
+      context.handle(_hasThumbMeta, hasThumb.isAcceptableOrUnknown(data['has_thumb']!, _hasThumbMeta));
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(_createdAtMeta, createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta));
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(_deletedAtMeta, deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta));
+    }
+    if (data.containsKey('local_path')) {
+      context.handle(_localPathMeta, localPath.isAcceptableOrUnknown(data['local_path']!, _localPathMeta));
+    }
+    if (data.containsKey('uploaded')) {
+      context.handle(_uploadedMeta, uploaded.isAcceptableOrUnknown(data['uploaded']!, _uploadedMeta));
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  KFile map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return KFile(
+      id: attachedDatabase.typeMapping.read(DriftSqlType.string, data['${effectivePrefix}id'])!,
+      cardId: attachedDatabase.typeMapping.read(DriftSqlType.string, data['${effectivePrefix}card_id'])!,
+      commentId: attachedDatabase.typeMapping.read(DriftSqlType.string, data['${effectivePrefix}comment_id']),
+      userId: attachedDatabase.typeMapping.read(DriftSqlType.int, data['${effectivePrefix}user_id'])!,
+      filename: attachedDatabase.typeMapping.read(DriftSqlType.string, data['${effectivePrefix}filename'])!,
+      mime: attachedDatabase.typeMapping.read(DriftSqlType.string, data['${effectivePrefix}mime'])!,
+      size: attachedDatabase.typeMapping.read(DriftSqlType.int, data['${effectivePrefix}size'])!,
+      width: attachedDatabase.typeMapping.read(DriftSqlType.int, data['${effectivePrefix}width']),
+      height: attachedDatabase.typeMapping.read(DriftSqlType.int, data['${effectivePrefix}height']),
+      hasThumb: attachedDatabase.typeMapping.read(DriftSqlType.bool, data['${effectivePrefix}has_thumb'])!,
+      createdAt: attachedDatabase.typeMapping.read(DriftSqlType.int, data['${effectivePrefix}created_at'])!,
+      deletedAt: attachedDatabase.typeMapping.read(DriftSqlType.int, data['${effectivePrefix}deleted_at']),
+      localPath: attachedDatabase.typeMapping.read(DriftSqlType.string, data['${effectivePrefix}local_path']),
+      uploaded: attachedDatabase.typeMapping.read(DriftSqlType.bool, data['${effectivePrefix}uploaded'])!,
+    );
+  }
+
+  @override
+  $KFilesTable createAlias(String alias) {
+    return $KFilesTable(attachedDatabase, alias);
+  }
+}
+
+class KFile extends DataClass implements Insertable<KFile> {
+  final String id;
+  final String cardId;
+  final String? commentId;
+  final int userId;
+  final String filename;
+  final String mime;
+  final int size;
+  final int? width;
+  final int? height;
+  final bool hasThumb;
+  final int createdAt;
+  final int? deletedAt;
+  final String? localPath;
+  final bool uploaded;
+  const KFile({
+    required this.id,
+    required this.cardId,
+    this.commentId,
+    required this.userId,
+    required this.filename,
+    required this.mime,
+    required this.size,
+    this.width,
+    this.height,
+    required this.hasThumb,
+    required this.createdAt,
+    this.deletedAt,
+    this.localPath,
+    required this.uploaded,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['card_id'] = Variable<String>(cardId);
+    if (!nullToAbsent || commentId != null) {
+      map['comment_id'] = Variable<String>(commentId);
+    }
+    map['user_id'] = Variable<int>(userId);
+    map['filename'] = Variable<String>(filename);
+    map['mime'] = Variable<String>(mime);
+    map['size'] = Variable<int>(size);
+    if (!nullToAbsent || width != null) {
+      map['width'] = Variable<int>(width);
+    }
+    if (!nullToAbsent || height != null) {
+      map['height'] = Variable<int>(height);
+    }
+    map['has_thumb'] = Variable<bool>(hasThumb);
+    map['created_at'] = Variable<int>(createdAt);
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<int>(deletedAt);
+    }
+    if (!nullToAbsent || localPath != null) {
+      map['local_path'] = Variable<String>(localPath);
+    }
+    map['uploaded'] = Variable<bool>(uploaded);
+    return map;
+  }
+
+  KFilesCompanion toCompanion(bool nullToAbsent) {
+    return KFilesCompanion(
+      id: Value(id),
+      cardId: Value(cardId),
+      commentId: commentId == null && nullToAbsent ? const Value.absent() : Value(commentId),
+      userId: Value(userId),
+      filename: Value(filename),
+      mime: Value(mime),
+      size: Value(size),
+      width: width == null && nullToAbsent ? const Value.absent() : Value(width),
+      height: height == null && nullToAbsent ? const Value.absent() : Value(height),
+      hasThumb: Value(hasThumb),
+      createdAt: Value(createdAt),
+      deletedAt: deletedAt == null && nullToAbsent ? const Value.absent() : Value(deletedAt),
+      localPath: localPath == null && nullToAbsent ? const Value.absent() : Value(localPath),
+      uploaded: Value(uploaded),
+    );
+  }
+
+  factory KFile.fromJson(Map<String, dynamic> json, {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return KFile(
+      id: serializer.fromJson<String>(json['id']),
+      cardId: serializer.fromJson<String>(json['cardId']),
+      commentId: serializer.fromJson<String?>(json['commentId']),
+      userId: serializer.fromJson<int>(json['userId']),
+      filename: serializer.fromJson<String>(json['filename']),
+      mime: serializer.fromJson<String>(json['mime']),
+      size: serializer.fromJson<int>(json['size']),
+      width: serializer.fromJson<int?>(json['width']),
+      height: serializer.fromJson<int?>(json['height']),
+      hasThumb: serializer.fromJson<bool>(json['hasThumb']),
+      createdAt: serializer.fromJson<int>(json['createdAt']),
+      deletedAt: serializer.fromJson<int?>(json['deletedAt']),
+      localPath: serializer.fromJson<String?>(json['localPath']),
+      uploaded: serializer.fromJson<bool>(json['uploaded']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'cardId': serializer.toJson<String>(cardId),
+      'commentId': serializer.toJson<String?>(commentId),
+      'userId': serializer.toJson<int>(userId),
+      'filename': serializer.toJson<String>(filename),
+      'mime': serializer.toJson<String>(mime),
+      'size': serializer.toJson<int>(size),
+      'width': serializer.toJson<int?>(width),
+      'height': serializer.toJson<int?>(height),
+      'hasThumb': serializer.toJson<bool>(hasThumb),
+      'createdAt': serializer.toJson<int>(createdAt),
+      'deletedAt': serializer.toJson<int?>(deletedAt),
+      'localPath': serializer.toJson<String?>(localPath),
+      'uploaded': serializer.toJson<bool>(uploaded),
+    };
+  }
+
+  KFile copyWith({
+    String? id,
+    String? cardId,
+    Value<String?> commentId = const Value.absent(),
+    int? userId,
+    String? filename,
+    String? mime,
+    int? size,
+    Value<int?> width = const Value.absent(),
+    Value<int?> height = const Value.absent(),
+    bool? hasThumb,
+    int? createdAt,
+    Value<int?> deletedAt = const Value.absent(),
+    Value<String?> localPath = const Value.absent(),
+    bool? uploaded,
+  }) => KFile(
+    id: id ?? this.id,
+    cardId: cardId ?? this.cardId,
+    commentId: commentId.present ? commentId.value : this.commentId,
+    userId: userId ?? this.userId,
+    filename: filename ?? this.filename,
+    mime: mime ?? this.mime,
+    size: size ?? this.size,
+    width: width.present ? width.value : this.width,
+    height: height.present ? height.value : this.height,
+    hasThumb: hasThumb ?? this.hasThumb,
+    createdAt: createdAt ?? this.createdAt,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+    localPath: localPath.present ? localPath.value : this.localPath,
+    uploaded: uploaded ?? this.uploaded,
+  );
+  KFile copyWithCompanion(KFilesCompanion data) {
+    return KFile(
+      id: data.id.present ? data.id.value : this.id,
+      cardId: data.cardId.present ? data.cardId.value : this.cardId,
+      commentId: data.commentId.present ? data.commentId.value : this.commentId,
+      userId: data.userId.present ? data.userId.value : this.userId,
+      filename: data.filename.present ? data.filename.value : this.filename,
+      mime: data.mime.present ? data.mime.value : this.mime,
+      size: data.size.present ? data.size.value : this.size,
+      width: data.width.present ? data.width.value : this.width,
+      height: data.height.present ? data.height.value : this.height,
+      hasThumb: data.hasThumb.present ? data.hasThumb.value : this.hasThumb,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+      localPath: data.localPath.present ? data.localPath.value : this.localPath,
+      uploaded: data.uploaded.present ? data.uploaded.value : this.uploaded,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('KFile(')
+          ..write('id: $id, ')
+          ..write('cardId: $cardId, ')
+          ..write('commentId: $commentId, ')
+          ..write('userId: $userId, ')
+          ..write('filename: $filename, ')
+          ..write('mime: $mime, ')
+          ..write('size: $size, ')
+          ..write('width: $width, ')
+          ..write('height: $height, ')
+          ..write('hasThumb: $hasThumb, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('localPath: $localPath, ')
+          ..write('uploaded: $uploaded')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, cardId, commentId, userId, filename, mime, size, width, height, hasThumb, createdAt, deletedAt, localPath, uploaded);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is KFile &&
+          other.id == this.id &&
+          other.cardId == this.cardId &&
+          other.commentId == this.commentId &&
+          other.userId == this.userId &&
+          other.filename == this.filename &&
+          other.mime == this.mime &&
+          other.size == this.size &&
+          other.width == this.width &&
+          other.height == this.height &&
+          other.hasThumb == this.hasThumb &&
+          other.createdAt == this.createdAt &&
+          other.deletedAt == this.deletedAt &&
+          other.localPath == this.localPath &&
+          other.uploaded == this.uploaded);
+}
+
+class KFilesCompanion extends UpdateCompanion<KFile> {
+  final Value<String> id;
+  final Value<String> cardId;
+  final Value<String?> commentId;
+  final Value<int> userId;
+  final Value<String> filename;
+  final Value<String> mime;
+  final Value<int> size;
+  final Value<int?> width;
+  final Value<int?> height;
+  final Value<bool> hasThumb;
+  final Value<int> createdAt;
+  final Value<int?> deletedAt;
+  final Value<String?> localPath;
+  final Value<bool> uploaded;
+  final Value<int> rowid;
+  const KFilesCompanion({
+    this.id = const Value.absent(),
+    this.cardId = const Value.absent(),
+    this.commentId = const Value.absent(),
+    this.userId = const Value.absent(),
+    this.filename = const Value.absent(),
+    this.mime = const Value.absent(),
+    this.size = const Value.absent(),
+    this.width = const Value.absent(),
+    this.height = const Value.absent(),
+    this.hasThumb = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.localPath = const Value.absent(),
+    this.uploaded = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  KFilesCompanion.insert({
+    required String id,
+    required String cardId,
+    this.commentId = const Value.absent(),
+    this.userId = const Value.absent(),
+    required String filename,
+    this.mime = const Value.absent(),
+    this.size = const Value.absent(),
+    this.width = const Value.absent(),
+    this.height = const Value.absent(),
+    this.hasThumb = const Value.absent(),
+    required int createdAt,
+    this.deletedAt = const Value.absent(),
+    this.localPath = const Value.absent(),
+    this.uploaded = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       cardId = Value(cardId),
+       filename = Value(filename),
+       createdAt = Value(createdAt);
+  static Insertable<KFile> custom({
+    Expression<String>? id,
+    Expression<String>? cardId,
+    Expression<String>? commentId,
+    Expression<int>? userId,
+    Expression<String>? filename,
+    Expression<String>? mime,
+    Expression<int>? size,
+    Expression<int>? width,
+    Expression<int>? height,
+    Expression<bool>? hasThumb,
+    Expression<int>? createdAt,
+    Expression<int>? deletedAt,
+    Expression<String>? localPath,
+    Expression<bool>? uploaded,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (cardId != null) 'card_id': cardId,
+      if (commentId != null) 'comment_id': commentId,
+      if (userId != null) 'user_id': userId,
+      if (filename != null) 'filename': filename,
+      if (mime != null) 'mime': mime,
+      if (size != null) 'size': size,
+      if (width != null) 'width': width,
+      if (height != null) 'height': height,
+      if (hasThumb != null) 'has_thumb': hasThumb,
+      if (createdAt != null) 'created_at': createdAt,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+      if (localPath != null) 'local_path': localPath,
+      if (uploaded != null) 'uploaded': uploaded,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  KFilesCompanion copyWith({
+    Value<String>? id,
+    Value<String>? cardId,
+    Value<String?>? commentId,
+    Value<int>? userId,
+    Value<String>? filename,
+    Value<String>? mime,
+    Value<int>? size,
+    Value<int?>? width,
+    Value<int?>? height,
+    Value<bool>? hasThumb,
+    Value<int>? createdAt,
+    Value<int?>? deletedAt,
+    Value<String?>? localPath,
+    Value<bool>? uploaded,
+    Value<int>? rowid,
+  }) {
+    return KFilesCompanion(
+      id: id ?? this.id,
+      cardId: cardId ?? this.cardId,
+      commentId: commentId ?? this.commentId,
+      userId: userId ?? this.userId,
+      filename: filename ?? this.filename,
+      mime: mime ?? this.mime,
+      size: size ?? this.size,
+      width: width ?? this.width,
+      height: height ?? this.height,
+      hasThumb: hasThumb ?? this.hasThumb,
+      createdAt: createdAt ?? this.createdAt,
+      deletedAt: deletedAt ?? this.deletedAt,
+      localPath: localPath ?? this.localPath,
+      uploaded: uploaded ?? this.uploaded,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (cardId.present) {
+      map['card_id'] = Variable<String>(cardId.value);
+    }
+    if (commentId.present) {
+      map['comment_id'] = Variable<String>(commentId.value);
+    }
+    if (userId.present) {
+      map['user_id'] = Variable<int>(userId.value);
+    }
+    if (filename.present) {
+      map['filename'] = Variable<String>(filename.value);
+    }
+    if (mime.present) {
+      map['mime'] = Variable<String>(mime.value);
+    }
+    if (size.present) {
+      map['size'] = Variable<int>(size.value);
+    }
+    if (width.present) {
+      map['width'] = Variable<int>(width.value);
+    }
+    if (height.present) {
+      map['height'] = Variable<int>(height.value);
+    }
+    if (hasThumb.present) {
+      map['has_thumb'] = Variable<bool>(hasThumb.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<int>(createdAt.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<int>(deletedAt.value);
+    }
+    if (localPath.present) {
+      map['local_path'] = Variable<String>(localPath.value);
+    }
+    if (uploaded.present) {
+      map['uploaded'] = Variable<bool>(uploaded.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('KFilesCompanion(')
+          ..write('id: $id, ')
+          ..write('cardId: $cardId, ')
+          ..write('commentId: $commentId, ')
+          ..write('userId: $userId, ')
+          ..write('filename: $filename, ')
+          ..write('mime: $mime, ')
+          ..write('size: $size, ')
+          ..write('width: $width, ')
+          ..write('height: $height, ')
+          ..write('hasThumb: $hasThumb, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('localPath: $localPath, ')
+          ..write('uploaded: $uploaded, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $KEventsTable extends KEvents with TableInfo<$KEventsTable, KEvent> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $KEventsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>('id', aliasedName, false, type: DriftSqlType.int, requiredDuringInsert: false);
+  static const VerificationMeta _cardIdMeta = const VerificationMeta('cardId');
+  @override
+  late final GeneratedColumn<String> cardId = GeneratedColumn<String>('card_id', aliasedName, false, type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _userIdMeta = const VerificationMeta('userId');
+  @override
+  late final GeneratedColumn<int> userId = GeneratedColumn<int>('user_id', aliasedName, false, type: DriftSqlType.int, requiredDuringInsert: true);
+  static const VerificationMeta _actionMeta = const VerificationMeta('action');
+  @override
+  late final GeneratedColumn<String> action = GeneratedColumn<String>('action', aliasedName, false, type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _particularsMeta = const VerificationMeta('particulars');
+  @override
+  late final GeneratedColumn<String> particulars = GeneratedColumn<String>(
+    'particulars',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('{}'),
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta('createdAt');
+  @override
+  late final GeneratedColumn<int> createdAt = GeneratedColumn<int>('created_at', aliasedName, false, type: DriftSqlType.int, requiredDuringInsert: true);
+  @override
+  List<GeneratedColumn> get $columns => [id, cardId, userId, action, particulars, createdAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'k_events';
+  @override
+  VerificationContext validateIntegrity(Insertable<KEvent> instance, {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('card_id')) {
+      context.handle(_cardIdMeta, cardId.isAcceptableOrUnknown(data['card_id']!, _cardIdMeta));
+    } else if (isInserting) {
+      context.missing(_cardIdMeta);
+    }
+    if (data.containsKey('user_id')) {
+      context.handle(_userIdMeta, userId.isAcceptableOrUnknown(data['user_id']!, _userIdMeta));
+    } else if (isInserting) {
+      context.missing(_userIdMeta);
+    }
+    if (data.containsKey('action')) {
+      context.handle(_actionMeta, action.isAcceptableOrUnknown(data['action']!, _actionMeta));
+    } else if (isInserting) {
+      context.missing(_actionMeta);
+    }
+    if (data.containsKey('particulars')) {
+      context.handle(_particularsMeta, particulars.isAcceptableOrUnknown(data['particulars']!, _particularsMeta));
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(_createdAtMeta, createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta));
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  KEvent map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return KEvent(
+      id: attachedDatabase.typeMapping.read(DriftSqlType.int, data['${effectivePrefix}id'])!,
+      cardId: attachedDatabase.typeMapping.read(DriftSqlType.string, data['${effectivePrefix}card_id'])!,
+      userId: attachedDatabase.typeMapping.read(DriftSqlType.int, data['${effectivePrefix}user_id'])!,
+      action: attachedDatabase.typeMapping.read(DriftSqlType.string, data['${effectivePrefix}action'])!,
+      particulars: attachedDatabase.typeMapping.read(DriftSqlType.string, data['${effectivePrefix}particulars'])!,
+      createdAt: attachedDatabase.typeMapping.read(DriftSqlType.int, data['${effectivePrefix}created_at'])!,
+    );
+  }
+
+  @override
+  $KEventsTable createAlias(String alias) {
+    return $KEventsTable(attachedDatabase, alias);
+  }
+}
+
+class KEvent extends DataClass implements Insertable<KEvent> {
+  final int id;
+  final String cardId;
+  final int userId;
+  final String action;
+  final String particulars;
+  final int createdAt;
+  const KEvent({required this.id, required this.cardId, required this.userId, required this.action, required this.particulars, required this.createdAt});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['card_id'] = Variable<String>(cardId);
+    map['user_id'] = Variable<int>(userId);
+    map['action'] = Variable<String>(action);
+    map['particulars'] = Variable<String>(particulars);
+    map['created_at'] = Variable<int>(createdAt);
+    return map;
+  }
+
+  KEventsCompanion toCompanion(bool nullToAbsent) {
+    return KEventsCompanion(
+      id: Value(id),
+      cardId: Value(cardId),
+      userId: Value(userId),
+      action: Value(action),
+      particulars: Value(particulars),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory KEvent.fromJson(Map<String, dynamic> json, {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return KEvent(
+      id: serializer.fromJson<int>(json['id']),
+      cardId: serializer.fromJson<String>(json['cardId']),
+      userId: serializer.fromJson<int>(json['userId']),
+      action: serializer.fromJson<String>(json['action']),
+      particulars: serializer.fromJson<String>(json['particulars']),
+      createdAt: serializer.fromJson<int>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'cardId': serializer.toJson<String>(cardId),
+      'userId': serializer.toJson<int>(userId),
+      'action': serializer.toJson<String>(action),
+      'particulars': serializer.toJson<String>(particulars),
+      'createdAt': serializer.toJson<int>(createdAt),
+    };
+  }
+
+  KEvent copyWith({int? id, String? cardId, int? userId, String? action, String? particulars, int? createdAt}) => KEvent(
+    id: id ?? this.id,
+    cardId: cardId ?? this.cardId,
+    userId: userId ?? this.userId,
+    action: action ?? this.action,
+    particulars: particulars ?? this.particulars,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  KEvent copyWithCompanion(KEventsCompanion data) {
+    return KEvent(
+      id: data.id.present ? data.id.value : this.id,
+      cardId: data.cardId.present ? data.cardId.value : this.cardId,
+      userId: data.userId.present ? data.userId.value : this.userId,
+      action: data.action.present ? data.action.value : this.action,
+      particulars: data.particulars.present ? data.particulars.value : this.particulars,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('KEvent(')
+          ..write('id: $id, ')
+          ..write('cardId: $cardId, ')
+          ..write('userId: $userId, ')
+          ..write('action: $action, ')
+          ..write('particulars: $particulars, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, cardId, userId, action, particulars, createdAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is KEvent &&
+          other.id == this.id &&
+          other.cardId == this.cardId &&
+          other.userId == this.userId &&
+          other.action == this.action &&
+          other.particulars == this.particulars &&
+          other.createdAt == this.createdAt);
+}
+
+class KEventsCompanion extends UpdateCompanion<KEvent> {
+  final Value<int> id;
+  final Value<String> cardId;
+  final Value<int> userId;
+  final Value<String> action;
+  final Value<String> particulars;
+  final Value<int> createdAt;
+  const KEventsCompanion({
+    this.id = const Value.absent(),
+    this.cardId = const Value.absent(),
+    this.userId = const Value.absent(),
+    this.action = const Value.absent(),
+    this.particulars = const Value.absent(),
+    this.createdAt = const Value.absent(),
+  });
+  KEventsCompanion.insert({
+    this.id = const Value.absent(),
+    required String cardId,
+    required int userId,
+    required String action,
+    this.particulars = const Value.absent(),
+    required int createdAt,
+  }) : cardId = Value(cardId),
+       userId = Value(userId),
+       action = Value(action),
+       createdAt = Value(createdAt);
+  static Insertable<KEvent> custom({
+    Expression<int>? id,
+    Expression<String>? cardId,
+    Expression<int>? userId,
+    Expression<String>? action,
+    Expression<String>? particulars,
+    Expression<int>? createdAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (cardId != null) 'card_id': cardId,
+      if (userId != null) 'user_id': userId,
+      if (action != null) 'action': action,
+      if (particulars != null) 'particulars': particulars,
+      if (createdAt != null) 'created_at': createdAt,
+    });
+  }
+
+  KEventsCompanion copyWith({
+    Value<int>? id,
+    Value<String>? cardId,
+    Value<int>? userId,
+    Value<String>? action,
+    Value<String>? particulars,
+    Value<int>? createdAt,
+  }) {
+    return KEventsCompanion(
+      id: id ?? this.id,
+      cardId: cardId ?? this.cardId,
+      userId: userId ?? this.userId,
+      action: action ?? this.action,
+      particulars: particulars ?? this.particulars,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (cardId.present) {
+      map['card_id'] = Variable<String>(cardId.value);
+    }
+    if (userId.present) {
+      map['user_id'] = Variable<int>(userId.value);
+    }
+    if (action.present) {
+      map['action'] = Variable<String>(action.value);
+    }
+    if (particulars.present) {
+      map['particulars'] = Variable<String>(particulars.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<int>(createdAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('KEventsCompanion(')
+          ..write('id: $id, ')
+          ..write('cardId: $cardId, ')
+          ..write('userId: $userId, ')
+          ..write('action: $action, ')
+          ..write('particulars: $particulars, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$KolumnDb extends GeneratedDatabase {
   _$KolumnDb(QueryExecutor e) : super(e);
   $KolumnDbManager get managers => $KolumnDbManager(this);
@@ -2163,10 +4926,35 @@ abstract class _$KolumnDb extends GeneratedDatabase {
   late final $KPeopleTable kPeople = $KPeopleTable(this);
   late final $KSettingsTable kSettings = $KSettingsTable(this);
   late final $KOutboxTable kOutbox = $KOutboxTable(this);
+  late final $KStepsTable kSteps = $KStepsTable(this);
+  late final $KCommentsTable kComments = $KCommentsTable(this);
+  late final $KReactionsTable kReactions = $KReactionsTable(this);
+  late final $KTagsTable kTags = $KTagsTable(this);
+  late final $KAssigneesTable kAssignees = $KAssigneesTable(this);
+  late final $KWatchesTable kWatches = $KWatchesTable(this);
+  late final $KPinsTable kPins = $KPinsTable(this);
+  late final $KFilesTable kFiles = $KFilesTable(this);
+  late final $KEventsTable kEvents = $KEventsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables => allSchemaEntities.whereType<TableInfo<Table, Object?>>();
   @override
-  List<DatabaseSchemaEntity> get allSchemaEntities => [kBoards, kColumns, kCards, kPeople, kSettings, kOutbox];
+  List<DatabaseSchemaEntity> get allSchemaEntities => [
+    kBoards,
+    kColumns,
+    kCards,
+    kPeople,
+    kSettings,
+    kOutbox,
+    kSteps,
+    kComments,
+    kReactions,
+    kTags,
+    kAssignees,
+    kWatches,
+    kPins,
+    kFiles,
+    kEvents,
+  ];
 }
 
 typedef $$KBoardsTableCreateCompanionBuilder = KBoardsCompanion Function({
@@ -2582,6 +5370,8 @@ typedef $$KCardsTableCreateCompanionBuilder = KCardsCompanion Function({
   Value<int> rev,
   Value<bool> synced,
   Value<int?> creatorId,
+  Value<String> status,
+  Value<String?> coverId,
   required int createdAt,
   required int updatedAt,
   Value<int?> deletedAt,
@@ -2604,6 +5394,8 @@ typedef $$KCardsTableUpdateCompanionBuilder = KCardsCompanion Function({
   Value<int> rev,
   Value<bool> synced,
   Value<int?> creatorId,
+  Value<String> status,
+  Value<String?> coverId,
   Value<int> createdAt,
   Value<int> updatedAt,
   Value<int?> deletedAt,
@@ -2649,6 +5441,10 @@ class $$KCardsTableFilterComposer extends Composer<_$KolumnDb, $KCardsTable> {
   ColumnFilters<bool> get synced => $composableBuilder(column: $table.synced, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<int> get creatorId => $composableBuilder(column: $table.creatorId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get status => $composableBuilder(column: $table.status, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get coverId => $composableBuilder(column: $table.coverId, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<int> get createdAt => $composableBuilder(column: $table.createdAt, builder: (column) => ColumnFilters(column));
 
@@ -2697,6 +5493,10 @@ class $$KCardsTableOrderingComposer extends Composer<_$KolumnDb, $KCardsTable> {
 
   ColumnOrderings<int> get creatorId => $composableBuilder(column: $table.creatorId, builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<String> get status => $composableBuilder(column: $table.status, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get coverId => $composableBuilder(column: $table.coverId, builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<int> get createdAt => $composableBuilder(column: $table.createdAt, builder: (column) => ColumnOrderings(column));
 
   ColumnOrderings<int> get updatedAt => $composableBuilder(column: $table.updatedAt, builder: (column) => ColumnOrderings(column));
@@ -2743,6 +5543,10 @@ class $$KCardsTableAnnotationComposer extends Composer<_$KolumnDb, $KCardsTable>
   GeneratedColumn<bool> get synced => $composableBuilder(column: $table.synced, builder: (column) => column);
 
   GeneratedColumn<int> get creatorId => $composableBuilder(column: $table.creatorId, builder: (column) => column);
+
+  GeneratedColumn<String> get status => $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumn<String> get coverId => $composableBuilder(column: $table.coverId, builder: (column) => column);
 
   GeneratedColumn<int> get createdAt => $composableBuilder(column: $table.createdAt, builder: (column) => column);
 
@@ -2792,6 +5596,8 @@ class $$KCardsTableTableManager
                 Value<int> rev = const Value.absent(),
                 Value<bool> synced = const Value.absent(),
                 Value<int?> creatorId = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<String?> coverId = const Value.absent(),
                 Value<int> createdAt = const Value.absent(),
                 Value<int> updatedAt = const Value.absent(),
                 Value<int?> deletedAt = const Value.absent(),
@@ -2813,6 +5619,8 @@ class $$KCardsTableTableManager
                 rev: rev,
                 synced: synced,
                 creatorId: creatorId,
+                status: status,
+                coverId: coverId,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 deletedAt: deletedAt,
@@ -2836,6 +5644,8 @@ class $$KCardsTableTableManager
                 Value<int> rev = const Value.absent(),
                 Value<bool> synced = const Value.absent(),
                 Value<int?> creatorId = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<String?> coverId = const Value.absent(),
                 required int createdAt,
                 required int updatedAt,
                 Value<int?> deletedAt = const Value.absent(),
@@ -2857,6 +5667,8 @@ class $$KCardsTableTableManager
                 rev: rev,
                 synced: synced,
                 creatorId: creatorId,
+                status: status,
+                coverId: coverId,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 deletedAt: deletedAt,
@@ -3194,6 +6006,1353 @@ typedef $$KOutboxTableProcessedTableManager =
       KOutboxEntry,
       PrefetchHooks Function()
     >;
+typedef $$KStepsTableCreateCompanionBuilder = KStepsCompanion Function({
+  required String id,
+  required String cardId,
+  required String content,
+  Value<bool> done,
+  Value<double> position,
+  required int createdAt,
+  Value<int?> deletedAt,
+  Value<int> rowid,
+});
+typedef $$KStepsTableUpdateCompanionBuilder = KStepsCompanion Function({
+  Value<String> id,
+  Value<String> cardId,
+  Value<String> content,
+  Value<bool> done,
+  Value<double> position,
+  Value<int> createdAt,
+  Value<int?> deletedAt,
+  Value<int> rowid,
+});
+
+class $$KStepsTableFilterComposer extends Composer<_$KolumnDb, $KStepsTable> {
+  $$KStepsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(column: $table.id, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get cardId => $composableBuilder(column: $table.cardId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get content => $composableBuilder(column: $table.content, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<bool> get done => $composableBuilder(column: $table.done, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get position => $composableBuilder(column: $table.position, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get createdAt => $composableBuilder(column: $table.createdAt, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get deletedAt => $composableBuilder(column: $table.deletedAt, builder: (column) => ColumnFilters(column));
+}
+
+class $$KStepsTableOrderingComposer extends Composer<_$KolumnDb, $KStepsTable> {
+  $$KStepsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(column: $table.id, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get cardId => $composableBuilder(column: $table.cardId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get content => $composableBuilder(column: $table.content, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<bool> get done => $composableBuilder(column: $table.done, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get position => $composableBuilder(column: $table.position, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get createdAt => $composableBuilder(column: $table.createdAt, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get deletedAt => $composableBuilder(column: $table.deletedAt, builder: (column) => ColumnOrderings(column));
+}
+
+class $$KStepsTableAnnotationComposer extends Composer<_$KolumnDb, $KStepsTable> {
+  $$KStepsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id => $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get cardId => $composableBuilder(column: $table.cardId, builder: (column) => column);
+
+  GeneratedColumn<String> get content => $composableBuilder(column: $table.content, builder: (column) => column);
+
+  GeneratedColumn<bool> get done => $composableBuilder(column: $table.done, builder: (column) => column);
+
+  GeneratedColumn<double> get position => $composableBuilder(column: $table.position, builder: (column) => column);
+
+  GeneratedColumn<int> get createdAt => $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<int> get deletedAt => $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+}
+
+class $$KStepsTableTableManager
+    extends
+        RootTableManager<
+          _$KolumnDb,
+          $KStepsTable,
+          KStep,
+          $$KStepsTableFilterComposer,
+          $$KStepsTableOrderingComposer,
+          $$KStepsTableAnnotationComposer,
+          $$KStepsTableCreateCompanionBuilder,
+          $$KStepsTableUpdateCompanionBuilder,
+          (KStep, BaseReferences<_$KolumnDb, $KStepsTable, KStep>),
+          KStep,
+          PrefetchHooks Function()
+        > {
+  $$KStepsTableTableManager(_$KolumnDb db, $KStepsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () => $$KStepsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () => $$KStepsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () => $$KStepsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> cardId = const Value.absent(),
+                Value<String> content = const Value.absent(),
+                Value<bool> done = const Value.absent(),
+                Value<double> position = const Value.absent(),
+                Value<int> createdAt = const Value.absent(),
+                Value<int?> deletedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => KStepsCompanion(
+                id: id,
+                cardId: cardId,
+                content: content,
+                done: done,
+                position: position,
+                createdAt: createdAt,
+                deletedAt: deletedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String cardId,
+                required String content,
+                Value<bool> done = const Value.absent(),
+                Value<double> position = const Value.absent(),
+                required int createdAt,
+                Value<int?> deletedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => KStepsCompanion.insert(
+                id: id,
+                cardId: cardId,
+                content: content,
+                done: done,
+                position: position,
+                createdAt: createdAt,
+                deletedAt: deletedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) =>
+              p0.map((e) => (e.readTable<$KStepsTable, KStep>(table), BaseReferences<_$KolumnDb, $KStepsTable, KStep>(db, table, e))).toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$KStepsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$KolumnDb,
+      $KStepsTable,
+      KStep,
+      $$KStepsTableFilterComposer,
+      $$KStepsTableOrderingComposer,
+      $$KStepsTableAnnotationComposer,
+      $$KStepsTableCreateCompanionBuilder,
+      $$KStepsTableUpdateCompanionBuilder,
+      (KStep, BaseReferences<_$KolumnDb, $KStepsTable, KStep>),
+      KStep,
+      PrefetchHooks Function()
+    >;
+typedef $$KCommentsTableCreateCompanionBuilder = KCommentsCompanion Function({
+  required String id,
+  required String cardId,
+  required int userId,
+  required String body,
+  required int createdAt,
+  Value<int?> editedAt,
+  Value<int?> deletedAt,
+  Value<bool> synced,
+  Value<int> rowid,
+});
+typedef $$KCommentsTableUpdateCompanionBuilder = KCommentsCompanion Function({
+  Value<String> id,
+  Value<String> cardId,
+  Value<int> userId,
+  Value<String> body,
+  Value<int> createdAt,
+  Value<int?> editedAt,
+  Value<int?> deletedAt,
+  Value<bool> synced,
+  Value<int> rowid,
+});
+
+class $$KCommentsTableFilterComposer extends Composer<_$KolumnDb, $KCommentsTable> {
+  $$KCommentsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(column: $table.id, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get cardId => $composableBuilder(column: $table.cardId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get userId => $composableBuilder(column: $table.userId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get body => $composableBuilder(column: $table.body, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get createdAt => $composableBuilder(column: $table.createdAt, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get editedAt => $composableBuilder(column: $table.editedAt, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get deletedAt => $composableBuilder(column: $table.deletedAt, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<bool> get synced => $composableBuilder(column: $table.synced, builder: (column) => ColumnFilters(column));
+}
+
+class $$KCommentsTableOrderingComposer extends Composer<_$KolumnDb, $KCommentsTable> {
+  $$KCommentsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(column: $table.id, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get cardId => $composableBuilder(column: $table.cardId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get userId => $composableBuilder(column: $table.userId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get body => $composableBuilder(column: $table.body, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get createdAt => $composableBuilder(column: $table.createdAt, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get editedAt => $composableBuilder(column: $table.editedAt, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get deletedAt => $composableBuilder(column: $table.deletedAt, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<bool> get synced => $composableBuilder(column: $table.synced, builder: (column) => ColumnOrderings(column));
+}
+
+class $$KCommentsTableAnnotationComposer extends Composer<_$KolumnDb, $KCommentsTable> {
+  $$KCommentsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id => $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get cardId => $composableBuilder(column: $table.cardId, builder: (column) => column);
+
+  GeneratedColumn<int> get userId => $composableBuilder(column: $table.userId, builder: (column) => column);
+
+  GeneratedColumn<String> get body => $composableBuilder(column: $table.body, builder: (column) => column);
+
+  GeneratedColumn<int> get createdAt => $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<int> get editedAt => $composableBuilder(column: $table.editedAt, builder: (column) => column);
+
+  GeneratedColumn<int> get deletedAt => $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+
+  GeneratedColumn<bool> get synced => $composableBuilder(column: $table.synced, builder: (column) => column);
+}
+
+class $$KCommentsTableTableManager
+    extends
+        RootTableManager<
+          _$KolumnDb,
+          $KCommentsTable,
+          KComment,
+          $$KCommentsTableFilterComposer,
+          $$KCommentsTableOrderingComposer,
+          $$KCommentsTableAnnotationComposer,
+          $$KCommentsTableCreateCompanionBuilder,
+          $$KCommentsTableUpdateCompanionBuilder,
+          (KComment, BaseReferences<_$KolumnDb, $KCommentsTable, KComment>),
+          KComment,
+          PrefetchHooks Function()
+        > {
+  $$KCommentsTableTableManager(_$KolumnDb db, $KCommentsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () => $$KCommentsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () => $$KCommentsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () => $$KCommentsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> cardId = const Value.absent(),
+                Value<int> userId = const Value.absent(),
+                Value<String> body = const Value.absent(),
+                Value<int> createdAt = const Value.absent(),
+                Value<int?> editedAt = const Value.absent(),
+                Value<int?> deletedAt = const Value.absent(),
+                Value<bool> synced = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => KCommentsCompanion(
+                id: id,
+                cardId: cardId,
+                userId: userId,
+                body: body,
+                createdAt: createdAt,
+                editedAt: editedAt,
+                deletedAt: deletedAt,
+                synced: synced,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String cardId,
+                required int userId,
+                required String body,
+                required int createdAt,
+                Value<int?> editedAt = const Value.absent(),
+                Value<int?> deletedAt = const Value.absent(),
+                Value<bool> synced = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => KCommentsCompanion.insert(
+                id: id,
+                cardId: cardId,
+                userId: userId,
+                body: body,
+                createdAt: createdAt,
+                editedAt: editedAt,
+                deletedAt: deletedAt,
+                synced: synced,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) =>
+              p0.map((e) => (e.readTable<$KCommentsTable, KComment>(table), BaseReferences<_$KolumnDb, $KCommentsTable, KComment>(db, table, e))).toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$KCommentsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$KolumnDb,
+      $KCommentsTable,
+      KComment,
+      $$KCommentsTableFilterComposer,
+      $$KCommentsTableOrderingComposer,
+      $$KCommentsTableAnnotationComposer,
+      $$KCommentsTableCreateCompanionBuilder,
+      $$KCommentsTableUpdateCompanionBuilder,
+      (KComment, BaseReferences<_$KolumnDb, $KCommentsTable, KComment>),
+      KComment,
+      PrefetchHooks Function()
+    >;
+typedef $$KReactionsTableCreateCompanionBuilder = KReactionsCompanion Function({
+  required String id,
+  required String cardId,
+  Value<String?> commentId,
+  required int userId,
+  required String emoji,
+  required int createdAt,
+  Value<int?> deletedAt,
+  Value<int> rowid,
+});
+typedef $$KReactionsTableUpdateCompanionBuilder = KReactionsCompanion Function({
+  Value<String> id,
+  Value<String> cardId,
+  Value<String?> commentId,
+  Value<int> userId,
+  Value<String> emoji,
+  Value<int> createdAt,
+  Value<int?> deletedAt,
+  Value<int> rowid,
+});
+
+class $$KReactionsTableFilterComposer extends Composer<_$KolumnDb, $KReactionsTable> {
+  $$KReactionsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(column: $table.id, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get cardId => $composableBuilder(column: $table.cardId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get commentId => $composableBuilder(column: $table.commentId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get userId => $composableBuilder(column: $table.userId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get emoji => $composableBuilder(column: $table.emoji, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get createdAt => $composableBuilder(column: $table.createdAt, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get deletedAt => $composableBuilder(column: $table.deletedAt, builder: (column) => ColumnFilters(column));
+}
+
+class $$KReactionsTableOrderingComposer extends Composer<_$KolumnDb, $KReactionsTable> {
+  $$KReactionsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(column: $table.id, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get cardId => $composableBuilder(column: $table.cardId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get commentId => $composableBuilder(column: $table.commentId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get userId => $composableBuilder(column: $table.userId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get emoji => $composableBuilder(column: $table.emoji, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get createdAt => $composableBuilder(column: $table.createdAt, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get deletedAt => $composableBuilder(column: $table.deletedAt, builder: (column) => ColumnOrderings(column));
+}
+
+class $$KReactionsTableAnnotationComposer extends Composer<_$KolumnDb, $KReactionsTable> {
+  $$KReactionsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id => $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get cardId => $composableBuilder(column: $table.cardId, builder: (column) => column);
+
+  GeneratedColumn<String> get commentId => $composableBuilder(column: $table.commentId, builder: (column) => column);
+
+  GeneratedColumn<int> get userId => $composableBuilder(column: $table.userId, builder: (column) => column);
+
+  GeneratedColumn<String> get emoji => $composableBuilder(column: $table.emoji, builder: (column) => column);
+
+  GeneratedColumn<int> get createdAt => $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<int> get deletedAt => $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+}
+
+class $$KReactionsTableTableManager
+    extends
+        RootTableManager<
+          _$KolumnDb,
+          $KReactionsTable,
+          KReaction,
+          $$KReactionsTableFilterComposer,
+          $$KReactionsTableOrderingComposer,
+          $$KReactionsTableAnnotationComposer,
+          $$KReactionsTableCreateCompanionBuilder,
+          $$KReactionsTableUpdateCompanionBuilder,
+          (KReaction, BaseReferences<_$KolumnDb, $KReactionsTable, KReaction>),
+          KReaction,
+          PrefetchHooks Function()
+        > {
+  $$KReactionsTableTableManager(_$KolumnDb db, $KReactionsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () => $$KReactionsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () => $$KReactionsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () => $$KReactionsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> cardId = const Value.absent(),
+                Value<String?> commentId = const Value.absent(),
+                Value<int> userId = const Value.absent(),
+                Value<String> emoji = const Value.absent(),
+                Value<int> createdAt = const Value.absent(),
+                Value<int?> deletedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => KReactionsCompanion(
+                id: id,
+                cardId: cardId,
+                commentId: commentId,
+                userId: userId,
+                emoji: emoji,
+                createdAt: createdAt,
+                deletedAt: deletedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String cardId,
+                Value<String?> commentId = const Value.absent(),
+                required int userId,
+                required String emoji,
+                required int createdAt,
+                Value<int?> deletedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => KReactionsCompanion.insert(
+                id: id,
+                cardId: cardId,
+                commentId: commentId,
+                userId: userId,
+                emoji: emoji,
+                createdAt: createdAt,
+                deletedAt: deletedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) =>
+              p0.map((e) => (e.readTable<$KReactionsTable, KReaction>(table), BaseReferences<_$KolumnDb, $KReactionsTable, KReaction>(db, table, e))).toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$KReactionsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$KolumnDb,
+      $KReactionsTable,
+      KReaction,
+      $$KReactionsTableFilterComposer,
+      $$KReactionsTableOrderingComposer,
+      $$KReactionsTableAnnotationComposer,
+      $$KReactionsTableCreateCompanionBuilder,
+      $$KReactionsTableUpdateCompanionBuilder,
+      (KReaction, BaseReferences<_$KolumnDb, $KReactionsTable, KReaction>),
+      KReaction,
+      PrefetchHooks Function()
+    >;
+typedef $$KTagsTableCreateCompanionBuilder = KTagsCompanion Function({required String cardId, required String tag, Value<int?> deletedAt, Value<int> rowid});
+typedef $$KTagsTableUpdateCompanionBuilder = KTagsCompanion Function({Value<String> cardId, Value<String> tag, Value<int?> deletedAt, Value<int> rowid});
+
+class $$KTagsTableFilterComposer extends Composer<_$KolumnDb, $KTagsTable> {
+  $$KTagsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get cardId => $composableBuilder(column: $table.cardId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get tag => $composableBuilder(column: $table.tag, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get deletedAt => $composableBuilder(column: $table.deletedAt, builder: (column) => ColumnFilters(column));
+}
+
+class $$KTagsTableOrderingComposer extends Composer<_$KolumnDb, $KTagsTable> {
+  $$KTagsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get cardId => $composableBuilder(column: $table.cardId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get tag => $composableBuilder(column: $table.tag, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get deletedAt => $composableBuilder(column: $table.deletedAt, builder: (column) => ColumnOrderings(column));
+}
+
+class $$KTagsTableAnnotationComposer extends Composer<_$KolumnDb, $KTagsTable> {
+  $$KTagsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get cardId => $composableBuilder(column: $table.cardId, builder: (column) => column);
+
+  GeneratedColumn<String> get tag => $composableBuilder(column: $table.tag, builder: (column) => column);
+
+  GeneratedColumn<int> get deletedAt => $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+}
+
+class $$KTagsTableTableManager
+    extends
+        RootTableManager<
+          _$KolumnDb,
+          $KTagsTable,
+          KTag,
+          $$KTagsTableFilterComposer,
+          $$KTagsTableOrderingComposer,
+          $$KTagsTableAnnotationComposer,
+          $$KTagsTableCreateCompanionBuilder,
+          $$KTagsTableUpdateCompanionBuilder,
+          (KTag, BaseReferences<_$KolumnDb, $KTagsTable, KTag>),
+          KTag,
+          PrefetchHooks Function()
+        > {
+  $$KTagsTableTableManager(_$KolumnDb db, $KTagsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () => $$KTagsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () => $$KTagsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () => $$KTagsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<String> cardId = const Value.absent(),
+            Value<String> tag = const Value.absent(),
+            Value<int?> deletedAt = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) => KTagsCompanion(cardId: cardId, tag: tag, deletedAt: deletedAt, rowid: rowid),
+          createCompanionCallback: ({
+            required String cardId,
+            required String tag,
+            Value<int?> deletedAt = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) => KTagsCompanion.insert(cardId: cardId, tag: tag, deletedAt: deletedAt, rowid: rowid),
+          withReferenceMapper: (p0) =>
+              p0.map((e) => (e.readTable<$KTagsTable, KTag>(table), BaseReferences<_$KolumnDb, $KTagsTable, KTag>(db, table, e))).toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$KTagsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$KolumnDb,
+      $KTagsTable,
+      KTag,
+      $$KTagsTableFilterComposer,
+      $$KTagsTableOrderingComposer,
+      $$KTagsTableAnnotationComposer,
+      $$KTagsTableCreateCompanionBuilder,
+      $$KTagsTableUpdateCompanionBuilder,
+      (KTag, BaseReferences<_$KolumnDb, $KTagsTable, KTag>),
+      KTag,
+      PrefetchHooks Function()
+    >;
+typedef $$KAssigneesTableCreateCompanionBuilder = KAssigneesCompanion Function({
+  required String cardId,
+  required int userId,
+  Value<int?> deletedAt,
+  Value<int> rowid,
+});
+typedef $$KAssigneesTableUpdateCompanionBuilder = KAssigneesCompanion Function({
+  Value<String> cardId,
+  Value<int> userId,
+  Value<int?> deletedAt,
+  Value<int> rowid,
+});
+
+class $$KAssigneesTableFilterComposer extends Composer<_$KolumnDb, $KAssigneesTable> {
+  $$KAssigneesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get cardId => $composableBuilder(column: $table.cardId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get userId => $composableBuilder(column: $table.userId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get deletedAt => $composableBuilder(column: $table.deletedAt, builder: (column) => ColumnFilters(column));
+}
+
+class $$KAssigneesTableOrderingComposer extends Composer<_$KolumnDb, $KAssigneesTable> {
+  $$KAssigneesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get cardId => $composableBuilder(column: $table.cardId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get userId => $composableBuilder(column: $table.userId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get deletedAt => $composableBuilder(column: $table.deletedAt, builder: (column) => ColumnOrderings(column));
+}
+
+class $$KAssigneesTableAnnotationComposer extends Composer<_$KolumnDb, $KAssigneesTable> {
+  $$KAssigneesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get cardId => $composableBuilder(column: $table.cardId, builder: (column) => column);
+
+  GeneratedColumn<int> get userId => $composableBuilder(column: $table.userId, builder: (column) => column);
+
+  GeneratedColumn<int> get deletedAt => $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+}
+
+class $$KAssigneesTableTableManager
+    extends
+        RootTableManager<
+          _$KolumnDb,
+          $KAssigneesTable,
+          KAssignee,
+          $$KAssigneesTableFilterComposer,
+          $$KAssigneesTableOrderingComposer,
+          $$KAssigneesTableAnnotationComposer,
+          $$KAssigneesTableCreateCompanionBuilder,
+          $$KAssigneesTableUpdateCompanionBuilder,
+          (KAssignee, BaseReferences<_$KolumnDb, $KAssigneesTable, KAssignee>),
+          KAssignee,
+          PrefetchHooks Function()
+        > {
+  $$KAssigneesTableTableManager(_$KolumnDb db, $KAssigneesTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () => $$KAssigneesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () => $$KAssigneesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () => $$KAssigneesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<String> cardId = const Value.absent(),
+            Value<int> userId = const Value.absent(),
+            Value<int?> deletedAt = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) => KAssigneesCompanion(cardId: cardId, userId: userId, deletedAt: deletedAt, rowid: rowid),
+          createCompanionCallback: ({
+            required String cardId,
+            required int userId,
+            Value<int?> deletedAt = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) => KAssigneesCompanion.insert(cardId: cardId, userId: userId, deletedAt: deletedAt, rowid: rowid),
+          withReferenceMapper: (p0) =>
+              p0.map((e) => (e.readTable<$KAssigneesTable, KAssignee>(table), BaseReferences<_$KolumnDb, $KAssigneesTable, KAssignee>(db, table, e))).toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$KAssigneesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$KolumnDb,
+      $KAssigneesTable,
+      KAssignee,
+      $$KAssigneesTableFilterComposer,
+      $$KAssigneesTableOrderingComposer,
+      $$KAssigneesTableAnnotationComposer,
+      $$KAssigneesTableCreateCompanionBuilder,
+      $$KAssigneesTableUpdateCompanionBuilder,
+      (KAssignee, BaseReferences<_$KolumnDb, $KAssigneesTable, KAssignee>),
+      KAssignee,
+      PrefetchHooks Function()
+    >;
+typedef $$KWatchesTableCreateCompanionBuilder = KWatchesCompanion Function({required String cardId, required bool watching, Value<int> rowid});
+typedef $$KWatchesTableUpdateCompanionBuilder = KWatchesCompanion Function({Value<String> cardId, Value<bool> watching, Value<int> rowid});
+
+class $$KWatchesTableFilterComposer extends Composer<_$KolumnDb, $KWatchesTable> {
+  $$KWatchesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get cardId => $composableBuilder(column: $table.cardId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<bool> get watching => $composableBuilder(column: $table.watching, builder: (column) => ColumnFilters(column));
+}
+
+class $$KWatchesTableOrderingComposer extends Composer<_$KolumnDb, $KWatchesTable> {
+  $$KWatchesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get cardId => $composableBuilder(column: $table.cardId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<bool> get watching => $composableBuilder(column: $table.watching, builder: (column) => ColumnOrderings(column));
+}
+
+class $$KWatchesTableAnnotationComposer extends Composer<_$KolumnDb, $KWatchesTable> {
+  $$KWatchesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get cardId => $composableBuilder(column: $table.cardId, builder: (column) => column);
+
+  GeneratedColumn<bool> get watching => $composableBuilder(column: $table.watching, builder: (column) => column);
+}
+
+class $$KWatchesTableTableManager
+    extends
+        RootTableManager<
+          _$KolumnDb,
+          $KWatchesTable,
+          KWatch,
+          $$KWatchesTableFilterComposer,
+          $$KWatchesTableOrderingComposer,
+          $$KWatchesTableAnnotationComposer,
+          $$KWatchesTableCreateCompanionBuilder,
+          $$KWatchesTableUpdateCompanionBuilder,
+          (KWatch, BaseReferences<_$KolumnDb, $KWatchesTable, KWatch>),
+          KWatch,
+          PrefetchHooks Function()
+        > {
+  $$KWatchesTableTableManager(_$KolumnDb db, $KWatchesTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () => $$KWatchesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () => $$KWatchesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () => $$KWatchesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<String> cardId = const Value.absent(),
+            Value<bool> watching = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) => KWatchesCompanion(cardId: cardId, watching: watching, rowid: rowid),
+          createCompanionCallback: ({required String cardId, required bool watching, Value<int> rowid = const Value.absent()}) =>
+              KWatchesCompanion.insert(cardId: cardId, watching: watching, rowid: rowid),
+          withReferenceMapper: (p0) =>
+              p0.map((e) => (e.readTable<$KWatchesTable, KWatch>(table), BaseReferences<_$KolumnDb, $KWatchesTable, KWatch>(db, table, e))).toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$KWatchesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$KolumnDb,
+      $KWatchesTable,
+      KWatch,
+      $$KWatchesTableFilterComposer,
+      $$KWatchesTableOrderingComposer,
+      $$KWatchesTableAnnotationComposer,
+      $$KWatchesTableCreateCompanionBuilder,
+      $$KWatchesTableUpdateCompanionBuilder,
+      (KWatch, BaseReferences<_$KolumnDb, $KWatchesTable, KWatch>),
+      KWatch,
+      PrefetchHooks Function()
+    >;
+typedef $$KPinsTableCreateCompanionBuilder = KPinsCompanion Function({required String cardId, required int pinnedAt, Value<int?> deletedAt, Value<int> rowid});
+typedef $$KPinsTableUpdateCompanionBuilder = KPinsCompanion Function({Value<String> cardId, Value<int> pinnedAt, Value<int?> deletedAt, Value<int> rowid});
+
+class $$KPinsTableFilterComposer extends Composer<_$KolumnDb, $KPinsTable> {
+  $$KPinsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get cardId => $composableBuilder(column: $table.cardId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get pinnedAt => $composableBuilder(column: $table.pinnedAt, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get deletedAt => $composableBuilder(column: $table.deletedAt, builder: (column) => ColumnFilters(column));
+}
+
+class $$KPinsTableOrderingComposer extends Composer<_$KolumnDb, $KPinsTable> {
+  $$KPinsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get cardId => $composableBuilder(column: $table.cardId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get pinnedAt => $composableBuilder(column: $table.pinnedAt, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get deletedAt => $composableBuilder(column: $table.deletedAt, builder: (column) => ColumnOrderings(column));
+}
+
+class $$KPinsTableAnnotationComposer extends Composer<_$KolumnDb, $KPinsTable> {
+  $$KPinsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get cardId => $composableBuilder(column: $table.cardId, builder: (column) => column);
+
+  GeneratedColumn<int> get pinnedAt => $composableBuilder(column: $table.pinnedAt, builder: (column) => column);
+
+  GeneratedColumn<int> get deletedAt => $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+}
+
+class $$KPinsTableTableManager
+    extends
+        RootTableManager<
+          _$KolumnDb,
+          $KPinsTable,
+          KPin,
+          $$KPinsTableFilterComposer,
+          $$KPinsTableOrderingComposer,
+          $$KPinsTableAnnotationComposer,
+          $$KPinsTableCreateCompanionBuilder,
+          $$KPinsTableUpdateCompanionBuilder,
+          (KPin, BaseReferences<_$KolumnDb, $KPinsTable, KPin>),
+          KPin,
+          PrefetchHooks Function()
+        > {
+  $$KPinsTableTableManager(_$KolumnDb db, $KPinsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () => $$KPinsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () => $$KPinsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () => $$KPinsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<String> cardId = const Value.absent(),
+            Value<int> pinnedAt = const Value.absent(),
+            Value<int?> deletedAt = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) => KPinsCompanion(cardId: cardId, pinnedAt: pinnedAt, deletedAt: deletedAt, rowid: rowid),
+          createCompanionCallback: ({
+            required String cardId,
+            required int pinnedAt,
+            Value<int?> deletedAt = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) => KPinsCompanion.insert(cardId: cardId, pinnedAt: pinnedAt, deletedAt: deletedAt, rowid: rowid),
+          withReferenceMapper: (p0) =>
+              p0.map((e) => (e.readTable<$KPinsTable, KPin>(table), BaseReferences<_$KolumnDb, $KPinsTable, KPin>(db, table, e))).toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$KPinsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$KolumnDb,
+      $KPinsTable,
+      KPin,
+      $$KPinsTableFilterComposer,
+      $$KPinsTableOrderingComposer,
+      $$KPinsTableAnnotationComposer,
+      $$KPinsTableCreateCompanionBuilder,
+      $$KPinsTableUpdateCompanionBuilder,
+      (KPin, BaseReferences<_$KolumnDb, $KPinsTable, KPin>),
+      KPin,
+      PrefetchHooks Function()
+    >;
+typedef $$KFilesTableCreateCompanionBuilder = KFilesCompanion Function({
+  required String id,
+  required String cardId,
+  Value<String?> commentId,
+  Value<int> userId,
+  required String filename,
+  Value<String> mime,
+  Value<int> size,
+  Value<int?> width,
+  Value<int?> height,
+  Value<bool> hasThumb,
+  required int createdAt,
+  Value<int?> deletedAt,
+  Value<String?> localPath,
+  Value<bool> uploaded,
+  Value<int> rowid,
+});
+typedef $$KFilesTableUpdateCompanionBuilder = KFilesCompanion Function({
+  Value<String> id,
+  Value<String> cardId,
+  Value<String?> commentId,
+  Value<int> userId,
+  Value<String> filename,
+  Value<String> mime,
+  Value<int> size,
+  Value<int?> width,
+  Value<int?> height,
+  Value<bool> hasThumb,
+  Value<int> createdAt,
+  Value<int?> deletedAt,
+  Value<String?> localPath,
+  Value<bool> uploaded,
+  Value<int> rowid,
+});
+
+class $$KFilesTableFilterComposer extends Composer<_$KolumnDb, $KFilesTable> {
+  $$KFilesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(column: $table.id, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get cardId => $composableBuilder(column: $table.cardId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get commentId => $composableBuilder(column: $table.commentId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get userId => $composableBuilder(column: $table.userId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get filename => $composableBuilder(column: $table.filename, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get mime => $composableBuilder(column: $table.mime, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get size => $composableBuilder(column: $table.size, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get width => $composableBuilder(column: $table.width, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get height => $composableBuilder(column: $table.height, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<bool> get hasThumb => $composableBuilder(column: $table.hasThumb, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get createdAt => $composableBuilder(column: $table.createdAt, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get deletedAt => $composableBuilder(column: $table.deletedAt, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get localPath => $composableBuilder(column: $table.localPath, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<bool> get uploaded => $composableBuilder(column: $table.uploaded, builder: (column) => ColumnFilters(column));
+}
+
+class $$KFilesTableOrderingComposer extends Composer<_$KolumnDb, $KFilesTable> {
+  $$KFilesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(column: $table.id, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get cardId => $composableBuilder(column: $table.cardId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get commentId => $composableBuilder(column: $table.commentId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get userId => $composableBuilder(column: $table.userId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get filename => $composableBuilder(column: $table.filename, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get mime => $composableBuilder(column: $table.mime, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get size => $composableBuilder(column: $table.size, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get width => $composableBuilder(column: $table.width, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get height => $composableBuilder(column: $table.height, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<bool> get hasThumb => $composableBuilder(column: $table.hasThumb, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get createdAt => $composableBuilder(column: $table.createdAt, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get deletedAt => $composableBuilder(column: $table.deletedAt, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get localPath => $composableBuilder(column: $table.localPath, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<bool> get uploaded => $composableBuilder(column: $table.uploaded, builder: (column) => ColumnOrderings(column));
+}
+
+class $$KFilesTableAnnotationComposer extends Composer<_$KolumnDb, $KFilesTable> {
+  $$KFilesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id => $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get cardId => $composableBuilder(column: $table.cardId, builder: (column) => column);
+
+  GeneratedColumn<String> get commentId => $composableBuilder(column: $table.commentId, builder: (column) => column);
+
+  GeneratedColumn<int> get userId => $composableBuilder(column: $table.userId, builder: (column) => column);
+
+  GeneratedColumn<String> get filename => $composableBuilder(column: $table.filename, builder: (column) => column);
+
+  GeneratedColumn<String> get mime => $composableBuilder(column: $table.mime, builder: (column) => column);
+
+  GeneratedColumn<int> get size => $composableBuilder(column: $table.size, builder: (column) => column);
+
+  GeneratedColumn<int> get width => $composableBuilder(column: $table.width, builder: (column) => column);
+
+  GeneratedColumn<int> get height => $composableBuilder(column: $table.height, builder: (column) => column);
+
+  GeneratedColumn<bool> get hasThumb => $composableBuilder(column: $table.hasThumb, builder: (column) => column);
+
+  GeneratedColumn<int> get createdAt => $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<int> get deletedAt => $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get localPath => $composableBuilder(column: $table.localPath, builder: (column) => column);
+
+  GeneratedColumn<bool> get uploaded => $composableBuilder(column: $table.uploaded, builder: (column) => column);
+}
+
+class $$KFilesTableTableManager
+    extends
+        RootTableManager<
+          _$KolumnDb,
+          $KFilesTable,
+          KFile,
+          $$KFilesTableFilterComposer,
+          $$KFilesTableOrderingComposer,
+          $$KFilesTableAnnotationComposer,
+          $$KFilesTableCreateCompanionBuilder,
+          $$KFilesTableUpdateCompanionBuilder,
+          (KFile, BaseReferences<_$KolumnDb, $KFilesTable, KFile>),
+          KFile,
+          PrefetchHooks Function()
+        > {
+  $$KFilesTableTableManager(_$KolumnDb db, $KFilesTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () => $$KFilesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () => $$KFilesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () => $$KFilesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> cardId = const Value.absent(),
+                Value<String?> commentId = const Value.absent(),
+                Value<int> userId = const Value.absent(),
+                Value<String> filename = const Value.absent(),
+                Value<String> mime = const Value.absent(),
+                Value<int> size = const Value.absent(),
+                Value<int?> width = const Value.absent(),
+                Value<int?> height = const Value.absent(),
+                Value<bool> hasThumb = const Value.absent(),
+                Value<int> createdAt = const Value.absent(),
+                Value<int?> deletedAt = const Value.absent(),
+                Value<String?> localPath = const Value.absent(),
+                Value<bool> uploaded = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => KFilesCompanion(
+                id: id,
+                cardId: cardId,
+                commentId: commentId,
+                userId: userId,
+                filename: filename,
+                mime: mime,
+                size: size,
+                width: width,
+                height: height,
+                hasThumb: hasThumb,
+                createdAt: createdAt,
+                deletedAt: deletedAt,
+                localPath: localPath,
+                uploaded: uploaded,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String cardId,
+                Value<String?> commentId = const Value.absent(),
+                Value<int> userId = const Value.absent(),
+                required String filename,
+                Value<String> mime = const Value.absent(),
+                Value<int> size = const Value.absent(),
+                Value<int?> width = const Value.absent(),
+                Value<int?> height = const Value.absent(),
+                Value<bool> hasThumb = const Value.absent(),
+                required int createdAt,
+                Value<int?> deletedAt = const Value.absent(),
+                Value<String?> localPath = const Value.absent(),
+                Value<bool> uploaded = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => KFilesCompanion.insert(
+                id: id,
+                cardId: cardId,
+                commentId: commentId,
+                userId: userId,
+                filename: filename,
+                mime: mime,
+                size: size,
+                width: width,
+                height: height,
+                hasThumb: hasThumb,
+                createdAt: createdAt,
+                deletedAt: deletedAt,
+                localPath: localPath,
+                uploaded: uploaded,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) =>
+              p0.map((e) => (e.readTable<$KFilesTable, KFile>(table), BaseReferences<_$KolumnDb, $KFilesTable, KFile>(db, table, e))).toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$KFilesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$KolumnDb,
+      $KFilesTable,
+      KFile,
+      $$KFilesTableFilterComposer,
+      $$KFilesTableOrderingComposer,
+      $$KFilesTableAnnotationComposer,
+      $$KFilesTableCreateCompanionBuilder,
+      $$KFilesTableUpdateCompanionBuilder,
+      (KFile, BaseReferences<_$KolumnDb, $KFilesTable, KFile>),
+      KFile,
+      PrefetchHooks Function()
+    >;
+typedef $$KEventsTableCreateCompanionBuilder = KEventsCompanion Function({
+  Value<int> id,
+  required String cardId,
+  required int userId,
+  required String action,
+  Value<String> particulars,
+  required int createdAt,
+});
+typedef $$KEventsTableUpdateCompanionBuilder = KEventsCompanion Function({
+  Value<int> id,
+  Value<String> cardId,
+  Value<int> userId,
+  Value<String> action,
+  Value<String> particulars,
+  Value<int> createdAt,
+});
+
+class $$KEventsTableFilterComposer extends Composer<_$KolumnDb, $KEventsTable> {
+  $$KEventsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(column: $table.id, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get cardId => $composableBuilder(column: $table.cardId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get userId => $composableBuilder(column: $table.userId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get action => $composableBuilder(column: $table.action, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get particulars => $composableBuilder(column: $table.particulars, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get createdAt => $composableBuilder(column: $table.createdAt, builder: (column) => ColumnFilters(column));
+}
+
+class $$KEventsTableOrderingComposer extends Composer<_$KolumnDb, $KEventsTable> {
+  $$KEventsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(column: $table.id, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get cardId => $composableBuilder(column: $table.cardId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get userId => $composableBuilder(column: $table.userId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get action => $composableBuilder(column: $table.action, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get particulars => $composableBuilder(column: $table.particulars, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get createdAt => $composableBuilder(column: $table.createdAt, builder: (column) => ColumnOrderings(column));
+}
+
+class $$KEventsTableAnnotationComposer extends Composer<_$KolumnDb, $KEventsTable> {
+  $$KEventsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id => $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get cardId => $composableBuilder(column: $table.cardId, builder: (column) => column);
+
+  GeneratedColumn<int> get userId => $composableBuilder(column: $table.userId, builder: (column) => column);
+
+  GeneratedColumn<String> get action => $composableBuilder(column: $table.action, builder: (column) => column);
+
+  GeneratedColumn<String> get particulars => $composableBuilder(column: $table.particulars, builder: (column) => column);
+
+  GeneratedColumn<int> get createdAt => $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$KEventsTableTableManager
+    extends
+        RootTableManager<
+          _$KolumnDb,
+          $KEventsTable,
+          KEvent,
+          $$KEventsTableFilterComposer,
+          $$KEventsTableOrderingComposer,
+          $$KEventsTableAnnotationComposer,
+          $$KEventsTableCreateCompanionBuilder,
+          $$KEventsTableUpdateCompanionBuilder,
+          (KEvent, BaseReferences<_$KolumnDb, $KEventsTable, KEvent>),
+          KEvent,
+          PrefetchHooks Function()
+        > {
+  $$KEventsTableTableManager(_$KolumnDb db, $KEventsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () => $$KEventsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () => $$KEventsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () => $$KEventsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            Value<String> cardId = const Value.absent(),
+            Value<int> userId = const Value.absent(),
+            Value<String> action = const Value.absent(),
+            Value<String> particulars = const Value.absent(),
+            Value<int> createdAt = const Value.absent(),
+          }) => KEventsCompanion(id: id, cardId: cardId, userId: userId, action: action, particulars: particulars, createdAt: createdAt),
+          createCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            required String cardId,
+            required int userId,
+            required String action,
+            Value<String> particulars = const Value.absent(),
+            required int createdAt,
+          }) => KEventsCompanion.insert(id: id, cardId: cardId, userId: userId, action: action, particulars: particulars, createdAt: createdAt),
+          withReferenceMapper: (p0) =>
+              p0.map((e) => (e.readTable<$KEventsTable, KEvent>(table), BaseReferences<_$KolumnDb, $KEventsTable, KEvent>(db, table, e))).toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$KEventsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$KolumnDb,
+      $KEventsTable,
+      KEvent,
+      $$KEventsTableFilterComposer,
+      $$KEventsTableOrderingComposer,
+      $$KEventsTableAnnotationComposer,
+      $$KEventsTableCreateCompanionBuilder,
+      $$KEventsTableUpdateCompanionBuilder,
+      (KEvent, BaseReferences<_$KolumnDb, $KEventsTable, KEvent>),
+      KEvent,
+      PrefetchHooks Function()
+    >;
 
 class $KolumnDbManager {
   final _$KolumnDb _db;
@@ -3204,4 +7363,13 @@ class $KolumnDbManager {
   $$KPeopleTableTableManager get kPeople => $$KPeopleTableTableManager(_db, _db.kPeople);
   $$KSettingsTableTableManager get kSettings => $$KSettingsTableTableManager(_db, _db.kSettings);
   $$KOutboxTableTableManager get kOutbox => $$KOutboxTableTableManager(_db, _db.kOutbox);
+  $$KStepsTableTableManager get kSteps => $$KStepsTableTableManager(_db, _db.kSteps);
+  $$KCommentsTableTableManager get kComments => $$KCommentsTableTableManager(_db, _db.kComments);
+  $$KReactionsTableTableManager get kReactions => $$KReactionsTableTableManager(_db, _db.kReactions);
+  $$KTagsTableTableManager get kTags => $$KTagsTableTableManager(_db, _db.kTags);
+  $$KAssigneesTableTableManager get kAssignees => $$KAssigneesTableTableManager(_db, _db.kAssignees);
+  $$KWatchesTableTableManager get kWatches => $$KWatchesTableTableManager(_db, _db.kWatches);
+  $$KPinsTableTableManager get kPins => $$KPinsTableTableManager(_db, _db.kPins);
+  $$KFilesTableTableManager get kFiles => $$KFilesTableTableManager(_db, _db.kFiles);
+  $$KEventsTableTableManager get kEvents => $$KEventsTableTableManager(_db, _db.kEvents);
 }

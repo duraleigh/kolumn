@@ -16,6 +16,7 @@ class LaneInfo {
   final KColumn? column;
 
   bool get isCustom => lane.kind == LaneKind.column;
+  bool get isTodoLane => lane.kind == LaneKind.todo;
 }
 
 /// Lanes in Fizzy's left-to-right order: Later, To-do, the board's own
@@ -26,6 +27,7 @@ List<LaneInfo> buildLanes(BuildContext context, List<KColumn> columns, List<KCar
   final live = columns.map((c) => c.id).toSet();
   final byLane = <Lane, List<KCard>>{};
   for (final c in cards) {
+    if (c.status == 'draft') continue; // Drafts live in their own list, not on the board.
     byLane.putIfAbsent(Lane.of(c, live), () => []).add(c);
   }
   List<KCard> of(Lane l) => sortForLane(l, byLane[l] ?? const []);
