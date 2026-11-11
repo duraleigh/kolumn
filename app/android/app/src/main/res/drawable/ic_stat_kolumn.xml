@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The small white mark Android shows for Kolumn's reminders: a ticked circle. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M12,2A10,10 0,1 0,22 12,10 10,0 0,0 12,2ZM10.6,16.6 L6.4,12.4 7.8,11 10.6,13.8 16.2,8.2 17.6,9.6Z" />
+</vector>
