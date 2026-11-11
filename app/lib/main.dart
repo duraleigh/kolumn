@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'board/board_screen.dart';
 import 'data/database.dart';
 import 'data/repository.dart';
+import 'home_shell.dart';
 import 'state/providers.dart';
 import 'sync/hub_client.dart';
 import 'sync/sync_service.dart';
@@ -38,7 +38,7 @@ class KolumnApp extends ConsumerWidget {
   }
 }
 
-/// Signed in: the board. Signed out: the hub sign-in.
+/// Signed in: Kolumns and the Planner. Signed out: the hub sign-in.
 class AppGate extends ConsumerWidget {
   const AppGate({super.key});
 
@@ -48,6 +48,6 @@ class AppGate extends ConsumerWidget {
     if (status.state == SyncState.signedOut) {
       return SignInScreen(message: status.message == null ? null : 'Your session ended. Please sign in again.');
     }
-    return const BoardScreen();
+    return const HomeShell();
   }
 }

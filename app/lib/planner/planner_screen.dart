@@ -1,0 +1,1185 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../card/card_screen.dart';
+import '../data/database.dart';
+import '../data/lanes.dart';
+import '../data/repository.dart';
+import '../state/providers.dart';
+import '../theme/tokens.dart';
+import 'days.dart';
+import 'planner_model.dart';
+import 'planner_sheets.dart';
+import 'todo_sheet.dart';
+
+enum PlannerView { week, month, day }
+
+/// Widths and sizes, in logical pixels.
+abstract final class PlannerMetrics {
+  static const double wide = 840;
+  static const double rowPhone = 50;
+  static const double rowWide = 38;
+  static const Duration holdDelay = Duration(milliseconds: 350);
+  static const Duration edgeFlip = Duration(milliseconds: 650);
+}
+
+/// The Planner: Tweek's paper-planner week (and month and day), drawn in
+/// Kolumn's colors. Each day is ruled lines with one to-do per line; tap an
+/// empty line to write one, tick the circle to finish it, hold and drag it to
+/// another day.
+class PlannerScreen extends ConsumerStatefulWidget {
+  const PlannerScreen({super.key});
+
+  @override
+  ConsumerState<PlannerScreen> createState() => _PlannerScreenState();
+}
+
+class _PlannerScreenState extends ConsumerState<PlannerScreen> {
+  PlannerView _view = PlannerView.week;
+  late String _anchor = ref.read(plannerTodayProvider);
+  bool _searching = false;
+  final _search = TextEditingController();
+  final _scroll = ScrollController();
+
+  String? _adding;
+  final _draft = TextEditingController();
+  final _draftFocus = FocusNode();
+
+  bool _dragging = false;
+  int _scrollDir = 0;
+  Timer? _scrollTimer;
+  Timer? _flipTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _draftFocus.addListener(() {
+      final slot = _adding;
+      if (_draftFocus.hasFocus || slot == null) return;
+      // Leaving the line saves what was typed, unless the writing just moved
+      // to another line (the field there takes the focus a moment later).
+      Future.delayed(const Duration(milliseconds: 180), () {
+        if (mounted && !_draftFocus.hasFocus && _adding == slot) _commitDraft(keepGoing: false);
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _search.dispose();
+    _scroll.dispose();
+    _draft.dispose();
+    _draftFocus.dispose();
+    _scrollTimer?.cancel();
+    _flipTimer?.cancel();
+    super.dispose();
+  }
+
+  // ------------------------------------------------------------- moving through time
+
+  void _step(int dir) {
+    setState(() {
+      switch (_view) {
+        case PlannerView.week:
+          _anchor = addDays(_anchor, 7 * dir);
+        case PlannerView.day:
+          _anchor = addDays(_anchor, dir);
+        case PlannerView.month:
+          final d = parseDay(_anchor);
+          _anchor = dayKey(DateTime(d.year, d.month + dir, 1));
+      }
+    });
+  }
+
+  void _goToday() => setState(() => _anchor = ref.read(plannerTodayProvider));
+
+  String _title(bool wide) {
+    final a = parseDay(_view == PlannerView.week ? mondayOf(_anchor) : _anchor);
+    switch (_view) {
+      case PlannerView.day:
+        return dayHeading(_anchor);
+      case PlannerView.week:
+      case PlannerView.month:
+        return '${wide ? monthLong[a.month - 1] : monthShort[a.month - 1]} ${a.year}';
+    }
+  }
+
+  // ------------------------------------------------------------- writing on a line
+
+  void _startAdding(String slotKey) {
+    if (_adding != null && _adding != slotKey) _commitDraft(keepGoing: false);
+    setState(() {
+      _adding = slotKey;
+      _draft.clear();
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) => _draftFocus.requestFocus());
+  }
+
+  Future<void> _commitDraft({required bool keepGoing}) async {
+    final slotKey = _adding;
+    final text = _draft.text.trim();
+    final plannerId = ref.read(currentPlannerIdProvider).value;
+    if (!keepGoing) setState(() => _adding = null);
+    _draft.clear();
+    if (slotKey == null || text.isEmpty || plannerId == null) return;
+    final slot = TodoSlot.fromKey(slotKey);
+    if (slot == null) return;
+    await ref.read(repositoryProvider).addTodo(plannerId, slot, text);
+    if (keepGoing) _draftFocus.requestFocus();
+  }
+
+  // ------------------------------------------------------------- ticking, opening, moving
+
+  Future<void> _toggle(PlannerEntry e) async {
+    HapticFeedback.selectionClick();
+    final repo = ref.read(repositoryProvider);
+    if (e.isCard) {
+      // Ticking a card finishes it: it goes to Done on its Kolumn.
+      await repo.moveCard(e.card!.id, e.done ? const Lane.todo() : const Lane.done());
+    } else {
+      await repo.setTodoDone(e.todo!, !e.done, day: e.day);
+    }
+  }
+
+  void _open(PlannerEntry e) {
+    if (e.isCard) {
+      Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => CardScreen(cardId: e.card!.id, boardId: e.card!.boardId)));
+    } else {
+      showTodoSheet(context, ref, todoId: e.todo!.id, day: e.day);
+    }
+  }
+
+  Future<void> _move(PlannerEntry e, String toKey) async {
+    if (e.slotKey == toKey) return;
+    final repo = ref.read(repositoryProvider);
+    final to = TodoSlot.fromKey(toKey);
+    if (to == null) return;
+    HapticFeedback.mediumImpact();
+    if (e.isCard) {
+      if (to.day == null) return;
+      await repo.setCardDue(e.card!.id, to.day);
+      return;
+    }
+    final t = e.todo!;
+    if (e.repeats && e.day != null) {
+      // One day of a repeating to-do: that day moves on its own; the rest repeat as before.
+      await repo.skipTodoDay(t, e.day!);
+      final copy = await repo.addTodo(t.plannerId, to, t.title);
+      if (t.note.isNotEmpty) await repo.updateTodo(copy, note: t.note);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Moved that day only. The other days still repeat.')));
+      }
+      return;
+    }
+    await repo.updateTodo(t.id, slot: to);
+  }
+
+  void _dragStart() {
+    HapticFeedback.mediumImpact();
+    setState(() => _dragging = true);
+  }
+
+  void _dragEnd() {
+    _scrollTimer?.cancel();
+    _flipTimer?.cancel();
+    _scrollDir = 0;
+    if (mounted) setState(() => _dragging = false);
+  }
+
+  /// Near the top or bottom while dragging, the page scrolls.
+  void _dragUpdate(DragUpdateDetails d) {
+    final h = MediaQuery.sizeOf(context).height;
+    final dir = d.globalPosition.dy < 170 ? -1 : (d.globalPosition.dy > h - 150 ? 1 : 0);
+    if (dir == _scrollDir) return;
+    _scrollDir = dir;
+    _scrollTimer?.cancel();
+    if (dir == 0) return;
+    _scrollTimer = Timer.periodic(const Duration(milliseconds: 16), (_) {
+      if (!_scroll.hasClients) return;
+      final p = _scroll.position;
+      _scroll.jumpTo((p.pixels + 9 * _scrollDir).clamp(p.minScrollExtent, p.maxScrollExtent));
+    });
+  }
+
+  /// Held at the left or right edge while dragging: the week (or day) turns.
+  void _edgeEnter(int dir) {
+    _flipTimer?.cancel();
+    _flipTimer = Timer.periodic(PlannerMetrics.edgeFlip, (_) {
+      HapticFeedback.selectionClick();
+      _step(dir);
+    });
+  }
+
+  void _edgeLeave() => _flipTimer?.cancel();
+
+  // ------------------------------------------------------------- build
+
+  @override
+  Widget build(BuildContext context) {
+    final plannerId = ref.watch(currentPlannerIdProvider).value;
+    final planners = ref.watch(plannersProvider).value;
+    final data = plannerId == null ? null : ref.watch(plannerDataProvider(plannerId));
+    final wide = MediaQuery.sizeOf(context).width >= PlannerMetrics.wide;
+    final readOnly = ref.watch(readOnlyProvider).value ?? false;
+
+    if (data == null) {
+      return Scaffold(
+        body: SafeArea(
+          child: Center(
+            child: planners == null
+                ? const CircularProgressIndicator()
+                : Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text('No planner yet', style: Theme.of(context).textTheme.titleLarge),
+                      const SizedBox(height: 14),
+                      if (!readOnly)
+                        FilledButton.icon(
+                          onPressed: () async {
+                            final repo = ref.read(repositoryProvider);
+                            final id = await repo.ensureStarterPlanner();
+                            await repo.setSetting('planner.current', id);
+                          },
+                          icon: const Icon(Icons.add_rounded),
+                          label: const Text('Make my planner'),
+                        ),
+                    ],
+                  ),
+          ),
+        ),
+      );
+    }
+
+    final ctx = _Ctx(
+      data: data,
+      wide: wide,
+      readOnly: readOnly,
+      reminders: ref.watch(reminderMapProvider),
+      boardOrder: [for (final b in ref.watch(boardsProvider).value ?? const <KBoard>[]) b.id],
+      adding: _adding,
+      draft: _draft,
+      draftFocus: _draftFocus,
+      onAdd: _startAdding,
+      onSubmit: () => _commitDraft(keepGoing: true),
+      onToggle: _toggle,
+      onOpen: _open,
+      onMove: _move,
+      onDragStart: _dragStart,
+      onDragEnd: _dragEnd,
+      onDragUpdate: _dragUpdate,
+    );
+
+    Widget body;
+    if (_searching) {
+      body = _SearchResults(ctx: ctx, query: _search.text);
+    } else {
+      switch (_view) {
+        case PlannerView.week:
+          body = wide ? _WideWeek(ctx: ctx, monday: mondayOf(_anchor), scroll: _scroll) : _PhoneWeek(ctx: ctx, monday: mondayOf(_anchor), scroll: _scroll);
+        case PlannerView.day:
+          body = _DayPage(ctx: ctx, day: _anchor, scroll: _scroll);
+        case PlannerView.month:
+          body = _Month(
+            ctx: ctx,
+            first: _anchor,
+            onPick: (day) => setState(() {
+              _anchor = day;
+              _view = PlannerView.day;
+            }),
+          );
+      }
+    }
+
+    return Scaffold(
+      body: SafeArea(
+        bottom: false,
+        child: Stack(
+          children: [
+            Column(
+              children: [
+                _searching
+                    ? _SearchBar(
+                        controller: _search,
+                        onChanged: (_) => setState(() {}),
+                        onClose: () => setState(() {
+                          _searching = false;
+                          _search.clear();
+                        }),
+                      )
+                    : _Header(
+                        title: _title(wide),
+                        sub: _view == PlannerView.day ? weekdayLong[parseDay(_anchor).weekday - 1] : null,
+                        wide: wide,
+                        planner: data.planner,
+                        onTitle: _goToday,
+                        onPrev: () => _step(-1),
+                        onNext: () => _step(1),
+                        onSearch: () => setState(() => _searching = true),
+                        prevLabel: _view == PlannerView.day ? 'Previous day' : (_view == PlannerView.month ? 'Previous month' : 'Previous week'),
+                        nextLabel: _view == PlannerView.day ? 'Next day' : (_view == PlannerView.month ? 'Next month' : 'Next week'),
+                      ),
+                Expanded(
+                  child: RefreshIndicator(onRefresh: () => ref.read(syncServiceProvider).syncNow(), child: body),
+                ),
+              ],
+            ),
+            if (!_searching)
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 14,
+                child: Center(
+                  child: _ViewSwitch(
+                    view: _view,
+                    onPick: (v) => setState(() {
+                      if (v == PlannerView.month) {
+                        final d = parseDay(_anchor);
+                        _anchor = dayKey(DateTime(d.year, d.month, 1));
+                      } else if (_view == PlannerView.month) {
+                        final t = ref.read(plannerTodayProvider);
+                        _anchor = t.substring(0, 7) == _anchor.substring(0, 7) ? t : _anchor;
+                      }
+                      _view = v;
+                    }),
+                  ),
+                ),
+              ),
+            if (_dragging && _view != PlannerView.month) ...[
+              _EdgeFlip(left: true, onEnter: () => _edgeEnter(-1), onLeave: _edgeLeave),
+              _EdgeFlip(left: false, onEnter: () => _edgeEnter(1), onLeave: _edgeLeave),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// What every piece of the Planner needs to draw itself and act.
+class _Ctx {
+  _Ctx({
+    required this.data,
+    required this.wide,
+    required this.readOnly,
+    required this.reminders,
+    required this.boardOrder,
+    required this.adding,
+    required this.draft,
+    required this.draftFocus,
+    required this.onAdd,
+    required this.onSubmit,
+    required this.onToggle,
+    required this.onOpen,
+    required this.onMove,
+    required this.onDragStart,
+    required this.onDragEnd,
+    required this.onDragUpdate,
+  });
+
+  final PlannerData data;
+  final bool wide;
+  final bool readOnly;
+  final Map<String, int> reminders;
+  final List<String> boardOrder;
+  final String? adding;
+  final TextEditingController draft;
+  final FocusNode draftFocus;
+  final void Function(String slotKey) onAdd;
+  final VoidCallback onSubmit;
+  final void Function(PlannerEntry) onToggle;
+  final void Function(PlannerEntry) onOpen;
+  final Future<void> Function(PlannerEntry, String) onMove;
+  final VoidCallback onDragStart;
+  final VoidCallback onDragEnd;
+  final void Function(DragUpdateDetails) onDragUpdate;
+
+  double get row => wide ? PlannerMetrics.rowWide : PlannerMetrics.rowPhone;
+  double get font => wide ? 14 : 16;
+  String get today => data.today;
+
+  Color boardColor(BuildContext context, String boardId) {
+    final i = boardOrder.indexOf(boardId);
+    final lc = LaneColors.at(i < 0 ? 0 : i % LaneColors.all.length);
+    return Theme.of(context).brightness == Brightness.dark ? lc.dark : lc.light;
+  }
+}
+
+// ------------------------------------------------------------------ header
+
+class _Header extends ConsumerWidget {
+  const _Header({
+    required this.title,
+    required this.sub,
+    required this.wide,
+    required this.planner,
+    required this.onTitle,
+    required this.onPrev,
+    required this.onNext,
+    required this.onSearch,
+    required this.prevLabel,
+    required this.nextLabel,
+  });
+
+  final String title;
+  final String? sub;
+  final bool wide;
+  final KPlanner planner;
+  final VoidCallback onTitle;
+  final VoidCallback onPrev;
+  final VoidCallback onNext;
+  final VoidCallback onSearch;
+  final String prevLabel;
+  final String nextLabel;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.colors;
+    Widget round(IconData icon, String label, VoidCallback onTap) => Padding(
+      padding: const EdgeInsets.only(left: 6),
+      child: Tooltip(
+        message: label,
+        child: Material(
+          color: c.onSurface,
+          shape: const CircleBorder(),
+          child: InkWell(
+            customBorder: const CircleBorder(),
+            onTap: onTap,
+            child: SizedBox(width: 42, height: 42, child: Icon(icon, color: c.surface, size: 22)),
+          ),
+        ),
+      ),
+    );
+    return Padding(
+      padding: EdgeInsets.fromLTRB(wide ? 28 : 18, wide ? 22 : 14, wide ? 22 : 12, wide ? 14 : 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Expanded(
+            child: Tooltip(
+              message: 'Go to today',
+              child: InkWell(
+                borderRadius: BorderRadius.circular(10),
+                onTap: onTitle,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
+                  children: [
+                    Flexible(
+                      child: Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: wide ? 40 : 34, fontWeight: FontWeight.w700, letterSpacing: -0.8, height: 1.1, color: c.onSurface),
+                      ),
+                    ),
+                    if (sub != null) ...[
+                      const SizedBox(width: 10),
+                      Text(sub!, style: TextStyle(fontSize: 17, color: c.onSurfaceVariant)),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 6),
+          Material(
+            color: context.palette.chip,
+            shape: const StadiumBorder(),
+            child: InkWell(
+              customBorder: const StadiumBorder(),
+              onTap: () => showPlannersSheet(context, ref),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: 40, maxWidth: wide ? 260 : 132),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.calendar_today_outlined, size: 16, color: c.onSurface),
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Text(
+                          planner.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: c.onSurface),
+                        ),
+                      ),
+                      Icon(Icons.expand_more_rounded, size: 18, color: c.onSurface),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          IconButton(tooltip: 'Search', onPressed: onSearch, icon: const Icon(Icons.search_rounded)),
+          round(Icons.chevron_left_rounded, prevLabel, onPrev),
+          round(Icons.chevron_right_rounded, nextLabel, onNext),
+        ],
+      ),
+    );
+  }
+}
+
+class _SearchBar extends StatelessWidget {
+  const _SearchBar({required this.controller, required this.onChanged, required this.onClose});
+  final TextEditingController controller;
+  final ValueChanged<String> onChanged;
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.fromLTRB(14, 12, 8, 8),
+    child: Row(
+      children: [
+        Expanded(
+          child: TextField(
+            controller: controller,
+            autofocus: true,
+            onChanged: onChanged,
+            textInputAction: TextInputAction.search,
+            decoration: InputDecoration(
+              hintText: 'Search this planner',
+              prefixIcon: const Icon(Icons.search_rounded),
+              filled: true,
+              fillColor: context.palette.chip,
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(999), borderSide: BorderSide.none),
+              contentPadding: const EdgeInsets.symmetric(vertical: 12),
+            ),
+          ),
+        ),
+        TextButton(onPressed: onClose, child: const Text('Done')),
+      ],
+    ),
+  );
+}
+
+class _ViewSwitch extends StatelessWidget {
+  const _ViewSwitch({required this.view, required this.onPick});
+  final PlannerView view;
+  final ValueChanged<PlannerView> onPick;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    Widget b(PlannerView v, IconData icon, String label) {
+      final on = v == view;
+      return Tooltip(
+        message: label,
+        child: Material(
+          color: on ? c.onSurface : Colors.transparent,
+          shape: const StadiumBorder(),
+          child: InkWell(
+            customBorder: const StadiumBorder(),
+            onTap: () => onPick(v),
+            child: SizedBox(width: 52, height: 40, child: Icon(icon, size: 20, color: on ? c.surface : c.onSurfaceVariant)),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(5),
+      decoration: BoxDecoration(
+        color: context.palette.card,
+        borderRadius: BorderRadius.circular(999),
+        boxShadow: context.palette.cardShadow,
+        border: Border.all(color: c.outlineVariant.withValues(alpha: 0.5)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          b(PlannerView.month, Icons.grid_view_rounded, 'Month'),
+          const SizedBox(width: 4),
+          b(PlannerView.week, Icons.view_agenda_outlined, 'Week'),
+          const SizedBox(width: 4),
+          b(PlannerView.day, Icons.crop_square_rounded, 'Day'),
+        ],
+      ),
+    );
+  }
+}
+
+class _EdgeFlip extends StatelessWidget {
+  const _EdgeFlip({required this.left, required this.onEnter, required this.onLeave});
+  final bool left;
+  final VoidCallback onEnter;
+  final VoidCallback onLeave;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    return Positioned(
+      left: left ? 0 : null,
+      right: left ? null : 0,
+      top: 120,
+      bottom: 120,
+      width: 30,
+      child: DragTarget<PlannerEntry>(
+        onWillAcceptWithDetails: (_) {
+          onEnter();
+          return false;
+        },
+        onLeave: (_) => onLeave(),
+        builder: (context, _, _) => Center(
+          child: Container(
+            height: 120,
+            decoration: BoxDecoration(
+              color: c.primaryContainer,
+              borderRadius: left ? const BorderRadius.horizontal(right: Radius.circular(16)) : const BorderRadius.horizontal(left: Radius.circular(16)),
+            ),
+            alignment: Alignment.center,
+            child: Icon(left ? Icons.chevron_left_rounded : Icons.chevron_right_rounded, size: 20, color: c.onPrimaryContainer),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ------------------------------------------------------------------ a day (or Someday list)
+
+class _DayHeading extends StatelessWidget {
+  const _DayHeading({required this.day, required this.today, required this.wide});
+  final String day;
+  final String today;
+  final bool wide;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final isToday = day == today;
+    final color = isToday ? c.primary : c.onSurface;
+    return Container(
+      padding: const EdgeInsets.only(bottom: 7, left: 2, right: 2),
+      decoration: BoxDecoration(border: Border(bottom: BorderSide(color: color, width: 2))),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.baseline,
+        textBaseline: TextBaseline.alphabetic,
+        children: [
+          Expanded(
+            child: Text(
+              dayHeading(day),
+              style: TextStyle(fontSize: wide ? 17 : 19, fontWeight: FontWeight.w700, letterSpacing: -0.3, color: color),
+            ),
+          ),
+          Text(
+            weekdayShort[parseDay(day).weekday - 1],
+            style: TextStyle(fontSize: wide ? 15 : 17, color: (isToday ? c.primary : c.onSurfaceVariant).withValues(alpha: 0.75)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The ruled lines of one day or Someday list, and the drop target around them.
+class _Lines extends StatelessWidget {
+  const _Lines({required this.ctx, required this.slotKey, required this.minLines, this.heading});
+
+  final _Ctx ctx;
+  final String slotKey;
+  final int minLines;
+  final Widget? heading;
+
+  @override
+  Widget build(BuildContext context) {
+    final entries = ctx.data.entries(slotKey);
+    final isSomeday = slotKey.startsWith('someday-');
+    final c = context.colors;
+    final line = BorderSide(color: c.outlineVariant.withValues(alpha: 0.7));
+    final rows = <Widget>[for (final e in entries) _EntryRow(ctx: ctx, entry: e)];
+    final adding = ctx.adding == slotKey;
+    if (adding) {
+      rows.add(
+        Container(
+          height: ctx.row,
+          decoration: BoxDecoration(border: Border(bottom: BorderSide(color: c.primary, width: 1.5))),
+          padding: const EdgeInsets.symmetric(horizontal: 2),
+          alignment: Alignment.centerLeft,
+          child: TextField(
+            controller: ctx.draft,
+            focusNode: ctx.draftFocus,
+            textCapitalization: TextCapitalization.sentences,
+            textInputAction: TextInputAction.next,
+            onEditingComplete: () {},
+            onSubmitted: (_) => ctx.onSubmit(),
+            style: TextStyle(fontSize: ctx.font, color: c.onSurface),
+            decoration: const InputDecoration(isCollapsed: true, border: InputBorder.none, hintText: 'New to-do'),
+          ),
+        ),
+      );
+    }
+    final empty = (minLines - rows.length).clamp(1, 99);
+    for (var i = 0; i < empty; i++) {
+      rows.add(
+        Semantics(
+          button: true,
+          label: 'Add a to-do',
+          child: InkWell(
+            onTap: ctx.readOnly ? null : () => ctx.onAdd(slotKey),
+            mouseCursor: ctx.readOnly ? SystemMouseCursors.basic : SystemMouseCursors.text,
+            child: Container(height: ctx.row, decoration: BoxDecoration(border: Border(bottom: line))),
+          ),
+        ),
+      );
+    }
+    return DragTarget<PlannerEntry>(
+      onWillAcceptWithDetails: (d) => !ctx.readOnly && !(d.data.isCard && isSomeday),
+      onAcceptWithDetails: (d) => ctx.onMove(d.data, slotKey),
+      builder: (context, candidates, _) {
+        final over = candidates.isNotEmpty;
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 140),
+          decoration: BoxDecoration(
+            color: over ? context.palette.chip : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: over ? c.primary : Colors.transparent, width: 2),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 2),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [?heading, ...rows]),
+        );
+      },
+    );
+  }
+}
+
+class _EntryRow extends StatelessWidget {
+  const _EntryRow({required this.ctx, required this.entry});
+  final _Ctx ctx;
+  final PlannerEntry entry;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final p = context.palette;
+    final e = entry;
+    final fg = e.done ? c.onSurfaceVariant : (e.late ? p.dangerText : c.onSurface);
+    final bell = ctx.reminders.containsKey(e.isCard ? e.card!.id : e.todo!.id);
+    final icon = ctx.wide ? 13.0 : 15.0;
+    Widget row(bool ghost) => Container(
+      height: ctx.row,
+      decoration: ghost
+          ? BoxDecoration(color: p.card, borderRadius: BorderRadius.circular(14), boxShadow: p.liftShadow, border: Border.all(color: c.primary, width: 2))
+          : BoxDecoration(border: Border(bottom: BorderSide(color: c.outlineVariant.withValues(alpha: 0.7)))),
+      padding: EdgeInsets.symmetric(horizontal: ghost ? 12 : 2),
+      child: Row(
+        children: [
+          if (e.isCard) ...[
+            Container(
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(color: e.late ? c.error : ctx.boardColor(context, e.card!.boardId), borderRadius: BorderRadius.circular(2)),
+            ),
+            const SizedBox(width: 7),
+          ],
+          if (e.repeats) ...[Icon(Icons.repeat_rounded, size: icon, color: fg), const SizedBox(width: 5)],
+          if (bell) ...[Icon(Icons.notifications_none_rounded, size: icon, color: fg), const SizedBox(width: 5)],
+          Expanded(
+            child: Text(
+              e.title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: ctx.font,
+                color: fg,
+                fontWeight: e.isCard ? FontWeight.w500 : FontWeight.w400,
+                decoration: e.done ? TextDecoration.lineThrough : null,
+                decorationColor: fg,
+              ),
+            ),
+          ),
+          if (!ghost)
+            Semantics(
+              button: true,
+              label: e.done ? 'Mark not done' : 'Mark done',
+              child: InkResponse(
+                radius: 22,
+                onTap: ctx.readOnly ? null : () => ctx.onToggle(e),
+                child: SizedBox(width: ctx.wide ? 30 : 44, height: ctx.row, child: Center(child: CheckCircle(done: e.done, size: ctx.wide ? 18 : 22))),
+              ),
+            ),
+        ],
+      ),
+    );
+
+    final body = InkWell(onTap: () => ctx.onOpen(e), child: row(false));
+    if (ctx.readOnly) return body;
+    final feedback = Material(
+      type: MaterialType.transparency,
+      child: Transform.rotate(angle: -0.03, child: SizedBox(width: ctx.wide ? 220 : 280, child: row(true))),
+    );
+    final placeholder = Opacity(opacity: 0.3, child: row(false));
+    if (ctx.wide) {
+      return Draggable<PlannerEntry>(
+        data: e,
+        feedback: feedback,
+        childWhenDragging: placeholder,
+        onDragStarted: ctx.onDragStart,
+        onDragEnd: (_) => ctx.onDragEnd(),
+        onDragUpdate: ctx.onDragUpdate,
+        child: body,
+      );
+    }
+    return LongPressDraggable<PlannerEntry>(
+      data: e,
+      delay: PlannerMetrics.holdDelay,
+      feedback: feedback,
+      childWhenDragging: placeholder,
+      onDragStarted: ctx.onDragStart,
+      onDragEnd: (_) => ctx.onDragEnd(),
+      onDragUpdate: ctx.onDragUpdate,
+      child: body,
+    );
+  }
+}
+
+/// Tweek's round tick: an empty ring, or a filled gray ring with a check.
+class CheckCircle extends StatelessWidget {
+  const CheckCircle({super.key, required this.done, this.size = 22});
+  final bool done;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final done0 = c.onSurfaceVariant.withValues(alpha: 0.55);
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 160),
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: done ? done0 : Colors.transparent,
+        border: Border.all(color: done ? done0 : c.onSurface, width: 1.6),
+      ),
+      child: done ? Icon(Icons.check_rounded, size: size * 0.7, color: c.surface) : null,
+    );
+  }
+}
+
+// ------------------------------------------------------------------ week (phone)
+
+class _PhoneWeek extends StatelessWidget {
+  const _PhoneWeek({required this.ctx, required this.monday, required this.scroll});
+  final _Ctx ctx;
+  final String monday;
+  final ScrollController scroll;
+
+  @override
+  Widget build(BuildContext context) {
+    final days = [for (var i = 0; i < 7; i++) addDays(monday, i)];
+    return ListView(
+      controller: scroll,
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 110),
+      children: [
+        for (final d in days)
+          Padding(
+            padding: const EdgeInsets.only(top: 18),
+            child: _Lines(
+              ctx: ctx,
+              slotKey: d,
+              minLines: 2,
+              heading: _DayHeading(day: d, today: ctx.today, wide: false),
+            ),
+          ),
+        Padding(
+          padding: const EdgeInsets.only(top: 30),
+          child: _SomedayHeading(wide: false),
+        ),
+        for (var n = 1; n <= 3; n++)
+          Padding(
+            padding: EdgeInsets.only(top: n == 1 ? 0 : 14),
+            child: _Lines(ctx: ctx, slotKey: 'someday-$n', minLines: 2),
+          ),
+      ],
+    );
+  }
+}
+
+class _SomedayHeading extends StatelessWidget {
+  const _SomedayHeading({required this.wide});
+  final bool wide;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    return Container(
+      padding: const EdgeInsets.only(bottom: 7, left: 4),
+      decoration: BoxDecoration(border: Border(bottom: BorderSide(color: c.onSurface, width: 2))),
+      child: Text('Someday', style: TextStyle(fontSize: wide ? 20 : 19, fontWeight: FontWeight.w700, letterSpacing: -0.3, color: c.onSurface)),
+    );
+  }
+}
+
+// ------------------------------------------------------------------ week (computer, tablet)
+
+class _WideWeek extends StatelessWidget {
+  const _WideWeek({required this.ctx, required this.monday, required this.scroll});
+  final _Ctx ctx;
+  final String monday;
+  final ScrollController scroll;
+
+  @override
+  Widget build(BuildContext context) {
+    final days = [for (var i = 0; i < 7; i++) addDays(monday, i)];
+    Widget day(String d, int lines) => _Lines(
+      ctx: ctx,
+      slotKey: d,
+      minLines: lines,
+      heading: _DayHeading(day: d, today: ctx.today, wide: true),
+    );
+    return SingleChildScrollView(
+      controller: scroll,
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(26, 4, 26, 110),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (var i = 0; i < 5; i++) ...[if (i > 0) const SizedBox(width: 20), Expanded(child: day(days[i], 11))],
+              const SizedBox(width: 20),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [day(days[5], 4), const SizedBox(height: 24), day(days[6], 4)]),
+              ),
+            ],
+          ),
+          const SizedBox(height: 36),
+          const _SomedayHeading(wide: true),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (var n = 1; n <= 3; n++) ...[
+                if (n > 1) const SizedBox(width: 20),
+                Expanded(child: _Lines(ctx: ctx, slotKey: 'someday-$n', minLines: 4)),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ------------------------------------------------------------------ one day
+
+class _DayPage extends StatelessWidget {
+  const _DayPage({required this.ctx, required this.day, required this.scroll});
+  final _Ctx ctx;
+  final String day;
+  final ScrollController scroll;
+
+  @override
+  Widget build(BuildContext context) => ListView(
+    controller: scroll,
+    physics: const AlwaysScrollableScrollPhysics(),
+    padding: EdgeInsets.fromLTRB(ctx.wide ? 26 : 16, 4, ctx.wide ? 26 : 16, 110),
+    children: [
+      Align(
+        alignment: Alignment.topCenter,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 720),
+          child: _Lines(ctx: ctx, slotKey: day, minLines: 12),
+        ),
+      ),
+    ],
+  );
+}
+
+// ------------------------------------------------------------------ month
+
+class _Month extends StatelessWidget {
+  const _Month({required this.ctx, required this.first, required this.onPick});
+  final _Ctx ctx;
+  final String first;
+  final ValueChanged<String> onPick;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final f = parseDay(first);
+    final start = mondayOf(dayKey(DateTime(f.year, f.month, 1)));
+    final last = dayKey(DateTime(f.year, f.month + 1, 0));
+    final weeks = <List<String>>[];
+    for (var d = start; d.compareTo(last) <= 0; d = addDays(d, 7)) {
+      weeks.add([for (var i = 0; i < 7; i++) addDays(d, i)]);
+    }
+    final cellH = ctx.wide ? 118.0 : 92.0;
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: EdgeInsets.fromLTRB(ctx.wide ? 22 : 8, 0, ctx.wide ? 22 : 8, 110),
+      children: [
+        Row(
+          children: [
+            for (var i = 0; i < 7; i++)
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Text(
+                    weekdayShort[i],
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: c.onSurfaceVariant),
+                  ),
+                ),
+              ),
+          ],
+        ),
+        for (final w in weeks)
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (final d in w)
+                Expanded(
+                  child: _MonthCell(ctx: ctx, day: d, inMonth: parseDay(d).month == f.month, height: cellH, onTap: () => onPick(d)),
+                ),
+            ],
+          ),
+      ],
+    );
+  }
+}
+
+class _MonthCell extends StatelessWidget {
+  const _MonthCell({required this.ctx, required this.day, required this.inMonth, required this.height, required this.onTap});
+  final _Ctx ctx;
+  final String day;
+  final bool inMonth;
+  final double height;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final p = context.palette;
+    final items = ctx.data.entries(day);
+    final isToday = day == ctx.today;
+    final weekend = parseDay(day).weekday >= 6;
+    final show = ctx.wide ? 4 : 3;
+    return Semantics(
+      button: true,
+      label: '${dayLabel(day)}, ${items.length} ${items.length == 1 ? 'item' : 'items'}',
+      child: InkWell(
+        onTap: onTap,
+        child: Opacity(
+          opacity: inMonth ? 1 : 0.4,
+          child: Container(
+            height: height,
+            decoration: BoxDecoration(border: Border(top: BorderSide(color: c.outlineVariant.withValues(alpha: 0.7)))),
+            padding: const EdgeInsets.fromLTRB(2, 5, 2, 2),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Center(
+                  child: Container(
+                    width: 26,
+                    height: 26,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(shape: BoxShape.circle, color: isToday ? c.primary : Colors.transparent),
+                    child: Text(
+                      '${parseDay(day).day}',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: isToday ? c.onPrimary : (weekend ? c.onSurfaceVariant : c.onSurface),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 3),
+                for (final e in items.take(show))
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 2),
+                    padding: const EdgeInsets.symmetric(horizontal: 3),
+                    decoration: BoxDecoration(
+                      color: e.late ? p.dangerBg : (e.isCard ? c.primaryContainer : p.chip),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      e.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.clip,
+                      softWrap: false,
+                      style: TextStyle(
+                        fontSize: 10,
+                        height: 1.5,
+                        color: e.late ? p.dangerText : (e.done ? c.onSurfaceVariant : c.onSurface),
+                        decoration: e.done ? TextDecoration.lineThrough : null,
+                      ),
+                    ),
+                  ),
+                if (items.length > show)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 2),
+                    child: Text('${items.length - show} more', style: TextStyle(fontSize: 10, color: c.onSurfaceVariant)),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ------------------------------------------------------------------ search
+
+class _SearchResults extends StatelessWidget {
+  const _SearchResults({required this.ctx, required this.query});
+  final _Ctx ctx;
+  final String query;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final found = ctx.data.search(query);
+    if (query.trim().isEmpty) {
+      return ListView(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(28),
+            child: Text('Type to find a to-do or a card in this planner.', textAlign: TextAlign.center, style: TextStyle(color: c.onSurfaceVariant)),
+          ),
+        ],
+      );
+    }
+    if (found.isEmpty) {
+      return ListView(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(28),
+            child: Text('Nothing matches "$query".', textAlign: TextAlign.center, style: TextStyle(color: c.onSurfaceVariant)),
+          ),
+        ],
+      );
+    }
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 40),
+      itemCount: found.length,
+      itemBuilder: (context, i) {
+        final e = found[i];
+        final where = e.day == null ? 'Someday' : (e.repeats ? 'Repeats from ${dayLabel(e.day!)}' : friendlyDay(e.day!, today: ctx.today));
+        return ListTile(
+          contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+          leading: CheckCircle(done: e.done),
+          title: Text(
+            e.title,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: e.late ? context.palette.dangerText : null,
+              decoration: e.done ? TextDecoration.lineThrough : null,
+            ),
+          ),
+          subtitle: Text(e.isCard ? '$where · card #${e.card!.number}' : where),
+          onTap: () => ctx.onOpen(e),
+        );
+      },
+    );
+  }
+}

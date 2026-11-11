@@ -122,18 +122,21 @@ final peopleNamesProvider = Provider<Map<int, String>>((ref) {
 final fileBytesProvider = FutureProvider.family<Uint8List?, (String, bool)>((ref, key) async {
   final (id, thumb) = key;
   final repo = ref.watch(repositoryProvider);
-  final f = await repo.file(id);
-  if (f == null) return null;
-  final local = f.localPath;
+  // A file on a card, or (Phase 5) on a to-do.
+  final card = await repo.file(id);
+  final todo = card == null ? await repo.todoFile(id) : null;
+  if (card == null && todo == null) return null;
+  final local = card?.localPath ?? todo?.localPath;
+  final hasThumb = card?.hasThumb ?? todo!.hasThumb;
   if (local != null && File(local).existsSync()) return File(local).readAsBytes();
   final dir = Directory('${(await getApplicationCacheDirectory()).path}/kolumn-files');
   if (!dir.existsSync()) dir.createSync(recursive: true);
   final cached = File('${dir.path}/$id${thumb ? '.thumb' : ''}');
   if (cached.existsSync()) return cached.readAsBytes();
   try {
-    final bytes = await ref.read(syncServiceProvider).hub.downloadFile(id, thumb: thumb && f.hasThumb);
+    final bytes = await ref.read(syncServiceProvider).hub.downloadFile(id, thumb: thumb && hasThumb);
     await cached.writeAsBytes(bytes, flush: true);
-    if (!thumb) await repo.setFileLocalPath(id, cached.path);
+    if (!thumb) await (card != null ? repo.setFileLocalPath(id, cached.path) : repo.setTodoFileLocalPath(id, cached.path));
     return Uint8List.fromList(bytes);
   } catch (_) {
     return null;
