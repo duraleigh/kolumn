@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/database.dart';
+import '../data/lane_looks.dart';
 import '../data/tidy.dart';
 import '../planner/days.dart';
 import '../planner/planner_model.dart';
@@ -46,7 +47,7 @@ class CardFace extends ConsumerWidget {
           fg: late ? p.dangerText : null,
         ),
       if (ref.watch(reminderMapProvider).containsKey(card.id)) const _Count(icon: Icons.notifications_none_rounded, text: ''),
-      if (tidyLeft != null) _Count(icon: Icons.hourglass_bottom_rounded, text: tidyLeft <= 1 ? 'To Later soon' : 'To Later in ${tidyLeft}d'),
+      if (tidyLeft != null) _Count(icon: Icons.hourglass_bottom_rounded, text: tidyLeft <= 1 ? 'To ${laneLook(board, 'later').name} soon' : 'To ${laneLook(board, 'later').name} in ${tidyLeft}d'),
       if (x != null && x.steps > 0) _Count(icon: Icons.check_box_outlined, text: '${x.stepsDone}/${x.steps}'),
       if (x != null && x.comments > 0) _Count(icon: Icons.chat_bubble_outline_rounded, text: '${x.comments}'),
       if (x != null && x.files > 0) _Count(icon: Icons.attach_file_rounded, text: '${x.files}'),

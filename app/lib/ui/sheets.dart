@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../board/lane_info.dart';
 import '../home_shell.dart' show startScreenProvider, startScreens;
 import '../data/database.dart';
+import '../data/lane_looks.dart';
 import '../data/tidy.dart';
 import '../data/lanes.dart';
 import '../state/providers.dart';
@@ -104,7 +105,10 @@ class _NewCardSheetState extends ConsumerState<_NewCardSheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text('New card in To-do', style: Theme.of(context).textTheme.titleLarge),
+          Text(
+            'New card in ${laneLook(ref.watch(boardsProvider).value?.where((b) => b.id == widget.boardId).firstOrNull, 'todo').name}',
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
           if (_added > 0)
             Padding(
               padding: const EdgeInsets.only(top: 4),
@@ -196,25 +200,31 @@ Future<Lane?> showMoveSheet(BuildContext context, {required List<LaneInfo> lanes
 
 // ------------------------------------------------------------------ columns
 
-Future<void> showColumnEditor(BuildContext context, WidgetRef ref, {required String boardId, KColumn? column}) {
+/// Adds a kolumn, or renames and recolors one. With [builtIn], it is Later,
+/// To-do or Done on this Kolumn, which every Kolumn can rename and recolor too.
+Future<void> showColumnEditor(BuildContext context, WidgetRef ref, {required String boardId, KColumn? column, LaneKind? builtIn, String? builtInName}) {
   return showDialog<void>(
     context: context,
-    builder: (context) => _ColumnEditor(boardId: boardId, column: column),
+    builder: (context) => _ColumnEditor(boardId: boardId, column: column, builtIn: builtIn),
   );
 }
 
 class _ColumnEditor extends ConsumerStatefulWidget {
-  const _ColumnEditor({required this.boardId, this.column});
+  const _ColumnEditor({required this.boardId, this.column, this.builtIn});
   final String boardId;
   final KColumn? column;
+  final LaneKind? builtIn;
 
   @override
   ConsumerState<_ColumnEditor> createState() => _ColumnEditorState();
 }
 
 class _ColumnEditorState extends ConsumerState<_ColumnEditor> {
-  late final TextEditingController _name = TextEditingController(text: widget.column?.name ?? '');
-  late int _color = widget.column?.color ?? 0;
+  KBoard? get _board => ref.read(boardsProvider).value?.where((b) => b.id == widget.boardId).firstOrNull;
+  String? get _kind => widget.builtIn == null ? null : kindKey(widget.builtIn!);
+  late final LaneLook? _look = _kind == null ? null : laneLook(_board, _kind!);
+  late final TextEditingController _name = TextEditingController(text: _look?.name ?? widget.column?.name ?? '');
+  late int _color = _look?.color ?? widget.column?.color ?? 0;
   String? _error;
 
   @override
@@ -230,7 +240,9 @@ class _ColumnEditorState extends ConsumerState<_ColumnEditor> {
       return;
     }
     final repo = ref.read(repositoryProvider);
-    if (widget.column == null) {
+    if (_kind != null) {
+      await repo.setLaneLook(widget.boardId, _kind!, name: n == usualLaneName(_kind!) ? '' : n, color: _color);
+    } else if (widget.column == null) {
       await repo.addColumn(widget.boardId, n, _color);
     } else {
       await repo.updateColumn(widget.column!.id, name: n, color: _color);
@@ -242,7 +254,7 @@ class _ColumnEditorState extends ConsumerState<_ColumnEditor> {
   Widget build(BuildContext context) {
     final b = Theme.of(context).brightness;
     return AlertDialog(
-      title: Text(widget.column == null ? 'New kolumn' : 'Edit kolumn'),
+      title: Text(_kind != null ? 'Rename or recolor' : (widget.column == null ? 'New kolumn' : 'Edit kolumn')),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -289,11 +301,19 @@ class _ColumnEditorState extends ConsumerState<_ColumnEditor> {
         ],
       ),
       actions: [
+        if (_kind != null && (_look?.custom ?? false))
+          TextButton(
+            onPressed: () => setState(() {
+              _name.text = usualLaneName(_kind!);
+              _color = laneLook(null, _kind!).color;
+            }),
+            child: Text('Back to "${usualLaneName(_kind!)}"'),
+          ),
         TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
         FilledButton(
           style: FilledButton.styleFrom(minimumSize: const Size(0, 44)),
           onPressed: _save,
-          child: Text(widget.column == null ? 'Add kolumn' : 'Save'),
+          child: Text(widget.column == null && _kind == null ? 'Add kolumn' : 'Save'),
         ),
       ],
     );
@@ -782,7 +802,7 @@ Future<void> pickTidyDays(BuildContext context, WidgetRef ref, KBoard b) async {
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
             child: Text(
-              'A card nobody touches for this long moves to Later on its own. Cards with a due day never move.',
+              'A card nobody touches for this long moves to ${laneLook(b, 'later').name} on its own. Cards with a due day never move.',
               style: TextStyle(color: context.colors.onSurfaceVariant),
             ),
           ),

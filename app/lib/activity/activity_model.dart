@@ -22,6 +22,9 @@ Map<String, dynamic> _p(KEvent e) {
 }
 
 String _lane(Map<String, dynamic> p) {
+  // The name the kolumn had when the card moved (the hub keeps it), else the usual one.
+  final named = p['column'] as String?;
+  if (named != null && named.isNotEmpty) return named;
   switch (p['to']) {
     case 'todo':
       return 'To-do';
@@ -30,8 +33,7 @@ String _lane(Map<String, dynamic> p) {
     case 'done':
       return 'Done';
   }
-  final c = p['column'] as String?;
-  return c == null || c.isEmpty ? 'another kolumn' : c;
+  return 'another kolumn';
 }
 
 /// One line of the Activity feed, in plain words, naming the card.

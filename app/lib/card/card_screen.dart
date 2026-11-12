@@ -12,6 +12,7 @@ import 'package:path_provider/path_provider.dart';
 import '../board/board_screen.dart' show moveWithUndo;
 import '../board/lane_info.dart';
 import '../data/database.dart';
+import '../data/lane_looks.dart';
 import '../data/tidy.dart';
 import '../planner/days.dart';
 import '../planner/planner_model.dart';
@@ -173,7 +174,8 @@ class _CardScreenState extends ConsumerState<CardScreen> {
       _notes.text = card.description;
     }
     final readOnly = ref.watch(readOnlyProvider).value ?? false;
-    final lanes = buildLanes(context, columns, cards);
+    final board = boards.where((b) => b.id == boardId).firstOrNull;
+    final lanes = buildLanes(context, columns, cards, board: board);
     final lane = Lane.of(card, columns.map((c) => c.id).toSet());
     final info = lanes.firstWhere((l) => l.lane == lane, orElse: () => lanes[1]);
     final boardName = boards.where((b) => b.id == card.boardId).map((b) => b.name).firstOrNull ?? '';
@@ -210,7 +212,7 @@ class _CardScreenState extends ConsumerState<CardScreen> {
                   _flush();
                   await _repo.moveCardToBoard(card.id, to.id);
                   if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Moved to ${to.name}, in To-do')));
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Moved to ${to.name}, in ${laneLook(to, 'todo').name}')));
                   }
                 } else if (v == 'delete') {
                   final messenger = ScaffoldMessenger.of(context);
@@ -1216,8 +1218,8 @@ class _TimeRow extends ConsumerWidget {
             padding: const EdgeInsets.only(top: 8, left: 4),
             child: Text(
               left <= 1
-                  ? 'Nobody has touched this card in a while. It moves to Later tomorrow unless someone does.'
-                  : 'Nobody has touched this card in a while. It moves to Later in $left days unless someone does.',
+                  ? 'Nobody has touched this card in a while. It moves to ${laneLook(board, 'later').name} tomorrow unless someone does.'
+                  : 'Nobody has touched this card in a while. It moves to ${laneLook(board, 'later').name} in $left days unless someone does.',
               style: TextStyle(fontSize: 13, color: c.onSurfaceVariant),
             ),
           ),

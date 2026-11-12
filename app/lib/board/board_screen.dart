@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../card/card_screen.dart';
 import '../data/database.dart';
+import '../data/lane_looks.dart';
 import '../data/lanes.dart';
 import '../find/find_screen.dart';
 import '../state/providers.dart';
@@ -267,7 +268,7 @@ class _BoardViewState extends ConsumerState<BoardView> {
     final saved = ref.watch(openLaneProvider(_boardId));
     if (saved.hasValue) _restore(saved.value);
     final hintDone = ref.watch(_hintProvider).value ?? true;
-    _lanes = buildLanes(context, columns, cards);
+    _lanes = buildLanes(context, columns, cards, board: widget.board);
     if (!_lanes.any((l) => l.lane == _open)) _open = const Lane.todo();
     if (_open2 != null && !_lanes.any((l) => l.lane == _open2)) _open2 = null;
     final dragging = _dragId != null;
@@ -748,7 +749,13 @@ class _LaneHeader extends ConsumerWidget {
           const Spacer(),
           if (info.isTodoLane) _DraftsChip(boardId: boardId),
           if (canFold) IconButton(tooltip: 'Fold this kolumn', onPressed: onFold, icon: const Icon(Icons.unfold_less_rounded, size: 20)),
-          if (col != null && !(ref.watch(readOnlyProvider).value ?? false))
+          if (col == null && !(ref.watch(readOnlyProvider).value ?? false))
+            IconButton(
+              tooltip: 'Rename or recolor this kolumn',
+              onPressed: () => showColumnEditor(context, ref, boardId: boardId, builtIn: info.lane.kind, builtInName: info.name),
+              icon: const Icon(Icons.more_horiz_rounded),
+            )
+          else if (col != null && !(ref.watch(readOnlyProvider).value ?? false))
             PopupMenuButton<String>(
               tooltip: 'Options for this kolumn',
               icon: const Icon(Icons.more_horiz_rounded),
@@ -765,7 +772,7 @@ class _LaneHeader extends ConsumerWidget {
                     final ok = await confirm(
                       context,
                       title: 'Delete "${col.name}"?',
-                      body: 'Its ${info.cards.length == 1 ? 'card goes' : 'cards go'} back to To-do. Nothing else is deleted.',
+                      body: 'Its ${info.cards.length == 1 ? 'card goes' : 'cards go'} back to ${laneLook(ref.read(boardsProvider).value?.where((b) => b.id == boardId).firstOrNull, 'todo').name}. Nothing else is deleted.',
                       action: 'Delete kolumn',
                     );
                     if (ok) await repo.deleteColumn(col.id);

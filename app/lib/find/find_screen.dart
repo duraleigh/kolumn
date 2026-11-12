@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../card/card_screen.dart';
 import '../data/database.dart';
+import '../data/lane_looks.dart';
 import '../data/lanes.dart';
 import '../state/providers.dart';
 import '../theme/tokens.dart';
@@ -336,9 +337,9 @@ class _FindScreenState extends ConsumerState<FindScreen> {
                       final card = f.card;
                       final lane = Lane.of(card, columns.keys.toSet());
                       final (laneName, laneColor) = switch (lane.kind) {
-                        LaneKind.todo => ('To-do', c.primary),
-                        LaneKind.later => ('Later', c.onSurfaceVariant),
-                        LaneKind.done => ('Done', c.tertiary),
+                        LaneKind.todo => (laneLook(boards[card.boardId], 'todo').name, LaneColors.at(laneLook(boards[card.boardId], 'todo').color).of(Theme.of(context).brightness)),
+                        LaneKind.later => (laneLook(boards[card.boardId], 'later').name, LaneColors.at(laneLook(boards[card.boardId], 'later').color).of(Theme.of(context).brightness)),
+                        LaneKind.done => (laneLook(boards[card.boardId], 'done').name, LaneColors.at(laneLook(boards[card.boardId], 'done').color).of(Theme.of(context).brightness)),
                         LaneKind.column => (
                           columns[lane.columnId]?.name ?? 'a kolumn',
                           Theme.of(context).brightness == Brightness.dark

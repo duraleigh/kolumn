@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../data/database.dart';
+import '../data/lane_looks.dart';
 import '../data/lanes.dart';
 import '../theme/tokens.dart';
 
@@ -20,8 +21,9 @@ class LaneInfo {
 }
 
 /// Lanes in Fizzy's left-to-right order: Later, To-do, the board's own
-/// columns, then Done.
-List<LaneInfo> buildLanes(BuildContext context, List<KColumn> columns, List<KCard> cards) {
+/// columns, then Done. Later, To-do and Done take this Kolumn's own names and
+/// colors when it has chosen some.
+List<LaneInfo> buildLanes(BuildContext context, List<KColumn> columns, List<KCard> cards, {KBoard? board}) {
   final b = Theme.of(context).brightness;
   final primary = Theme.of(context).colorScheme.primary;
   final live = columns.map((c) => c.id).toSet();
@@ -31,13 +33,15 @@ List<LaneInfo> buildLanes(BuildContext context, List<KColumn> columns, List<KCar
     byLane.putIfAbsent(Lane.of(c, live), () => []).add(c);
   }
   List<KCard> of(Lane l) => sortForLane(l, byLane[l] ?? const []);
-  final todoColor = b == Brightness.dark ? const Color(0xFFA78BFA) : primary;
+  final later = laneLook(board, 'later'), todo = laneLook(board, 'todo'), done = laneLook(board, 'done');
+  // The usual To-do color follows the theme's own accent exactly.
+  final todoColor = !todo.custom || todo.color == 0 ? (b == Brightness.dark ? const Color(0xFFA78BFA) : primary) : LaneColors.at(todo.color).of(b);
   return [
-    LaneInfo(lane: const Lane.later(), name: 'Later', color: LaneColors.quiet.of(b), cards: of(const Lane.later())),
-    LaneInfo(lane: const Lane.todo(), name: 'To-do', color: todoColor, cards: of(const Lane.todo())),
+    LaneInfo(lane: const Lane.later(), name: later.name, color: LaneColors.at(later.color).of(b), cards: of(const Lane.later())),
+    LaneInfo(lane: const Lane.todo(), name: todo.name, color: todoColor, cards: of(const Lane.todo())),
     for (final col in columns)
       LaneInfo(lane: Lane.column(col.id), name: col.name, color: LaneColors.at(col.color).of(b), cards: of(Lane.column(col.id)), column: col),
-    LaneInfo(lane: const Lane.done(), name: 'Done', color: LaneColors.quiet.of(b), cards: of(const Lane.done())),
+    LaneInfo(lane: const Lane.done(), name: done.name, color: LaneColors.at(done.color).of(b), cards: of(const Lane.done())),
   ];
 }
 

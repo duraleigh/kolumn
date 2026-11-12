@@ -433,7 +433,7 @@ void main() {
       createdAt: 0,
       updatedAt: 0,
     );
-    KBoard board(int? days) => KBoard(id: 'b', name: 'B', tidyDays: days, allAccess: true, members: '[]', canManage: true, createdAt: 0, updatedAt: 0);
+    KBoard board(int? days) => KBoard(id: 'b', name: 'B', tidyDays: days, lanes: '{}', allAccess: true, members: '[]', canManage: true, createdAt: 0, updatedAt: 0);
 
     test('counts down from the Kolumn\'s tidy-up time, and warns near the end', () {
       expect(tidyDaysLeft(card(), board(null), 10 * day), 20);

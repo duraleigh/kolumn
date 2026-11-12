@@ -14,6 +14,9 @@ class KBoards extends Table {
   TextColumn get id => text()();
   TextColumn get name => text()();
   IntColumn get tidyDays => integer().nullable()();
+  // Schema 6: this Kolumn's own names and colors for Later, To-do and Done,
+  // as JSON: {"later": {"name": "Parked", "color": 3}, ...}.
+  TextColumn get lanes => text().withDefault(const Constant('{}'))();
   // Sharing, as the hub last reported it (schema 2).
   BoolColumn get allAccess => boolean().withDefault(const Constant(true))();
   IntColumn get creatorId => integer().nullable()();
@@ -416,7 +419,7 @@ class KolumnDb extends _$KolumnDb {
   KolumnDb.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -447,6 +450,9 @@ class KolumnDb extends _$KolumnDb {
         for (final t in <TableInfo>[kNotifications, kBoardWatches, kViews]) {
           await m.createTable(t);
         }
+      }
+      if (from < 6) {
+        await m.addColumn(kBoards, kBoards.lanes);
       }
     },
   );

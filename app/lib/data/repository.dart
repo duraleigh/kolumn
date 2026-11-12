@@ -90,6 +90,18 @@ class KolumnRepository {
     await _record('board.rename', {'id': id, 'name': name.trim()});
   });
 
+  /// Renames or recolors Later, To-do or Done on one Kolumn ([kind] is
+  /// 'later', 'todo' or 'done'). An empty name goes back to the usual one.
+  Future<void> setLaneLook(String boardId, String kind, {required String name, required int color}) => db.transaction(() async {
+    final b = await (db.select(db.kBoards)..where((x) => x.id.equals(boardId))).getSingleOrNull();
+    if (b == null) return;
+    final all = (jsonDecode(b.lanes) as Map?)?.cast<String, dynamic>() ?? <String, dynamic>{};
+    final one = <String, dynamic>{if (name.trim().isNotEmpty) 'name': name.trim(), 'color': color};
+    all[kind] = one;
+    await (db.update(db.kBoards)..where((x) => x.id.equals(boardId))).write(KBoardsCompanion(lanes: Value(jsonEncode(all)), updatedAt: Value(_now())));
+    await _record('board.lane', {'id': boardId, 'lane': kind, 'name': name.trim().isEmpty ? null : name.trim(), 'color': color});
+  });
+
   Future<void> deleteBoard(String id) => db.transaction(() async {
     final now = _now();
     await (db.update(db.kBoards)..where((b) => b.id.equals(id))).write(KBoardsCompanion(deletedAt: Value(now), updatedAt: Value(now)));
@@ -1265,6 +1277,7 @@ class KolumnRepository {
               id: id,
               name: b['name'] as String? ?? '',
               tidyDays: Value(i(b['tidyDays'])),
+              lanes: Value(jsonEncode(b['lanes'] is Map ? b['lanes'] : const {})),
               allAccess: Value(b['allAccess'] == true),
               creatorId: Value(i(b['creatorId'])),
               members: Value(jsonEncode(b['members'] ?? const [])),

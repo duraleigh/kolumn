@@ -193,11 +193,14 @@ class FormattedText extends StatelessWidget {
 
 /// Plain words for a card's history line.
 String historyLine(String action, Map<String, dynamic> p, String who) {
+  // The name the kolumn had when the card moved (the hub keeps it), else the usual one.
   String lane(String to) {
+    final named = p['column'] as String?;
+    if (named != null && named.isNotEmpty) return named;
     if (to == 'todo') return 'To-do';
     if (to == 'later') return 'Later';
     if (to == 'done') return 'Done';
-    return (p['column'] as String?)?.isNotEmpty == true ? p['column'] as String : 'a kolumn';
+    return 'a kolumn';
   }
 
   switch (action) {
