@@ -99,16 +99,17 @@ class CardFace extends ConsumerWidget {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 9),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Expanded(child: Wrap(spacing: 5, runSpacing: 5, children: meta)),
-                        if (x != null && x.assignees.isNotEmpty) ...[const SizedBox(width: 6), AvatarStack(ids: x.assignees)],
-                        const SizedBox(width: 6),
-                        Text(card.synced ? '#${card.number}' : 'New', style: t.labelMedium),
-                      ],
-                    ),
+                    // No card number here (his ask, 2026-11-12); it shows at the top of the open card.
+                    if (meta.isNotEmpty || (x != null && x.assignees.isNotEmpty)) ...[
+                      const SizedBox(height: 9),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Expanded(child: Wrap(spacing: 5, runSpacing: 5, children: meta)),
+                          if (x != null && x.assignees.isNotEmpty) ...[const SizedBox(width: 6), AvatarStack(ids: x.assignees)],
+                        ],
+                      ),
+                    ],
                   ],
                 ),
               ),

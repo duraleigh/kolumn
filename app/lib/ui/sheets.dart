@@ -58,17 +58,21 @@ Future<String?> askText(BuildContext context, {required String title, String ini
 
 // ------------------------------------------------------------------ new card
 
-Future<void> showNewCardSheet(BuildContext context, WidgetRef ref, String boardId) {
+/// Adds cards to one kolumn: the one in the middle of the screen when the +
+/// button was tapped (his ask, 2026-11-12).
+Future<void> showNewCardSheet(BuildContext context, WidgetRef ref, String boardId, {Lane lane = const Lane.todo(), String? laneName}) {
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
-    builder: (context) => _NewCardSheet(boardId: boardId),
+    builder: (context) => _NewCardSheet(boardId: boardId, lane: lane, laneName: laneName),
   );
 }
 
 class _NewCardSheet extends ConsumerStatefulWidget {
-  const _NewCardSheet({required this.boardId});
+  const _NewCardSheet({required this.boardId, required this.lane, this.laneName});
   final String boardId;
+  final Lane lane;
+  final String? laneName;
 
   @override
   ConsumerState<_NewCardSheet> createState() => _NewCardSheetState();
@@ -87,7 +91,7 @@ class _NewCardSheetState extends ConsumerState<_NewCardSheet> {
   Future<void> _add({required bool another, bool draft = false}) async {
     final t = _ctl.text.trim();
     if (t.isEmpty) return;
-    await ref.read(repositoryProvider).addCard(widget.boardId, t, draft: draft);
+    await ref.read(repositoryProvider).addCard(widget.boardId, t, lane: widget.lane, draft: draft);
     if (!mounted) return;
     if (another) {
       _ctl.clear();
@@ -106,7 +110,7 @@ class _NewCardSheetState extends ConsumerState<_NewCardSheet> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            'New card in ${laneLook(ref.watch(boardsProvider).value?.where((b) => b.id == widget.boardId).firstOrNull, 'todo').name}',
+            'New card in ${widget.laneName ?? laneLook(ref.watch(boardsProvider).value?.where((b) => b.id == widget.boardId).firstOrNull, 'todo').name}',
             style: Theme.of(context).textTheme.titleLarge,
           ),
           if (_added > 0)

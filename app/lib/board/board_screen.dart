@@ -132,7 +132,9 @@ class _BoardViewState extends ConsumerState<BoardView> {
   final _row = ScrollController();
   final _trayKey = GlobalKey();
   Lane _open = const Lane.todo();
-  Lane? _open2;
+  /// On a wide screen: kolumns LEFT of the main one that were tapped open.
+  /// Everything from the main one rightward is always open (his ask, 2026-11-12).
+  final Set<Lane> _openLeft = {};
   bool _restored = false;
 
   String? _dragId;
@@ -160,7 +162,6 @@ class _BoardViewState extends ConsumerState<BoardView> {
     _restored = true;
     if (saved != null && saved != _home) {
       _open = saved;
-      _open2 = saved;
     }
     WidgetsBinding.instance.addPostFrameCallback((_) => _centerOpen(animate: false));
   }
@@ -170,20 +171,77 @@ class _BoardViewState extends ConsumerState<BoardView> {
     setState(() {
       if (_narrow) {
         _open = lane;
-      } else if (lane != _home) {
-        _open2 = lane;
+      } else if (_isLeftOfHome(lane)) {
+        _openLeft.contains(lane) ? _openLeft.remove(lane) : _openLeft.add(lane);
       }
     });
     repo.setSetting('open.$_boardId', lane.key);
     WidgetsBinding.instance.addPostFrameCallback((_) => _centerOpen());
   }
 
-  void _fold() {
-    setState(() => _open2 = null);
-    ref.read(repositoryProvider).setSetting('open.$_boardId', _home.key);
+  void _fold(Lane lane) => setState(() => _openLeft.remove(lane));
+
+  bool _isLeftOfHome(Lane lane) {
+    final i = _lanes.indexWhere((l) => l.lane == lane);
+    final h = _lanes.indexWhere((l) => l.lane == _home);
+    return i >= 0 && h >= 0 && i < h;
   }
 
-  bool _isOpen(Lane lane) => _narrow ? lane == _open : (lane == _home || lane == _open2);
+  bool _isOpen(Lane lane) => _narrow ? lane == _open : (!_isLeftOfHome(lane) || _openLeft.contains(lane));
+
+  /// The kolumn the + button adds to: the open one nearest the middle of the screen.
+  Lane get _focused {
+    if (_narrow || !_row.hasClients) return _open;
+    final middle = _row.offset + _row.position.viewportDimension / 2;
+    var x = BoardMetrics.pad;
+    Lane? best;
+    var bestD = double.infinity;
+    for (final l in _lanes) {
+      final w = _widthOf(l.lane);
+      if (_isOpen(l.lane)) {
+        final d = (x + w / 2 - middle).abs();
+        if (d < bestD) {
+          bestD = d;
+          best = l.lane;
+        }
+      }
+      x += w + BoardMetrics.gap;
+    }
+    return best ?? _home;
+  }
+
+  /// On a phone, the kolumn that ends up nearest the middle after a swipe
+  /// opens by itself (his ask, 2026-11-12).
+  void _settleOnMiddle() {
+    if (!_narrow || _dragId != null || !_row.hasClients || _lanes.isEmpty) return;
+    final pos = _row.position;
+    Lane best;
+    if (pos.pixels <= pos.minScrollExtent + 1) {
+      best = _lanes.first.lane;
+    } else if (pos.pixels >= pos.maxScrollExtent - 1) {
+      best = _lanes.last.lane;
+    } else {
+      final middle = pos.pixels + pos.viewportDimension / 2;
+      var x = BoardMetrics.pad;
+      best = _open;
+      var bestD = double.infinity;
+      for (final l in _lanes) {
+        final w = _widthOf(l.lane);
+        final d = (x + w / 2 - middle).abs();
+        if (d < bestD) {
+          bestD = d;
+          best = l.lane;
+        }
+        x += w + BoardMetrics.gap;
+      }
+    }
+    if (best != _open) {
+      HapticFeedback.selectionClick();
+      _setOpen(best);
+    } else {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _centerOpen());
+    }
+  }
 
   double _widthOf(Lane lane) => _isOpen(lane) ? _openW : BoardMetrics.strip;
 
@@ -193,7 +251,7 @@ class _BoardViewState extends ConsumerState<BoardView> {
       // On a wide screen everything fits; only nudge if a lane is off-screen.
       if (_row.position.maxScrollExtent <= 0) return;
     }
-    final target = _narrow ? _open : (_open2 ?? _home);
+    final target = _narrow ? _open : _home;
     var x = BoardMetrics.pad;
     for (final l in _lanes) {
       if (l.lane == target) break;
@@ -273,10 +331,22 @@ class _BoardViewState extends ConsumerState<BoardView> {
     final hintDone = ref.watch(_hintProvider).value ?? true;
     _lanes = buildLanes(context, columns, cards, board: widget.board);
     if (!_lanes.any((l) => l.lane == _open)) _open = _home;
-    if (_open2 != null && !_lanes.any((l) => l.lane == _open2)) _open2 = null;
+    _openLeft.removeWhere((l) => !_lanes.any((x) => x.lane == l) || !_isLeftOfHome(l));
     final dragging = _dragId != null;
 
+    final readOnly = ref.watch(readOnlyProvider).value ?? false;
     return Scaffold(
+      // One + button for the whole Kolumn: it adds to the kolumn in the middle (his ask, 2026-11-12).
+      floatingActionButton: readOnly || dragging || _lanes.isEmpty
+          ? null
+          : FloatingActionButton(
+              tooltip: 'Add a card',
+              onPressed: () {
+                final lane = _focused;
+                showNewCardSheet(context, ref, _boardId, lane: lane, laneName: laneName(_lanes, lane));
+              },
+              child: const Icon(Icons.add_rounded),
+            ),
       body: SafeArea(
         bottom: false,
         child: Stack(
@@ -337,8 +407,9 @@ class _BoardViewState extends ConsumerState<BoardView> {
                     maxWidth: _openW,
                     child: OpenLane(
                       info: info,
-                      canFold: !_narrow && !info.isHome,
-                      onFold: _fold,
+                      canFold: !_narrow && _openLeft.contains(info.lane),
+                      onFold: () => _fold(info.lane),
+                      onReorder: _reorder,
                       boardId: _boardId,
                       dragId: _dragId,
                       from: _dragFrom,
@@ -358,7 +429,12 @@ class _BoardViewState extends ConsumerState<BoardView> {
     }
     children.add(const SizedBox(width: BoardMetrics.gap));
     if (!(ref.watch(readOnlyProvider).value ?? false)) children.add(_AddColumnStrip(boardId: _boardId));
-    return SingleChildScrollView(
+    return NotificationListener<ScrollEndNotification>(
+      onNotification: (n) {
+        if (n.metrics.axis == Axis.horizontal) _settleOnMiddle();
+        return false;
+      },
+      child: SingleChildScrollView(
       controller: _row,
       scrollDirection: Axis.horizontal,
       physics: _dragId != null ? const NeverScrollableScrollPhysics() : const BouncingScrollPhysics(),
@@ -367,7 +443,31 @@ class _BoardViewState extends ConsumerState<BoardView> {
         height: box.maxHeight - 18,
         child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: children),
       ),
+      ),
     );
+  }
+
+  /// A card dropped at a spot in a kolumn: put in order there (or moved
+  /// there from another kolumn).
+  Future<void> _reorder(String cardId, Lane lane, int index) async {
+    final from = _dragFrom;
+    _dragEnded();
+    final repo = ref.read(repositoryProvider);
+    HapticFeedback.lightImpact();
+    if (from == lane) {
+      await repo.reorderCard(cardId, index);
+    } else {
+      await repo.moveCard(cardId, lane, index: index);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text('Moved to ${laneName(_lanes, lane)}'),
+            action: from == null ? null : SnackBarAction(label: 'Undo', onPressed: () => repo.moveCard(cardId, from)),
+          ),
+        );
+    }
   }
 }
 
@@ -664,6 +764,7 @@ class OpenLane extends ConsumerWidget {
     required this.onDragStarted,
     required this.onDragUpdate,
     required this.onDragEnded,
+    required this.onReorder,
     required this.laneCount,
     required this.laneIndex,
     required this.lanes,
@@ -679,6 +780,7 @@ class OpenLane extends ConsumerWidget {
   final void Function(KCard) onDragStarted;
   final void Function(DragUpdateDetails) onDragUpdate;
   final VoidCallback onDragEnded;
+  final Future<void> Function(String cardId, Lane lane, int index) onReorder;
   final int laneCount;
   final int laneIndex;
   final List<LaneInfo> lanes;
@@ -705,11 +807,6 @@ class OpenLane extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               _LaneHeader(info: info, canFold: canFold, onFold: onFold, boardId: boardId, laneIndex: laneIndex, laneCount: laneCount),
-              if (isTodo && !readOnly)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
-                  child: _AddCardButton(onTap: () => showNewCardSheet(context, ref, boardId)),
-                ),
               Expanded(
                 child: RefreshIndicator(
                   onRefresh: () => ref.read(syncServiceProvider).syncNow(),
@@ -718,29 +815,56 @@ class OpenLane extends ConsumerWidget {
                           padding: const EdgeInsets.all(24),
                           children: [
                             Text(
-                              readOnly ? 'Nothing here.' : (isTodo ? 'Nothing to do yet. Add a card.' : 'Nothing here. Drag a card in.'),
+                              readOnly ? 'Nothing here.' : (isTodo ? 'Nothing here yet. Tap + to add a card.' : 'Nothing here. Drag a card in, or tap +.'),
                               textAlign: TextAlign.center,
                               style: Theme.of(context).textTheme.bodyMedium!.copyWith(color: context.colors.onSurfaceVariant),
                             ),
                           ],
                         )
-                      : ListView.separated(
+                      : ListView.builder(
                           padding: const EdgeInsets.fromLTRB(10, 2, 10, 120),
-                          itemCount: info.cards.length,
-                          separatorBuilder: (_, _) => const SizedBox(height: 10),
-                          itemBuilder: (context, i) => DraggableCard(
-                            card: info.cards[i],
-                            enabled: !readOnly,
-                            dragging: dragId == info.cards[i].id,
-                            onDragStarted: onDragStarted,
-                            onDragUpdate: onDragUpdate,
-                            onDragEnded: onDragEnded,
-                            onTap: () => Navigator.of(context).push(
-                              MaterialPageRoute<void>(
-                                builder: (_) => CardScreen(cardId: info.cards[i].id, boardId: boardId),
+                          itemCount: info.cards.length + 1,
+                          itemBuilder: (context, i) {
+                            if (i == info.cards.length) {
+                              // Below the last card: drop here to put a card at the end.
+                              return _CardSlot(
+                                cardId: null,
+                                enabled: !readOnly,
+                                lane: info.lane,
+                                color: info.color,
+                                indexFor: (dragged, _) => info.cards.where((c) => c.id != dragged).length,
+                                onReorder: onReorder,
+                                child: const SizedBox(height: 90),
+                              );
+                            }
+                            final card = info.cards[i];
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 10),
+                              child: _CardSlot(
+                                cardId: card.id,
+                                enabled: !readOnly,
+                                lane: info.lane,
+                                color: info.color,
+                                indexFor: (dragged, below) {
+                                  final others = info.cards.where((c) => c.id != dragged).toList();
+                                  final at = others.indexWhere((c) => c.id == card.id);
+                                  return at < 0 ? others.length : at + (below ? 1 : 0);
+                                },
+                                onReorder: onReorder,
+                                child: DraggableCard(
+                                  card: card,
+                                  enabled: !readOnly,
+                                  dragging: dragId == card.id,
+                                  onDragStarted: onDragStarted,
+                                  onDragUpdate: onDragUpdate,
+                                  onDragEnded: onDragEnded,
+                                  onTap: () => Navigator.of(context).push(
+                                    MaterialPageRoute<void>(builder: (_) => CardScreen(cardId: card.id, boardId: boardId)),
+                                  ),
+                                ),
                               ),
-                            ),
-                          ),
+                            );
+                          },
                         ),
                 ),
               ),
@@ -863,41 +987,6 @@ class _DraftsChip extends ConsumerWidget {
       ),
       icon: const Icon(Icons.edit_note_rounded, size: 18),
       label: Text('Drafts $n'),
-    );
-  }
-}
-
-class _AddCardButton extends StatelessWidget {
-  const _AddCardButton({required this.onTap});
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final p = context.palette;
-    return Material(
-      color: Colors.transparent,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(KShapes.lg),
-        side: BorderSide(color: p.dash, width: 1.5),
-      ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(KShapes.lg),
-        onTap: onTap,
-        child: SizedBox(
-          height: 46,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.add_rounded, size: 20, color: p.accentText),
-              const SizedBox(width: 6),
-              Text(
-                'Add a card',
-                style: TextStyle(color: p.accentText, fontWeight: FontWeight.w600, fontSize: 15),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }
@@ -1129,6 +1218,88 @@ class _HintPill extends StatelessWidget {
         ),
         child: Text('Hold a card to move it', style: TextStyle(color: c.onInverseSurface, fontSize: 14)),
       ),
+    );
+  }
+}
+
+/// A spot in an open kolumn a card can be dropped on, to put it in order
+/// there: above this card, below it, or (with no card) at the end. A line
+/// shows where it will land. Near the top or bottom, the kolumn scrolls.
+class _CardSlot extends StatefulWidget {
+  const _CardSlot({
+    required this.cardId,
+    required this.enabled,
+    required this.lane,
+    required this.color,
+    required this.indexFor,
+    required this.onReorder,
+    required this.child,
+  });
+
+  final String? cardId;
+  final bool enabled;
+  final Lane lane;
+  final Color color;
+
+  /// Where the dragged card would go: (dragged card id, below this card?) → index.
+  final int Function(String dragged, bool below) indexFor;
+  final Future<void> Function(String cardId, Lane lane, int index) onReorder;
+  final Widget child;
+
+  @override
+  State<_CardSlot> createState() => _CardSlotState();
+}
+
+class _CardSlotState extends State<_CardSlot> {
+  bool? _below;
+
+  bool _isBelow(Offset global) {
+    final box = context.findRenderObject() as RenderBox?;
+    if (box == null || widget.cardId == null) return false;
+    return box.globalToLocal(global).dy > box.size.height / 2;
+  }
+
+  void _autoScroll(Offset global) {
+    final scrollable = Scrollable.maybeOf(context);
+    final box = scrollable?.context.findRenderObject() as RenderBox?;
+    if (scrollable == null || box == null) return;
+    final top = box.localToGlobal(Offset.zero).dy;
+    final pos = scrollable.position;
+    if (global.dy < top + 70) {
+      pos.jumpTo((pos.pixels - 18).clamp(pos.minScrollExtent, pos.maxScrollExtent));
+    } else if (global.dy > top + box.size.height - 170) {
+      pos.jumpTo((pos.pixels + 18).clamp(pos.minScrollExtent, pos.maxScrollExtent));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!widget.enabled) return widget.child;
+    final line = Container(height: 3, margin: const EdgeInsets.symmetric(vertical: 3), decoration: BoxDecoration(color: widget.color, borderRadius: BorderRadius.circular(2)));
+    return DragTarget<String>(
+      onWillAcceptWithDetails: (d) => d.data != widget.cardId,
+      onMove: (d) {
+        _autoScroll(d.offset + const Offset(0, 30));
+        final below = _isBelow(d.offset + const Offset(0, 30));
+        if (below != _below) setState(() => _below = below);
+      },
+      onLeave: (_) => setState(() => _below = null),
+      onAcceptWithDetails: (d) {
+        final below = _below ?? false;
+        setState(() => _below = null);
+        widget.onReorder(d.data, widget.lane, widget.indexFor(d.data, below));
+      },
+      builder: (context, candidates, _) {
+        final over = candidates.isNotEmpty && _below != null;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (over && (_below == false || widget.cardId == null)) line,
+            widget.child,
+            if (over && _below == true && widget.cardId != null) line,
+          ],
+        );
+      },
     );
   }
 }
