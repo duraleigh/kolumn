@@ -105,6 +105,16 @@ class KolumnRepository {
     await _record('board.lane', {'id': boardId, 'lane': kind, 'name': name.trim().isEmpty ? null : name.trim(), 'color': color});
   });
 
+  /// Turns a Kolumn's view-only link on or off, or swaps it for a new one
+  /// (the old one stops working). The hub makes the link; it arrives with the
+  /// next check.
+  Future<void> setShare(String boardId, {required bool on, bool renew = false}) => db.transaction(() async {
+    if (!on) {
+      await (db.update(db.kBoards)..where((x) => x.id.equals(boardId))).write(const KBoardsCompanion(shareKey: Value(null)));
+    }
+    await _record('board.share', {'id': boardId, 'on': on, 'renew': renew});
+  });
+
   Future<KBoard?> _board(String id) => (db.select(db.kBoards)..where((x) => x.id.equals(id))).getSingleOrNull();
 
   /// Changes one of Later, To-do and Done in a Kolumn's stored choices, keeping the rest.
@@ -1428,6 +1438,7 @@ class KolumnRepository {
               name: b['name'] as String? ?? '',
               tidyDays: Value(i(b['tidyDays'])),
               lanes: Value(jsonEncode(b['lanes'] is Map ? b['lanes'] : const {})),
+              shareKey: Value(b['shareKey'] as String?),
               allAccess: Value(b['allAccess'] == true),
               creatorId: Value(i(b['creatorId'])),
               members: Value(jsonEncode(b['members'] ?? const [])),

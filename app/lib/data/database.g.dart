@@ -47,6 +47,17 @@ class $KBoardsTable extends KBoards with TableInfo<$KBoardsTable, KBoard> {
     requiredDuringInsert: false,
     defaultValue: const Constant('{}'),
   );
+  static const VerificationMeta _shareKeyMeta = const VerificationMeta(
+    'shareKey',
+  );
+  @override
+  late final GeneratedColumn<String> shareKey = GeneratedColumn<String>(
+    'share_key',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _allAccessMeta = const VerificationMeta(
     'allAccess',
   );
@@ -139,6 +150,7 @@ class $KBoardsTable extends KBoards with TableInfo<$KBoardsTable, KBoard> {
     name,
     tidyDays,
     lanes,
+    shareKey,
     allAccess,
     creatorId,
     members,
@@ -182,6 +194,12 @@ class $KBoardsTable extends KBoards with TableInfo<$KBoardsTable, KBoard> {
       context.handle(
         _lanesMeta,
         lanes.isAcceptableOrUnknown(data['lanes']!, _lanesMeta),
+      );
+    }
+    if (data.containsKey('share_key')) {
+      context.handle(
+        _shareKeyMeta,
+        shareKey.isAcceptableOrUnknown(data['share_key']!, _shareKeyMeta),
       );
     }
     if (data.containsKey('all_access')) {
@@ -255,6 +273,10 @@ class $KBoardsTable extends KBoards with TableInfo<$KBoardsTable, KBoard> {
         DriftSqlType.string,
         data['${effectivePrefix}lanes'],
       )!,
+      shareKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}share_key'],
+      ),
       allAccess: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}all_access'],
@@ -297,6 +319,7 @@ class KBoard extends DataClass implements Insertable<KBoard> {
   final String name;
   final int? tidyDays;
   final String lanes;
+  final String? shareKey;
   final bool allAccess;
   final int? creatorId;
   final String members;
@@ -309,6 +332,7 @@ class KBoard extends DataClass implements Insertable<KBoard> {
     required this.name,
     this.tidyDays,
     required this.lanes,
+    this.shareKey,
     required this.allAccess,
     this.creatorId,
     required this.members,
@@ -326,6 +350,9 @@ class KBoard extends DataClass implements Insertable<KBoard> {
       map['tidy_days'] = Variable<int>(tidyDays);
     }
     map['lanes'] = Variable<String>(lanes);
+    if (!nullToAbsent || shareKey != null) {
+      map['share_key'] = Variable<String>(shareKey);
+    }
     map['all_access'] = Variable<bool>(allAccess);
     if (!nullToAbsent || creatorId != null) {
       map['creator_id'] = Variable<int>(creatorId);
@@ -348,6 +375,9 @@ class KBoard extends DataClass implements Insertable<KBoard> {
           ? const Value.absent()
           : Value(tidyDays),
       lanes: Value(lanes),
+      shareKey: shareKey == null && nullToAbsent
+          ? const Value.absent()
+          : Value(shareKey),
       allAccess: Value(allAccess),
       creatorId: creatorId == null && nullToAbsent
           ? const Value.absent()
@@ -372,6 +402,7 @@ class KBoard extends DataClass implements Insertable<KBoard> {
       name: serializer.fromJson<String>(json['name']),
       tidyDays: serializer.fromJson<int?>(json['tidyDays']),
       lanes: serializer.fromJson<String>(json['lanes']),
+      shareKey: serializer.fromJson<String?>(json['shareKey']),
       allAccess: serializer.fromJson<bool>(json['allAccess']),
       creatorId: serializer.fromJson<int?>(json['creatorId']),
       members: serializer.fromJson<String>(json['members']),
@@ -389,6 +420,7 @@ class KBoard extends DataClass implements Insertable<KBoard> {
       'name': serializer.toJson<String>(name),
       'tidyDays': serializer.toJson<int?>(tidyDays),
       'lanes': serializer.toJson<String>(lanes),
+      'shareKey': serializer.toJson<String?>(shareKey),
       'allAccess': serializer.toJson<bool>(allAccess),
       'creatorId': serializer.toJson<int?>(creatorId),
       'members': serializer.toJson<String>(members),
@@ -404,6 +436,7 @@ class KBoard extends DataClass implements Insertable<KBoard> {
     String? name,
     Value<int?> tidyDays = const Value.absent(),
     String? lanes,
+    Value<String?> shareKey = const Value.absent(),
     bool? allAccess,
     Value<int?> creatorId = const Value.absent(),
     String? members,
@@ -416,6 +449,7 @@ class KBoard extends DataClass implements Insertable<KBoard> {
     name: name ?? this.name,
     tidyDays: tidyDays.present ? tidyDays.value : this.tidyDays,
     lanes: lanes ?? this.lanes,
+    shareKey: shareKey.present ? shareKey.value : this.shareKey,
     allAccess: allAccess ?? this.allAccess,
     creatorId: creatorId.present ? creatorId.value : this.creatorId,
     members: members ?? this.members,
@@ -430,6 +464,7 @@ class KBoard extends DataClass implements Insertable<KBoard> {
       name: data.name.present ? data.name.value : this.name,
       tidyDays: data.tidyDays.present ? data.tidyDays.value : this.tidyDays,
       lanes: data.lanes.present ? data.lanes.value : this.lanes,
+      shareKey: data.shareKey.present ? data.shareKey.value : this.shareKey,
       allAccess: data.allAccess.present ? data.allAccess.value : this.allAccess,
       creatorId: data.creatorId.present ? data.creatorId.value : this.creatorId,
       members: data.members.present ? data.members.value : this.members,
@@ -447,6 +482,7 @@ class KBoard extends DataClass implements Insertable<KBoard> {
           ..write('name: $name, ')
           ..write('tidyDays: $tidyDays, ')
           ..write('lanes: $lanes, ')
+          ..write('shareKey: $shareKey, ')
           ..write('allAccess: $allAccess, ')
           ..write('creatorId: $creatorId, ')
           ..write('members: $members, ')
@@ -464,6 +500,7 @@ class KBoard extends DataClass implements Insertable<KBoard> {
     name,
     tidyDays,
     lanes,
+    shareKey,
     allAccess,
     creatorId,
     members,
@@ -480,6 +517,7 @@ class KBoard extends DataClass implements Insertable<KBoard> {
           other.name == this.name &&
           other.tidyDays == this.tidyDays &&
           other.lanes == this.lanes &&
+          other.shareKey == this.shareKey &&
           other.allAccess == this.allAccess &&
           other.creatorId == this.creatorId &&
           other.members == this.members &&
@@ -494,6 +532,7 @@ class KBoardsCompanion extends UpdateCompanion<KBoard> {
   final Value<String> name;
   final Value<int?> tidyDays;
   final Value<String> lanes;
+  final Value<String?> shareKey;
   final Value<bool> allAccess;
   final Value<int?> creatorId;
   final Value<String> members;
@@ -507,6 +546,7 @@ class KBoardsCompanion extends UpdateCompanion<KBoard> {
     this.name = const Value.absent(),
     this.tidyDays = const Value.absent(),
     this.lanes = const Value.absent(),
+    this.shareKey = const Value.absent(),
     this.allAccess = const Value.absent(),
     this.creatorId = const Value.absent(),
     this.members = const Value.absent(),
@@ -521,6 +561,7 @@ class KBoardsCompanion extends UpdateCompanion<KBoard> {
     required String name,
     this.tidyDays = const Value.absent(),
     this.lanes = const Value.absent(),
+    this.shareKey = const Value.absent(),
     this.allAccess = const Value.absent(),
     this.creatorId = const Value.absent(),
     this.members = const Value.absent(),
@@ -538,6 +579,7 @@ class KBoardsCompanion extends UpdateCompanion<KBoard> {
     Expression<String>? name,
     Expression<int>? tidyDays,
     Expression<String>? lanes,
+    Expression<String>? shareKey,
     Expression<bool>? allAccess,
     Expression<int>? creatorId,
     Expression<String>? members,
@@ -552,6 +594,7 @@ class KBoardsCompanion extends UpdateCompanion<KBoard> {
       if (name != null) 'name': name,
       if (tidyDays != null) 'tidy_days': tidyDays,
       if (lanes != null) 'lanes': lanes,
+      if (shareKey != null) 'share_key': shareKey,
       if (allAccess != null) 'all_access': allAccess,
       if (creatorId != null) 'creator_id': creatorId,
       if (members != null) 'members': members,
@@ -568,6 +611,7 @@ class KBoardsCompanion extends UpdateCompanion<KBoard> {
     Value<String>? name,
     Value<int?>? tidyDays,
     Value<String>? lanes,
+    Value<String?>? shareKey,
     Value<bool>? allAccess,
     Value<int?>? creatorId,
     Value<String>? members,
@@ -582,6 +626,7 @@ class KBoardsCompanion extends UpdateCompanion<KBoard> {
       name: name ?? this.name,
       tidyDays: tidyDays ?? this.tidyDays,
       lanes: lanes ?? this.lanes,
+      shareKey: shareKey ?? this.shareKey,
       allAccess: allAccess ?? this.allAccess,
       creatorId: creatorId ?? this.creatorId,
       members: members ?? this.members,
@@ -607,6 +652,9 @@ class KBoardsCompanion extends UpdateCompanion<KBoard> {
     }
     if (lanes.present) {
       map['lanes'] = Variable<String>(lanes.value);
+    }
+    if (shareKey.present) {
+      map['share_key'] = Variable<String>(shareKey.value);
     }
     if (allAccess.present) {
       map['all_access'] = Variable<bool>(allAccess.value);
@@ -642,6 +690,7 @@ class KBoardsCompanion extends UpdateCompanion<KBoard> {
           ..write('name: $name, ')
           ..write('tidyDays: $tidyDays, ')
           ..write('lanes: $lanes, ')
+          ..write('shareKey: $shareKey, ')
           ..write('allAccess: $allAccess, ')
           ..write('creatorId: $creatorId, ')
           ..write('members: $members, ')
@@ -11504,6 +11553,7 @@ typedef $$KBoardsTableCreateCompanionBuilder = KBoardsCompanion Function({
   required String name,
   Value<int?> tidyDays,
   Value<String> lanes,
+  Value<String?> shareKey,
   Value<bool> allAccess,
   Value<int?> creatorId,
   Value<String> members,
@@ -11518,6 +11568,7 @@ typedef $$KBoardsTableUpdateCompanionBuilder = KBoardsCompanion Function({
   Value<String> name,
   Value<int?> tidyDays,
   Value<String> lanes,
+  Value<String?> shareKey,
   Value<bool> allAccess,
   Value<int?> creatorId,
   Value<String> members,
@@ -11553,6 +11604,11 @@ class $$KBoardsTableFilterComposer extends Composer<_$KolumnDb, $KBoardsTable> {
 
   ColumnFilters<String> get lanes => $composableBuilder(
     column: $table.lanes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get shareKey => $composableBuilder(
+    column: $table.shareKey,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -11621,6 +11677,11 @@ class $$KBoardsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get shareKey => $composableBuilder(
+    column: $table.shareKey,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<bool> get allAccess => $composableBuilder(
     column: $table.allAccess,
     builder: (column) => ColumnOrderings(column),
@@ -11678,6 +11739,9 @@ class $$KBoardsTableAnnotationComposer
   GeneratedColumn<String> get lanes =>
       $composableBuilder(column: $table.lanes, builder: (column) => column);
 
+  GeneratedColumn<String> get shareKey =>
+      $composableBuilder(column: $table.shareKey, builder: (column) => column);
+
   GeneratedColumn<bool> get allAccess =>
       $composableBuilder(column: $table.allAccess, builder: (column) => column);
 
@@ -11732,6 +11796,7 @@ class $$KBoardsTableTableManager
                 Value<String> name = const Value.absent(),
                 Value<int?> tidyDays = const Value.absent(),
                 Value<String> lanes = const Value.absent(),
+                Value<String?> shareKey = const Value.absent(),
                 Value<bool> allAccess = const Value.absent(),
                 Value<int?> creatorId = const Value.absent(),
                 Value<String> members = const Value.absent(),
@@ -11745,6 +11810,7 @@ class $$KBoardsTableTableManager
                 name: name,
                 tidyDays: tidyDays,
                 lanes: lanes,
+                shareKey: shareKey,
                 allAccess: allAccess,
                 creatorId: creatorId,
                 members: members,
@@ -11760,6 +11826,7 @@ class $$KBoardsTableTableManager
                 required String name,
                 Value<int?> tidyDays = const Value.absent(),
                 Value<String> lanes = const Value.absent(),
+                Value<String?> shareKey = const Value.absent(),
                 Value<bool> allAccess = const Value.absent(),
                 Value<int?> creatorId = const Value.absent(),
                 Value<String> members = const Value.absent(),
@@ -11773,6 +11840,7 @@ class $$KBoardsTableTableManager
                 name: name,
                 tidyDays: tidyDays,
                 lanes: lanes,
+                shareKey: shareKey,
                 allAccess: allAccess,
                 creatorId: creatorId,
                 members: members,

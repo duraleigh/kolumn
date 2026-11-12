@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../board/kolumn_settings.dart';
 import '../board/lane_info.dart';
 import '../home_shell.dart' show startScreenProvider, startScreens;
 import '../data/database.dart';
@@ -384,48 +385,11 @@ class _BoardsSheet extends ConsumerWidget {
                                 child: Icon(Icons.lock_outline_rounded, size: 18, color: c.onSurfaceVariant),
                               ),
                             ),
-                          if (!readOnly && b.canManage)
-                            PopupMenuButton<String>(
-                              tooltip: 'Kolumn options',
-                              icon: const Icon(Icons.more_horiz_rounded),
-                              onSelected: (v) async {
-                                if (v == 'access') {
-                                  await showBoardAccessSheet(context, ref, b);
-                                } else if (v == 'tidy') {
-                                  if (context.mounted) await pickTidyDays(context, ref, b);
-                                } else if (v == 'rename') {
-                                  final n = await askText(context, title: 'Rename Kolumn', initial: b.name, action: 'Save');
-                                  if (n != null) await repo.renameBoard(b.id, n);
-                                } else if (v == 'delete') {
-                                  if (boards.length < 2) {
-                                    if (context.mounted) {
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(const SnackBar(content: Text('Make another Kolumn first. There is always at least one.')));
-                                    }
-                                    return;
-                                  }
-                                  if (!context.mounted) return;
-                                  final ok = await confirm(
-                                    context,
-                                    title: 'Delete "${b.name}"?',
-                                    body: 'The Kolumn and all its cards are removed for everyone who can see it.',
-                                    action: 'Delete Kolumn',
-                                  );
-                                  if (!ok) return;
-                                  await repo.deleteBoard(b.id);
-                                  if (b.id == current) {
-                                    final next = boards.firstWhere((x) => x.id != b.id);
-                                    await repo.setSetting('board.current', next.id);
-                                  }
-                                }
-                              },
-                              itemBuilder: (_) => const [
-                                PopupMenuItem(value: 'access', child: Text('Who can see it')),
-                                PopupMenuItem(value: 'tidy', child: Text('Tidy-up time')),
-                                PopupMenuItem(value: 'rename', child: Text('Rename')),
-                                PopupMenuItem(value: 'delete', child: Text('Delete Kolumn')),
-                              ],
-                            ),
+                          IconButton(
+                            tooltip: 'Kolumn settings',
+                            icon: const Icon(Icons.more_horiz_rounded),
+                            onPressed: () => showKolumnSettings(context, ref, b.id),
+                          ),
                         ],
                       ),
                     ),
@@ -530,6 +494,12 @@ class _SettingsSheet extends ConsumerWidget {
                   child: const Text('Sign out'),
                 ),
               ],
+            ),
+            const SizedBox(height: 14),
+            OutlinedButton.icon(
+              onPressed: () => exportEverything(context, ref),
+              icon: const Icon(Icons.ios_share_rounded),
+              label: const Text('Export everything'),
             ),
             const SizedBox(height: 14),
             Text(

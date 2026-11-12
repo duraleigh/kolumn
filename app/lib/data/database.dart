@@ -17,6 +17,8 @@ class KBoards extends Table {
   // Schema 6: this Kolumn's own names and colors for Later, To-do and Done,
   // as JSON: {"later": {"name": "Parked", "color": 3}, ...}.
   TextColumn get lanes => text().withDefault(const Constant('{}'))();
+  // Schema 8: the secret view-only link, as the hub gives it to whoever may manage it.
+  TextColumn get shareKey => text().nullable()();
   // Sharing, as the hub last reported it (schema 2).
   BoolColumn get allAccess => boolean().withDefault(const Constant(true))();
   IntColumn get creatorId => integer().nullable()();
@@ -421,7 +423,7 @@ class KolumnDb extends _$KolumnDb {
   KolumnDb.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 7;
+  int get schemaVersion => 8;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -458,6 +460,9 @@ class KolumnDb extends _$KolumnDb {
       }
       if (from < 7) {
         await m.addColumn(kCards, kCards.position);
+      }
+      if (from < 8) {
+        await m.addColumn(kBoards, kBoards.shareKey);
       }
     },
   );
