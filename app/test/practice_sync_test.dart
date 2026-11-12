@@ -10,7 +10,9 @@ import 'dart:io';
 import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
 import 'package:kolumn/data/database.dart';
+import 'package:kolumn/data/export.dart';
 import 'package:kolumn/data/lanes.dart';
 import 'package:kolumn/data/repository.dart';
 import 'package:kolumn/planner/repeat.dart';
@@ -162,6 +164,24 @@ void main() {
     expect((await pa2.repo.watchViews().first).map((v) => v.name), contains('Two-phone view'), reason: 'saved views follow the person');
     await pa2.sync.signOut();
     await pa2.db.close();
+
+    // Phase 7: A turns on the view-only link; anyone can open it; B is not handed it; A turns it off.
+    await pa.repo.setShare(board, on: true);
+    await pa.sync.syncNow();
+    final key = (await (pa.db.select(pa.db.kBoards)..where((x) => x.id.equals(board))).getSingle()).shareKey;
+    expect(key, isNotNull, reason: 'the hub made the link');
+    final page = await http.get(Uri.parse('$practice/wp-json/hub/v1/kolumn-share/$key'), headers: {'User-Agent': 'Mozilla/5.0'});
+    expect(page.statusCode, 200);
+    expect(page.body, contains('Book the van for Raleigh'), reason: 'anyone with the link sees the card');
+    expect(page.body, isNot(contains('Check the dock height')), reason: 'but not its checklist');
+    await pb.sync.syncNow();
+    expect((await (pb.db.select(pb.db.kBoards)..where((x) => x.id.equals(board))).getSingle()).shareKey, isNull, reason: 'B did not make the Kolumn');
+    await pa.repo.setShare(board, on: false);
+    await pa.sync.syncNow();
+    final gone = await http.get(Uri.parse('$practice/wp-json/hub/v1/kolumn-share/$key'), headers: {'User-Agent': 'Mozilla/5.0'});
+    expect(gone.statusCode, 404, reason: 'turned off: the link stops');
+    final csv = await KolumnExport(pa.repo).kolumnCsv(board);
+    expect(csv, contains('Book the van for Raleigh'), reason: 'exporting works from what the phone holds');
 
     // A makes the board private to themselves: it leaves B's phone.
       final meA = int.parse((await pa.repo.setting('me.id'))!);
