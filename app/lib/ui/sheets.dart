@@ -529,7 +529,7 @@ class _SettingsSheet extends ConsumerWidget {
             ),
             const SizedBox(height: 14),
             Text(
-              'Kolumn 0.6.1, test version. Kolumns and planners are shared through the hub and saved on this phone, so they work without a connection.',
+              'Kolumn 0.6.2, test version. Kolumns and planners are shared through the hub and saved on this phone, so they work without a connection.',
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ],

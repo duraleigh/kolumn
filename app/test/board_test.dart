@@ -231,4 +231,35 @@ void main() {
     final other = tester.getTopLeft(find.text(holdCard)).dy;
     expect(first, lessThan(other));
   });
+
+  testWidgets('To-do, Later and Done can be renamed and recolored on a Kolumn', (tester) async {
+    final h = await pumpApp(tester, phone);
+    await tester.tap(find.byTooltip('Rename or recolor this kolumn'));
+    await _settle(tester);
+    expect(find.text('Rename or recolor'), findsOneWidget);
+    await tester.enterText(find.byType(TextField).last, 'Ideas');
+    await tester.tap(find.bySemanticsLabel('Green'));
+    await tester.tap(find.text('Save'));
+    await _settle(tester);
+    expect(find.text('Ideas'), findsWidgets, reason: 'the open kolumn (and the hidden tray) use its new name');
+    expect(find.text('To-do'), findsNothing);
+    final board = (await tester.runAsync(() => h.db.select(h.db.kBoards).get()))!.single;
+    expect(board.lanes, contains('"Ideas"'));
+    // Done gets a new name too; its strip and the drop tray use it.
+    await tester.runAsync(() => h.repo.setLaneLook(board.id, 'done', name: 'Released', color: 1));
+    await _settle(tester);
+    expect(stripFor('Released'), findsOneWidget);
+    final g = await holdAndLift(tester, holdCard);
+    expect(trayText('Released'), findsOneWidget);
+    await g.up();
+    await _settle(tester);
+    // And back to the usual name.
+    await tester.tap(find.byTooltip('Rename or recolor this kolumn'));
+    await _settle(tester);
+    await tester.tap(find.text('Back to "To-do"'));
+    await tester.tap(find.text('Save'));
+    await _settle(tester);
+    expect(find.text('To-do'), findsWidgets);
+    expect(tester.takeException(), isNull);
+  });
 }

@@ -752,6 +752,7 @@ class _LaneHeader extends ConsumerWidget {
           if (col == null && !(ref.watch(readOnlyProvider).value ?? false))
             IconButton(
               tooltip: 'Rename or recolor this kolumn',
+              visualDensity: VisualDensity.compact,
               onPressed: () => showColumnEditor(context, ref, boardId: boardId, builtIn: info.lane.kind, builtInName: info.name),
               icon: const Icon(Icons.more_horiz_rounded),
             )
