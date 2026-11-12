@@ -195,10 +195,10 @@ void main() {
       await tester.testTextInput.receiveAction(TextInputAction.done);
       await settle(tester);
       expect(find.text('Call the venue'), findsOneWidget);
-      expect(find.text('Steps · 0 of 1'), findsOneWidget);
+      expect(find.text('Checklist · 0 of 1'), findsOneWidget);
       await tester.tap(find.text('Call the venue'));
       await settle(tester);
-      expect(find.text('Steps · 1 of 1'), findsOneWidget);
+      expect(find.text('Checklist · 1 of 1'), findsOneWidget);
       await tester.runAsync(db.close);
     });
 

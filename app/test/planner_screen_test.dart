@@ -254,6 +254,6 @@ void main() {
     );
     await settle(tester);
     expect(find.text('Playground'), findsOneWidget);
-    expect(find.text('Add a card'), findsOneWidget);
+    expect(find.byTooltip('Add a card'), findsOneWidget);
   });
 }

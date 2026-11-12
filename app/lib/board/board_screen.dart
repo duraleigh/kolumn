@@ -210,38 +210,26 @@ class _BoardViewState extends ConsumerState<BoardView> {
     return best ?? _home;
   }
 
-  /// On a phone, the kolumn that ends up nearest the middle after a swipe
-  /// opens by itself (his ask, 2026-11-12).
-  void _settleOnMiddle() {
-    if (!_narrow || _dragId != null || !_row.hasClients || _lanes.isEmpty) return;
-    final pos = _row.position;
-    Lane best;
-    if (pos.pixels <= pos.minScrollExtent + 1) {
-      best = _lanes.first.lane;
-    } else if (pos.pixels >= pos.maxScrollExtent - 1) {
-      best = _lanes.last.lane;
-    } else {
-      final middle = pos.pixels + pos.viewportDimension / 2;
-      var x = BoardMetrics.pad;
-      best = _open;
-      var bestD = double.infinity;
-      for (final l in _lanes) {
-        final w = _widthOf(l.lane);
-        final d = (x + w / 2 - middle).abs();
-        if (d < bestD) {
-          bestD = d;
-          best = l.lane;
-        }
-        x += w + BoardMetrics.gap;
-      }
-    }
-    if (best != _open) {
-      HapticFeedback.selectionClick();
-      _setOpen(best);
-    } else {
+  /// On a phone, a swipe brings the next kolumn (or the one before) to the
+  /// middle, and it opens by itself (his ask, 2026-11-12).
+  double? _swipeFrom;
+
+  void _settleOnMiddle(int direction) {
+    if (!_narrow || _dragId != null || _lanes.isEmpty) return;
+    if (direction == 0) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _centerOpen());
+      return;
     }
+    final i = _lanes.indexWhere((l) => l.lane == _open);
+    final j = (i + direction).clamp(0, _lanes.length - 1);
+    if (i < 0 || j == i) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _centerOpen());
+      return;
+    }
+    HapticFeedback.selectionClick();
+    _setOpen(_lanes[j].lane);
   }
+
 
   double _widthOf(Lane lane) => _isOpen(lane) ? _openW : BoardMetrics.strip;
 
@@ -429,9 +417,16 @@ class _BoardViewState extends ConsumerState<BoardView> {
     }
     children.add(const SizedBox(width: BoardMetrics.gap));
     if (!(ref.watch(readOnlyProvider).value ?? false)) children.add(_AddColumnStrip(boardId: _boardId));
-    return NotificationListener<ScrollEndNotification>(
+    return NotificationListener<ScrollNotification>(
       onNotification: (n) {
-        if (n.metrics.axis == Axis.horizontal) _settleOnMiddle();
+        if (n.metrics.axis != Axis.horizontal || !_narrow) return false;
+        // Only a finger's swipe counts; the board's own centering does not.
+        if (n is ScrollStartNotification && n.dragDetails != null) _swipeFrom = n.metrics.pixels;
+        if (n is ScrollEndNotification && _swipeFrom != null) {
+          final moved = n.metrics.pixels - _swipeFrom!;
+          _swipeFrom = null;
+          _settleOnMiddle(moved > 16 ? 1 : (moved < -16 ? -1 : 0));
+        }
         return false;
       },
       child: SingleChildScrollView(

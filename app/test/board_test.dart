@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kolumn/board/board_screen.dart';
+import 'package:kolumn/card/card_screen.dart';
 import 'package:kolumn/data/database.dart';
 import 'package:kolumn/data/lanes.dart';
 import 'package:kolumn/data/repository.dart';
@@ -94,7 +95,7 @@ Future<TestGesture> holdAndLift(WidgetTester tester, String title) async {
 void main() {
   testWidgets('phone: only To-do is open, the rest are strips', (tester) async {
     await pumpApp(tester, phone);
-    expect(find.text('Add a card'), findsOneWidget);
+    expect(find.byTooltip('Add a card'), findsOneWidget, reason: 'one + button for the whole Kolumn');
     expect(find.text(holdCard), findsOneWidget);
     expect(stripFor('In progress'), findsOneWidget);
     expect(stripFor('Later'), findsOneWidget);
@@ -106,7 +107,7 @@ void main() {
     await tester.tap(stripFor('In progress'));
     await _settle(tester);
     expect(find.text(priorityCard), findsOneWidget);
-    expect(find.text('Add a card'), findsNothing, reason: 'To-do folded into a strip');
+    expect(find.text(holdCard), findsNothing, reason: 'To-do folded into a strip');
     expect(stripFor('To-do'), findsOneWidget);
     await tester.tap(stripFor('Waiting on'));
     await _settle(tester);
@@ -176,18 +177,18 @@ void main() {
     expect(find.text('Drop on a kolumn'), findsOneWidget, reason: 'the tray is still built, just slid away');
   });
 
-  testWidgets('tablet: To-do stays open and at most one more column opens beside it', (tester) async {
+  testWidgets('tablet: the main kolumn and every kolumn to its right stay open; Later opens on a tap', (tester) async {
     await pumpApp(tester, tablet);
-    expect(find.text('Add a card'), findsOneWidget);
-    await tester.tap(stripFor('In progress'));
-    await _settle(tester);
-    expect(find.text('Add a card'), findsOneWidget, reason: 'To-do is still open');
-    expect(find.text(priorityCard), findsOneWidget);
-    expect(tester.getRect(stripFor('Later')).left, greaterThanOrEqualTo(0), reason: 'everything fits on a tablet');
+    expect(find.text(holdCard), findsOneWidget, reason: 'To-do is open');
+    expect(find.text(priorityCard), findsOneWidget, reason: 'In progress, right of To-do, is open too');
+    expect(stripFor('In progress'), findsNothing);
+    expect(stripFor('Waiting on'), findsNothing);
+    expect(stripFor('Later'), findsOneWidget, reason: 'left of the main kolumn: a strip until tapped');
     await tester.tap(stripFor('Later'));
     await _settle(tester);
     expect(find.text(laterCard), findsOneWidget);
-    expect(find.text(priorityCard), findsNothing, reason: 'opening Later folded In progress');
+    expect(find.text(priorityCard), findsOneWidget, reason: 'opening Later folds nothing');
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('a tapped card opens, and Move to moves it without dragging', (tester) async {
@@ -208,21 +209,21 @@ void main() {
     const title = 'Tap a thin strip to open that kolumn';
     await tester.tap(find.text(title));
     await _settle(tester);
-    await tester.tap(find.byTooltip('Make Priority'));
+    await tester.tap(find.descendant(of: find.byType(CardScreen), matching: find.text('Priority')));
     await _settle(tester);
     expect((await h.cardTitled(tester, title)).priorityAt, isNotNull);
   });
 
   testWidgets('dark theme draws the board', (tester) async {
     await pumpApp(tester, phone, theme: 'dark');
-    final ctx = tester.element(find.text('Add a card'));
+    final ctx = tester.element(find.byTooltip('Add a card'));
     expect(Theme.of(ctx).brightness, Brightness.dark);
     expect(Theme.of(ctx).colorScheme.surface, const Color(0xFF111318));
   });
 
   testWidgets('a new card lands at the top of To-do', (tester) async {
     await pumpApp(tester, phone);
-    await tester.tap(find.text('Add a card'));
+    await tester.tap(find.byTooltip('Add a card'));
     await _settle(tester);
     await tester.enterText(find.byType(TextField), 'Book rehearsal room');
     await tester.tap(find.text('Add card'));
@@ -284,7 +285,11 @@ void main() {
     final cols = (await tester.runAsync(() => h.repo.columns(board.id)))!;
     final inProgress = cols.firstWhere((c) => c.name == 'In progress').id;
     expect((await h.cardTitled(tester, holdCard)).columnId, inProgress);
-    expect(find.text('Add a card'), findsOneWidget, reason: 'new cards now start in In progress');
+    await tester.tap(find.byTooltip('Add a card'));
+    await _settle(tester);
+    expect(find.text('New card in In progress'), findsOneWidget, reason: 'the + button adds to the kolumn in the middle, In progress now');
+    await tester.tapAt(const Offset(20, 60));
+    await _settle(tester);
     final c = await tester.runAsync(() => h.repo.addCard(board.id, 'After To-do went'));
     expect((await tester.runAsync(() => h.repo.card(c!)))!.columnId, inProgress);
     // Bring it back from the + button at the end of the row.
@@ -308,5 +313,64 @@ void main() {
     final xs = [for (final name in ['Later', 'To-do', 'In progress', 'Waiting on', 'Done']) tester.getTopLeft(find.text(name).first).dx];
     expect(xs[4] < xs[3], isTrue, reason: 'Done is now left of Waiting on');
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('the + button adds to the kolumn in the middle of the screen', (tester) async {
+    final h = await pumpApp(tester, phone);
+    await tester.tap(stripFor('In progress'));
+    await _settle(tester);
+    await tester.tap(find.byTooltip('Add a card'));
+    await _settle(tester);
+    expect(find.text('New card in In progress'), findsOneWidget);
+    await tester.enterText(find.byType(TextField), 'Order the merch');
+    await tester.tap(find.text('Add card'));
+    await _settle(tester);
+    final c = await h.cardTitled(tester, 'Order the merch');
+    expect((await h.laneOf(tester, 'Order the merch')).kind, LaneKind.column);
+    expect(c.closedAt, isNull);
+    expect(find.text('Order the merch'), findsOneWidget);
+  });
+
+  testWidgets('on a phone, swiping brings the next kolumn to the middle and it opens by itself', (tester) async {
+    await pumpApp(tester, phone);
+    expect(find.text(priorityCard), findsNothing);
+    await tester.fling(find.byType(SingleChildScrollView).first, const Offset(-160, 0), 600);
+    await _settle(tester);
+    expect(find.text(priorityCard), findsOneWidget, reason: 'In progress came to the middle and opened');
+    expect(stripFor('To-do'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('holding a card and dragging it down its kolumn puts it there, and the order stays', (tester) async {
+    final h = await pumpApp(tester, phone);
+    const target = 'Tap a card to open it, rename it, or make it Priority';
+    final board = (await tester.runAsync(() => h.db.select(h.db.kBoards).get()))!.single;
+    Future<List<String>> order() async {
+      final cards = (await tester.runAsync(() => h.db.select(h.db.kCards).get()))!.where((c) => c.boardId == board.id && c.columnId == null && c.laterAt == null && c.closedAt == null);
+      return sortForLane(const Lane.todo(), cards).map((c) => c.title).toList();
+    }
+    final before = await order();
+    expect(before.first, holdCard);
+    final start = tester.getCenter(find.text(holdCard));
+    final to = tester.getBottomLeft(find.text(target)) + const Offset(40, 6);
+    final g = await holdAndLift(tester, holdCard);
+    for (var i = 1; i <= 10; i++) {
+      await g.moveTo(Offset.lerp(start, to, i / 10)!);
+      await tester.pump(const Duration(milliseconds: 30));
+    }
+    await g.up();
+    await _settle(tester);
+    final after = await order();
+    expect(after.last, holdCard, reason: 'dropped below the last card');
+    expect(after.toSet(), before.toSet());
+    final positions = (await tester.runAsync(() => h.repo.pendingOutbox()))!.where((e) => e.name == 'card.position');
+    expect(positions, isNotEmpty, reason: 'the new order goes to the hub');
+    expect(tester.getTopLeft(find.text(holdCard).first).dy, greaterThan(tester.getTopLeft(find.text(target)).dy));
+  });
+
+  testWidgets('the card face has no number', (tester) async {
+    await pumpApp(tester, phone);
+    expect(find.textContaining(RegExp(r'^#\d')), findsNothing);
+    expect(find.text('New'), findsNothing);
   });
 }

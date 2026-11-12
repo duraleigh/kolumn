@@ -188,7 +188,14 @@ class _CardScreenState extends ConsumerState<CardScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('${card.synced ? '#${card.number}' : 'New card'} · $boardName', style: t.bodyMedium!.copyWith(color: c.onSurfaceVariant)),
+        // The card's number lives here now, not on the card face (his ask, 2026-11-12).
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(card.synced ? 'Card #${card.number}' : 'New card', style: t.titleMedium!.copyWith(fontWeight: FontWeight.w700)),
+            Text(boardName, maxLines: 1, overflow: TextOverflow.ellipsis, style: t.bodySmall!.copyWith(color: c.onSurfaceVariant)),
+          ],
+        ),
         actions: [
           IconButton(
             tooltip: pinned ? 'Unpin' : 'Pin to my shortcuts',
@@ -196,12 +203,6 @@ class _CardScreenState extends ConsumerState<CardScreen> {
             icon: Icon(pinned ? Icons.push_pin_rounded : Icons.push_pin_outlined, color: pinned ? p.accentText : null),
           ),
           if (!readOnly) ...[
-            IconButton(
-              tooltip: priority ? 'Remove Priority' : 'Make Priority',
-              style: IconButton.styleFrom(backgroundColor: priority ? c.primaryContainer : null),
-              onPressed: () => _repo.setPriority(card.id, !priority),
-              icon: Icon(priority ? Icons.star_rounded : Icons.star_outline_rounded, color: priority ? c.onPrimaryContainer : null),
-            ),
             PopupMenuButton<String>(
               tooltip: 'Card options',
               onSelected: (v) async {
@@ -261,49 +262,13 @@ class _CardScreenState extends ConsumerState<CardScreen> {
                       ),
                     ),
                   ),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Material(
-                    color: p.lane,
-                    shape: const StadiumBorder(),
-                    child: InkWell(
-                      customBorder: const StadiumBorder(),
-                      onTap: readOnly
-                          ? null
-                          : () async {
-                              final to = await showMoveSheet(context, lanes: lanes, current: lane, title: card.title);
-                              if (to != null && context.mounted) await moveWithUndo(context, ref, card.id, to, lane, lanes);
-                            },
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Container(
-                              width: 10,
-                              height: 10,
-                              decoration: BoxDecoration(color: info.color, shape: BoxShape.circle),
-                            ),
-                            const SizedBox(width: 8),
-                            Text(info.name, style: t.labelLarge),
-                            const SizedBox(width: 4),
-                            Icon(Icons.expand_more_rounded, size: 18, color: c.onSurfaceVariant),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                _TimeRow(card: card, readOnly: readOnly),
-                const SizedBox(height: 10),
                 TextField(
                   controller: _title,
                   readOnly: readOnly,
                   onChanged: (_) => _changed(),
                   maxLines: null,
                   textCapitalization: TextCapitalization.sentences,
-                  style: t.headlineSmall,
+                  style: t.headlineSmall!.copyWith(fontWeight: FontWeight.w600),
                   decoration: const InputDecoration(
                     filled: false,
                     border: InputBorder.none,
@@ -312,40 +277,42 @@ class _CardScreenState extends ConsumerState<CardScreen> {
                     hintText: 'Card title',
                   ),
                 ),
-                if (priority)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 6),
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(color: c.primaryContainer, borderRadius: BorderRadius.circular(999)),
-                        child: Text(
-                          'Priority',
-                          style: TextStyle(color: c.onPrimaryContainer, fontWeight: FontWeight.w600, fontSize: 12),
-                        ),
-                      ),
+                const SizedBox(height: 12),
+                // Where it is, Priority, due day and reminder: one row of buttons.
+                _TimeRow(
+                  card: card,
+                  readOnly: readOnly,
+                  leading: [
+                    _Pill(
+                      dot: info.color,
+                      text: info.name,
+                      trailing: Icons.expand_more_rounded,
+                      onTap: readOnly
+                          ? null
+                          : () async {
+                              final to = await showMoveSheet(context, lanes: lanes, current: lane, title: card.title);
+                              if (to != null && context.mounted) await moveWithUndo(context, ref, card.id, to, lane, lanes);
+                            },
                     ),
-                  ),
-                const SizedBox(height: 14),
-                _MetaBlock(cardId: card.id, readOnly: readOnly),
-                const SizedBox(height: 18),
-                _SectionTitle(
-                  'Notes',
-                  trailing: readOnly || _editingNotes
-                      ? null
-                      : TextButton(
-                          onPressed: () => setState(() {
-                            _editingNotes = true;
-                            _notesFocus.requestFocus();
-                          }),
-                          child: const Text('Edit'),
-                        ),
+                    _Pill(
+                      icon: priority ? Icons.star_rounded : Icons.star_outline_rounded,
+                      text: 'Priority',
+                      bg: priority ? c.primaryContainer : null,
+                      fg: priority ? c.onPrimaryContainer : null,
+                      onTap: readOnly ? null : () => _repo.setPriority(card.id, !priority),
+                    ),
+                  ],
                 ),
+                const SizedBox(height: 20),
+                _MetaBlock(cardId: card.id, readOnly: readOnly),
+                const SizedBox(height: 24),
+                const _SectionTitle('Notes'),
                 _notesBox(readOnly),
-                const SizedBox(height: 18),
+                const SizedBox(height: 8),
+                _Reactions(cardId: card.id, commentId: null, readOnly: readOnly),
+                const SizedBox(height: 24),
                 _StepsSection(cardId: card.id, readOnly: readOnly, controller: _newStep),
-                const SizedBox(height: 18),
+                const SizedBox(height: 24),
                 _FilesSection(
                   cardId: card.id,
                   coverId: card.coverId,
@@ -354,12 +321,9 @@ class _CardScreenState extends ConsumerState<CardScreen> {
                   onAddFile: () => _attach(photo: false),
                   onOpen: _openFile,
                 ),
-                const SizedBox(height: 18),
-                const _SectionTitle('Reactions'),
-                _Reactions(cardId: card.id, commentId: null, readOnly: readOnly),
-                const SizedBox(height: 18),
+                const SizedBox(height: 24),
                 _CommentsSection(cardId: card.id, readOnly: readOnly, onOpenCard: _openCard),
-                const SizedBox(height: 18),
+                const SizedBox(height: 12),
                 _History(cardId: card.id, createdAt: card.createdAt),
               ],
             ),
@@ -422,18 +386,15 @@ class _CardScreenState extends ConsumerState<CardScreen> {
 }
 
 class _SectionTitle extends StatelessWidget {
-  const _SectionTitle(this.text, {this.trailing});
+  const _SectionTitle(this.text);
   final String text;
-  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(bottom: 6, left: 2),
+    padding: const EdgeInsets.only(bottom: 8, left: 2),
     child: Row(
       children: [
-        Text(text, style: Theme.of(context).textTheme.titleSmall!.copyWith(color: context.colors.onSurfaceVariant)),
-        const Spacer(),
-        ?trailing,
+        Text(text, style: Theme.of(context).textTheme.titleSmall!.copyWith(fontWeight: FontWeight.w700, color: context.colors.onSurface)),
       ],
     ),
   );
@@ -640,7 +601,7 @@ class _StepsSection extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _SectionTitle(steps.isEmpty ? 'Steps' : 'Steps · $done of ${steps.length}'),
+        _SectionTitle(steps.isEmpty ? 'Checklist' : 'Checklist · $done of ${steps.length}'),
         Container(
           decoration: BoxDecoration(color: p.card, borderRadius: BorderRadius.circular(20), boxShadow: p.cardShadow),
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
@@ -1113,16 +1074,22 @@ class _History extends ConsumerWidget {
         '${historyLine(e.action, (jsonDecode(e.particulars) as Map).cast<String, dynamic>(), e.userId == me ? 'You' : (names[e.userId] ?? 'Someone'))} · ${shortWhen(e.createdAt)}',
     ];
     if (lines.isEmpty) lines.add('Added ${shortWhen(createdAt)}');
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const _SectionTitle('History'),
-        for (final l in lines.take(30))
-          Padding(
-            padding: const EdgeInsets.only(left: 2, bottom: 4),
-            child: Text(l, style: t.bodySmall),
-          ),
-      ],
+    // Folded away until wanted: it is the least-read part of a card.
+    return Theme(
+      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+      child: ExpansionTile(
+        tilePadding: const EdgeInsets.symmetric(horizontal: 2),
+        childrenPadding: const EdgeInsets.only(left: 2, bottom: 8),
+        expandedCrossAxisAlignment: CrossAxisAlignment.start,
+        title: Text('History · ${lines.length}', style: t.titleSmall!.copyWith(fontWeight: FontWeight.w700)),
+        children: [
+          for (final l in lines.take(30))
+            Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Text(l, style: t.bodySmall),
+            ),
+        ],
+      ),
     );
   }
 }
@@ -1130,9 +1097,12 @@ class _History extends ConsumerWidget {
 /// A card's due day (no times), its reminder (this person's own), and the
 /// tidy-up countdown when it is getting close.
 class _TimeRow extends ConsumerWidget {
-  const _TimeRow({required this.card, required this.readOnly});
+  const _TimeRow({required this.card, required this.readOnly, this.leading = const []});
   final KCard card;
   final bool readOnly;
+
+  /// The other buttons that share the row: the kolumn, Priority.
+  final List<Widget> leading;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -1188,6 +1158,7 @@ class _TimeRow extends ConsumerWidget {
           spacing: 8,
           runSpacing: 8,
           children: [
+            ...leading,
             chip(
               icon: Icons.event_outlined,
               text: due == null
@@ -1224,6 +1195,46 @@ class _TimeRow extends ConsumerWidget {
             ),
           ),
       ],
+    );
+  }
+}
+
+/// One of the round buttons at the top of a card: the kolumn it is in,
+/// Priority, its due day, its reminder.
+class _Pill extends StatelessWidget {
+  const _Pill({required this.text, this.icon, this.dot, this.trailing, this.onTap, this.bg, this.fg});
+  final String text;
+  final IconData? icon;
+  final Color? dot;
+  final IconData? trailing;
+  final VoidCallback? onTap;
+  final Color? bg;
+  final Color? fg;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final color = fg ?? c.onSurface;
+    return Material(
+      color: bg ?? context.palette.chip,
+      shape: const StadiumBorder(),
+      child: InkWell(
+        customBorder: const StadiumBorder(),
+        onTap: onTap,
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(12, 8, trailing == null ? 14 : 8, 8),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (dot != null) Container(width: 10, height: 10, decoration: BoxDecoration(color: dot, shape: BoxShape.circle)),
+              if (icon != null) Icon(icon, size: 17, color: color),
+              const SizedBox(width: 6),
+              Text(text, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: color)),
+              if (trailing != null) ...[const SizedBox(width: 2), Icon(trailing, size: 18, color: c.onSurfaceVariant)],
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
