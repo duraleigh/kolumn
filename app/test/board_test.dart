@@ -234,9 +234,11 @@ void main() {
 
   testWidgets('To-do, Later and Done can be renamed and recolored on a Kolumn', (tester) async {
     final h = await pumpApp(tester, phone);
-    await tester.tap(find.byTooltip('Rename or recolor this kolumn'));
+    await tester.tap(find.byTooltip('Options for this kolumn'));
     await _settle(tester);
-    expect(find.text('Rename or recolor'), findsOneWidget);
+    await tester.tap(find.text('Rename or recolor'));
+    await _settle(tester);
+    expect(find.text('Rename or recolor'), findsOneWidget, reason: 'the editor\'s title');
     await tester.enterText(find.byType(TextField).last, 'Ideas');
     await tester.tap(find.bySemanticsLabel('Green'));
     await tester.tap(find.text('Save'));
@@ -254,12 +256,57 @@ void main() {
     await g.up();
     await _settle(tester);
     // And back to the usual name.
-    await tester.tap(find.byTooltip('Rename or recolor this kolumn'));
+    await tester.tap(find.byTooltip('Options for this kolumn'));
+    await _settle(tester);
+    await tester.tap(find.text('Rename or recolor'));
     await _settle(tester);
     await tester.tap(find.text('Back to "To-do"'));
     await tester.tap(find.text('Save'));
     await _settle(tester);
     expect(find.text('To-do'), findsWidgets);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('To-do has the same menu as every kolumn: move it, delete it, bring it back', (tester) async {
+    final h = await pumpApp(tester, phone);
+    await tester.tap(find.byTooltip('Options for this kolumn'));
+    await _settle(tester);
+    for (final item in ['Rename or recolor', 'Move left', 'Move right', 'Delete kolumn']) {
+      expect(find.text(item), findsOneWidget, reason: item);
+    }
+    await tester.tap(find.text('Delete kolumn'));
+    await _settle(tester);
+    expect(find.textContaining('go to In progress'), findsOneWidget, reason: 'the open cards go to the next ordinary kolumn');
+    await tester.tap(find.widgetWithText(FilledButton, 'Delete kolumn'));
+    await _settle(tester);
+    expect(stripFor('To-do'), findsNothing);
+    final board = (await tester.runAsync(() => h.db.select(h.db.kBoards).get()))!.single;
+    final cols = (await tester.runAsync(() => h.repo.columns(board.id)))!;
+    final inProgress = cols.firstWhere((c) => c.name == 'In progress').id;
+    expect((await h.cardTitled(tester, holdCard)).columnId, inProgress);
+    expect(find.text('Add a card'), findsOneWidget, reason: 'new cards now start in In progress');
+    final c = await tester.runAsync(() => h.repo.addCard(board.id, 'After To-do went'));
+    expect((await tester.runAsync(() => h.repo.card(c!)))!.columnId, inProgress);
+    // Bring it back from the + button at the end of the row.
+    await tester.ensureVisible(find.byTooltip('Add a kolumn'));
+    await _settle(tester);
+    await tester.tap(find.byTooltip('Add a kolumn'));
+    await _settle(tester);
+    await tester.tap(find.text('Bring back "To-do"'));
+    await _settle(tester);
+    expect(stripFor('To-do'), findsOneWidget, reason: 'To-do is back, as a strip beside the open kolumn');
+    final back = await tester.runAsync(() => h.repo.addCard(board.id, 'After To-do came back'));
+    expect((await tester.runAsync(() => h.repo.card(back!)))!.columnId, isNull, reason: 'new cards land in To-do again');
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Done moves like any kolumn', (tester) async {
+    final h = await pumpApp(tester, phone);
+    final board = (await tester.runAsync(() => h.db.select(h.db.kBoards).get()))!.single;
+    await tester.runAsync(() => h.repo.moveLane(board.id, const Lane.done(), -1));
+    await _settle(tester);
+    final xs = [for (final name in ['Later', 'To-do', 'In progress', 'Waiting on', 'Done']) tester.getTopLeft(find.text(name).first).dx];
+    expect(xs[4] < xs[3], isTrue, reason: 'Done is now left of Waiting on');
     expect(tester.takeException(), isNull);
   });
 }

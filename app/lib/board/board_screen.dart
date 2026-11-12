@@ -787,6 +787,7 @@ class _LaneHeader extends ConsumerWidget {
             PopupMenuButton<String>(
               tooltip: 'Options for this kolumn',
               icon: const Icon(Icons.more_horiz_rounded),
+              style: IconButton.styleFrom(visualDensity: VisualDensity.compact),
               onSelected: (v) async {
                 final repo = ref.read(repositoryProvider);
                 final kind = col == null ? kindKey(info.lane.kind) : null;
