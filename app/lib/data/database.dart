@@ -53,6 +53,8 @@ class KCards extends Table {
   TextColumn get title => text()();
   TextColumn get description => text().withDefault(const Constant(''))();
   TextColumn get columnId => text().nullable()();
+  // Schema 7: its own place in its kolumn, once dragged into order.
+  RealColumn get position => real().nullable()();
   IntColumn get closedAt => integer().nullable()();
   IntColumn get laterAt => integer().nullable()();
   TextColumn get laterReason => text().nullable()();
@@ -419,7 +421,7 @@ class KolumnDb extends _$KolumnDb {
   KolumnDb.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 7;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -453,6 +455,9 @@ class KolumnDb extends _$KolumnDb {
       }
       if (from < 6) {
         await m.addColumn(kBoards, kBoards.lanes);
+      }
+      if (from < 7) {
+        await m.addColumn(kCards, kCards.position);
       }
     },
   );

@@ -1227,6 +1227,17 @@ class $KCardsTable extends KCards with TableInfo<$KCardsTable, KCard> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _positionMeta = const VerificationMeta(
+    'position',
+  );
+  @override
+  late final GeneratedColumn<double> position = GeneratedColumn<double>(
+    'position',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _closedAtMeta = const VerificationMeta(
     'closedAt',
   );
@@ -1402,6 +1413,7 @@ class $KCardsTable extends KCards with TableInfo<$KCardsTable, KCard> {
     title,
     description,
     columnId,
+    position,
     closedAt,
     laterAt,
     laterReason,
@@ -1472,6 +1484,12 @@ class $KCardsTable extends KCards with TableInfo<$KCardsTable, KCard> {
       context.handle(
         _columnIdMeta,
         columnId.isAcceptableOrUnknown(data['column_id']!, _columnIdMeta),
+      );
+    }
+    if (data.containsKey('position')) {
+      context.handle(
+        _positionMeta,
+        position.isAcceptableOrUnknown(data['position']!, _positionMeta),
       );
     }
     if (data.containsKey('closed_at')) {
@@ -1612,6 +1630,10 @@ class $KCardsTable extends KCards with TableInfo<$KCardsTable, KCard> {
         DriftSqlType.string,
         data['${effectivePrefix}column_id'],
       ),
+      position: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}position'],
+      ),
       closedAt: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}closed_at'],
@@ -1688,6 +1710,7 @@ class KCard extends DataClass implements Insertable<KCard> {
   final String title;
   final String description;
   final String? columnId;
+  final double? position;
   final int? closedAt;
   final int? laterAt;
   final String? laterReason;
@@ -1710,6 +1733,7 @@ class KCard extends DataClass implements Insertable<KCard> {
     required this.title,
     required this.description,
     this.columnId,
+    this.position,
     this.closedAt,
     this.laterAt,
     this.laterReason,
@@ -1736,6 +1760,9 @@ class KCard extends DataClass implements Insertable<KCard> {
     map['description'] = Variable<String>(description);
     if (!nullToAbsent || columnId != null) {
       map['column_id'] = Variable<String>(columnId);
+    }
+    if (!nullToAbsent || position != null) {
+      map['position'] = Variable<double>(position);
     }
     if (!nullToAbsent || closedAt != null) {
       map['closed_at'] = Variable<int>(closedAt);
@@ -1781,6 +1808,9 @@ class KCard extends DataClass implements Insertable<KCard> {
       columnId: columnId == null && nullToAbsent
           ? const Value.absent()
           : Value(columnId),
+      position: position == null && nullToAbsent
+          ? const Value.absent()
+          : Value(position),
       closedAt: closedAt == null && nullToAbsent
           ? const Value.absent()
           : Value(closedAt),
@@ -1827,6 +1857,7 @@ class KCard extends DataClass implements Insertable<KCard> {
       title: serializer.fromJson<String>(json['title']),
       description: serializer.fromJson<String>(json['description']),
       columnId: serializer.fromJson<String?>(json['columnId']),
+      position: serializer.fromJson<double?>(json['position']),
       closedAt: serializer.fromJson<int?>(json['closedAt']),
       laterAt: serializer.fromJson<int?>(json['laterAt']),
       laterReason: serializer.fromJson<String?>(json['laterReason']),
@@ -1854,6 +1885,7 @@ class KCard extends DataClass implements Insertable<KCard> {
       'title': serializer.toJson<String>(title),
       'description': serializer.toJson<String>(description),
       'columnId': serializer.toJson<String?>(columnId),
+      'position': serializer.toJson<double?>(position),
       'closedAt': serializer.toJson<int?>(closedAt),
       'laterAt': serializer.toJson<int?>(laterAt),
       'laterReason': serializer.toJson<String?>(laterReason),
@@ -1879,6 +1911,7 @@ class KCard extends DataClass implements Insertable<KCard> {
     String? title,
     String? description,
     Value<String?> columnId = const Value.absent(),
+    Value<double?> position = const Value.absent(),
     Value<int?> closedAt = const Value.absent(),
     Value<int?> laterAt = const Value.absent(),
     Value<String?> laterReason = const Value.absent(),
@@ -1901,6 +1934,7 @@ class KCard extends DataClass implements Insertable<KCard> {
     title: title ?? this.title,
     description: description ?? this.description,
     columnId: columnId.present ? columnId.value : this.columnId,
+    position: position.present ? position.value : this.position,
     closedAt: closedAt.present ? closedAt.value : this.closedAt,
     laterAt: laterAt.present ? laterAt.value : this.laterAt,
     laterReason: laterReason.present ? laterReason.value : this.laterReason,
@@ -1927,6 +1961,7 @@ class KCard extends DataClass implements Insertable<KCard> {
           ? data.description.value
           : this.description,
       columnId: data.columnId.present ? data.columnId.value : this.columnId,
+      position: data.position.present ? data.position.value : this.position,
       closedAt: data.closedAt.present ? data.closedAt.value : this.closedAt,
       laterAt: data.laterAt.present ? data.laterAt.value : this.laterAt,
       laterReason: data.laterReason.present
@@ -1962,6 +1997,7 @@ class KCard extends DataClass implements Insertable<KCard> {
           ..write('title: $title, ')
           ..write('description: $description, ')
           ..write('columnId: $columnId, ')
+          ..write('position: $position, ')
           ..write('closedAt: $closedAt, ')
           ..write('laterAt: $laterAt, ')
           ..write('laterReason: $laterReason, ')
@@ -1989,6 +2025,7 @@ class KCard extends DataClass implements Insertable<KCard> {
     title,
     description,
     columnId,
+    position,
     closedAt,
     laterAt,
     laterReason,
@@ -2015,6 +2052,7 @@ class KCard extends DataClass implements Insertable<KCard> {
           other.title == this.title &&
           other.description == this.description &&
           other.columnId == this.columnId &&
+          other.position == this.position &&
           other.closedAt == this.closedAt &&
           other.laterAt == this.laterAt &&
           other.laterReason == this.laterReason &&
@@ -2039,6 +2077,7 @@ class KCardsCompanion extends UpdateCompanion<KCard> {
   final Value<String> title;
   final Value<String> description;
   final Value<String?> columnId;
+  final Value<double?> position;
   final Value<int?> closedAt;
   final Value<int?> laterAt;
   final Value<String?> laterReason;
@@ -2062,6 +2101,7 @@ class KCardsCompanion extends UpdateCompanion<KCard> {
     this.title = const Value.absent(),
     this.description = const Value.absent(),
     this.columnId = const Value.absent(),
+    this.position = const Value.absent(),
     this.closedAt = const Value.absent(),
     this.laterAt = const Value.absent(),
     this.laterReason = const Value.absent(),
@@ -2086,6 +2126,7 @@ class KCardsCompanion extends UpdateCompanion<KCard> {
     required String title,
     this.description = const Value.absent(),
     this.columnId = const Value.absent(),
+    this.position = const Value.absent(),
     this.closedAt = const Value.absent(),
     this.laterAt = const Value.absent(),
     this.laterReason = const Value.absent(),
@@ -2116,6 +2157,7 @@ class KCardsCompanion extends UpdateCompanion<KCard> {
     Expression<String>? title,
     Expression<String>? description,
     Expression<String>? columnId,
+    Expression<double>? position,
     Expression<int>? closedAt,
     Expression<int>? laterAt,
     Expression<String>? laterReason,
@@ -2140,6 +2182,7 @@ class KCardsCompanion extends UpdateCompanion<KCard> {
       if (title != null) 'title': title,
       if (description != null) 'description': description,
       if (columnId != null) 'column_id': columnId,
+      if (position != null) 'position': position,
       if (closedAt != null) 'closed_at': closedAt,
       if (laterAt != null) 'later_at': laterAt,
       if (laterReason != null) 'later_reason': laterReason,
@@ -2166,6 +2209,7 @@ class KCardsCompanion extends UpdateCompanion<KCard> {
     Value<String>? title,
     Value<String>? description,
     Value<String?>? columnId,
+    Value<double?>? position,
     Value<int?>? closedAt,
     Value<int?>? laterAt,
     Value<String?>? laterReason,
@@ -2190,6 +2234,7 @@ class KCardsCompanion extends UpdateCompanion<KCard> {
       title: title ?? this.title,
       description: description ?? this.description,
       columnId: columnId ?? this.columnId,
+      position: position ?? this.position,
       closedAt: closedAt ?? this.closedAt,
       laterAt: laterAt ?? this.laterAt,
       laterReason: laterReason ?? this.laterReason,
@@ -2229,6 +2274,9 @@ class KCardsCompanion extends UpdateCompanion<KCard> {
     }
     if (columnId.present) {
       map['column_id'] = Variable<String>(columnId.value);
+    }
+    if (position.present) {
+      map['position'] = Variable<double>(position.value);
     }
     if (closedAt.present) {
       map['closed_at'] = Variable<int>(closedAt.value);
@@ -2290,6 +2338,7 @@ class KCardsCompanion extends UpdateCompanion<KCard> {
           ..write('title: $title, ')
           ..write('description: $description, ')
           ..write('columnId: $columnId, ')
+          ..write('position: $position, ')
           ..write('closedAt: $closedAt, ')
           ..write('laterAt: $laterAt, ')
           ..write('laterReason: $laterReason, ')
@@ -12029,6 +12078,7 @@ typedef $$KCardsTableCreateCompanionBuilder = KCardsCompanion Function({
   required String title,
   Value<String> description,
   Value<String?> columnId,
+  Value<double?> position,
   Value<int?> closedAt,
   Value<int?> laterAt,
   Value<String?> laterReason,
@@ -12053,6 +12103,7 @@ typedef $$KCardsTableUpdateCompanionBuilder = KCardsCompanion Function({
   Value<String> title,
   Value<String> description,
   Value<String?> columnId,
+  Value<double?> position,
   Value<int?> closedAt,
   Value<int?> laterAt,
   Value<String?> laterReason,
@@ -12106,6 +12157,11 @@ class $$KCardsTableFilterComposer extends Composer<_$KolumnDb, $KCardsTable> {
 
   ColumnFilters<String> get columnId => $composableBuilder(
     column: $table.columnId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get position => $composableBuilder(
+    column: $table.position,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -12223,6 +12279,11 @@ class $$KCardsTableOrderingComposer extends Composer<_$KolumnDb, $KCardsTable> {
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<double> get position => $composableBuilder(
+    column: $table.position,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get closedAt => $composableBuilder(
     column: $table.closedAt,
     builder: (column) => ColumnOrderings(column),
@@ -12328,6 +12389,9 @@ class $$KCardsTableAnnotationComposer
   GeneratedColumn<String> get columnId =>
       $composableBuilder(column: $table.columnId, builder: (column) => column);
 
+  GeneratedColumn<double> get position =>
+      $composableBuilder(column: $table.position, builder: (column) => column);
+
   GeneratedColumn<int> get closedAt =>
       $composableBuilder(column: $table.closedAt, builder: (column) => column);
 
@@ -12416,6 +12480,7 @@ class $$KCardsTableTableManager
                 Value<String> title = const Value.absent(),
                 Value<String> description = const Value.absent(),
                 Value<String?> columnId = const Value.absent(),
+                Value<double?> position = const Value.absent(),
                 Value<int?> closedAt = const Value.absent(),
                 Value<int?> laterAt = const Value.absent(),
                 Value<String?> laterReason = const Value.absent(),
@@ -12439,6 +12504,7 @@ class $$KCardsTableTableManager
                 title: title,
                 description: description,
                 columnId: columnId,
+                position: position,
                 closedAt: closedAt,
                 laterAt: laterAt,
                 laterReason: laterReason,
@@ -12464,6 +12530,7 @@ class $$KCardsTableTableManager
                 required String title,
                 Value<String> description = const Value.absent(),
                 Value<String?> columnId = const Value.absent(),
+                Value<double?> position = const Value.absent(),
                 Value<int?> closedAt = const Value.absent(),
                 Value<int?> laterAt = const Value.absent(),
                 Value<String?> laterReason = const Value.absent(),
@@ -12487,6 +12554,7 @@ class $$KCardsTableTableManager
                 title: title,
                 description: description,
                 columnId: columnId,
+                position: position,
                 closedAt: closedAt,
                 laterAt: laterAt,
                 laterReason: laterReason,

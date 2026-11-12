@@ -54,8 +54,19 @@ class Lane {
 /// Kolumn's card order inside a lane: Priority cards first, then the most
 /// recently active. Later is newest-shelved first; Done is newest-finished
 /// first.
+///
+/// Once someone drags cards into an order (his ask, 2026-11-12), that order
+/// wins: cards with a place sit by it, and any card without one yet (just
+/// arrived, or from an older app) sits above them in the automatic order.
 List<KCard> sortForLane(Lane lane, Iterable<KCard> cards) {
-  final list = cards.toList();
+  final all = cards.toList();
+  final placed = all.where((c) => c.position != null).toList()..sort((a, b) => a.position!.compareTo(b.position!));
+  final list = all.where((c) => c.position == null).toList();
+  _autoSort(lane, list);
+  return [...list, ...placed];
+}
+
+void _autoSort(Lane lane, List<KCard> list) {
   int byDesc(int? a, int? b) => (b ?? 0).compareTo(a ?? 0);
   switch (lane.kind) {
     case LaneKind.done:
@@ -72,5 +83,4 @@ List<KCard> sortForLane(Lane lane, Iterable<KCard> cards) {
         return byActive != 0 ? byActive : a.id.compareTo(b.id);
       });
   }
-  return list;
 }

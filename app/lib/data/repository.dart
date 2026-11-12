@@ -278,6 +278,7 @@ class KolumnRepository {
       final number = await _nextNumber();
       // New cards land in To-do, or where open cards go when this Kolumn deleted it.
       lane = await _resolve(boardId, lane);
+      final pos = draft ? null : await _topPosition(boardId, lane);
       await db
           .into(db.kCards)
           .insert(
@@ -287,6 +288,7 @@ class KolumnRepository {
               number: number,
               title: title.trim().isEmpty ? 'Untitled' : title.trim(),
               columnId: Value(lane.kind == LaneKind.column ? lane.columnId : null),
+              position: Value(pos),
               closedAt: Value(lane.kind == LaneKind.done ? now : null),
               laterAt: Value(lane.kind == LaneKind.later ? now : null),
               laterReason: Value(lane.kind == LaneKind.later ? 'manual' : null),
@@ -306,6 +308,7 @@ class KolumnRepository {
         'lane': lane.key,
         'priority': priority,
         'draft': draft,
+        'position': ?pos,
       });
     });
     return id;
@@ -314,13 +317,61 @@ class KolumnRepository {
   /// Moves a card. Mirrors Fizzy's rules: going to a column or To-do takes it
   /// out of Later and reopens it; going to Later reopens it and takes it off
   /// its column; going to Done closes it.
-  Future<void> moveCard(String id, Lane to) => db.transaction(() async {
+  /// The cards in one kolumn, in the order they show.
+  Future<List<KCard>> _laneCards(String boardId, Lane lane, {String? except}) async {
+    final cols = await columns(boardId);
+    final live = cols.map((c) => c.id).toSet();
+    final all = await (db.select(db.kCards)..where((c) => c.boardId.equals(boardId) & c.deletedAt.isNull() & c.status.equals('published'))).get();
+    return sortForLane(lane, all.where((c) => c.id != except && Lane.of(c, live) == lane));
+  }
+
+  /// Where a card goes when it joins a kolumn: on top. Null while nobody has
+  /// put that kolumn in order (then the automatic order puts it on top anyway).
+  Future<double?> _topPosition(String boardId, Lane lane, {String? except}) async {
+    final placed = (await _laneCards(boardId, lane, except: except)).map((c) => c.position).nonNulls.toList();
+    if (placed.isEmpty) return null;
+    return placed.reduce((a, b) => a < b ? a : b) - 1024;
+  }
+
+  /// Moves a card. Mirrors Fizzy's rules: going to a column or To-do takes it
+  /// out of Later and reopens it; going to Later reopens it and takes it off
+  /// its column; going to Done closes it. It lands on top, or at [index] in
+  /// the kolumn's order when dropped in a particular spot.
+  Future<void> moveCard(String id, Lane to, {int? index}) => db.transaction(() async {
     final now = _now();
     final c = await card(id);
-    if (c != null) to = await _resolve(c.boardId, to);
-    await (db.update(db.kCards)..where((c) => c.id.equals(id))).write(_laneChange(to, now).copyWith(lastActiveAt: Value(now), updatedAt: Value(now)));
-    await _record('card.move', {'id': id, 'to': to.key});
+    if (c == null) return;
+    to = await _resolve(c.boardId, to);
+    final pos = await _topPosition(c.boardId, to, except: id);
+    await (db.update(db.kCards)..where((c) => c.id.equals(id))).write(
+      _laneChange(to, now).copyWith(lastActiveAt: Value(now), updatedAt: Value(now), position: Value(pos)),
+    );
+    await _record('card.move', {'id': id, 'to': to.key, 'position': pos});
+    if (index != null) await _place(c.boardId, to, id, index);
   });
+
+  /// Drags a card to [index] in its kolumn's order (his ask, 2026-11-12). The
+  /// whole kolumn takes its order from then on; only cards whose place
+  /// changed are sent.
+  Future<void> reorderCard(String id, int index) => db.transaction(() async {
+    final c = await card(id);
+    if (c == null) return;
+    final live = (await columns(c.boardId)).map((x) => x.id).toSet();
+    await _place(c.boardId, Lane.of(c, live), id, index);
+  });
+
+  Future<void> _place(String boardId, Lane lane, String id, int index) async {
+    final others = await _laneCards(boardId, lane, except: id);
+    final me = await card(id);
+    if (me == null) return;
+    final order = [...others]..insert(index.clamp(0, others.length), me);
+    for (var i = 0; i < order.length; i++) {
+      final want = (i + 1) * 1024.0;
+      if (order[i].position == want) continue;
+      await (db.update(db.kCards)..where((x) => x.id.equals(order[i].id))).write(KCardsCompanion(position: Value(want)));
+      await _record('card.position', {'id': order[i].id, 'position': want});
+    }
+  }
 
   Future<void> setPriority(String id, bool on) => db.transaction(() async {
     final now = _now();
@@ -1424,6 +1475,7 @@ class KolumnRepository {
               title: c['title'] as String? ?? '',
               description: Value(c['description'] as String? ?? ''),
               columnId: Value(c['columnId'] as String?),
+              position: Value((c['position'] as num?)?.toDouble()),
               closedAt: Value(i(c['closedAt'])),
               laterAt: Value(i(c['laterAt'])),
               laterReason: Value(c['laterReason'] as String?),
