@@ -6,6 +6,7 @@ import 'package:uuid/uuid.dart';
 import '../planner/days.dart';
 import '../planner/repeat.dart';
 import 'database.dart';
+import 'lane_looks.dart';
 import 'lanes.dart';
 
 typedef Clock = int Function();
@@ -93,13 +94,102 @@ class KolumnRepository {
   /// Renames or recolors Later, To-do or Done on one Kolumn ([kind] is
   /// 'later', 'todo' or 'done'). An empty name goes back to the usual one.
   Future<void> setLaneLook(String boardId, String kind, {required String name, required int color}) => db.transaction(() async {
-    final b = await (db.select(db.kBoards)..where((x) => x.id.equals(boardId))).getSingleOrNull();
+    await _patchLane(boardId, kind, (one) {
+      if (name.trim().isEmpty) {
+        one.remove('name');
+      } else {
+        one['name'] = name.trim();
+      }
+      one['color'] = color;
+    });
+    await _record('board.lane', {'id': boardId, 'lane': kind, 'name': name.trim().isEmpty ? null : name.trim(), 'color': color});
+  });
+
+  Future<KBoard?> _board(String id) => (db.select(db.kBoards)..where((x) => x.id.equals(id))).getSingleOrNull();
+
+  /// Changes one of Later, To-do and Done in a Kolumn's stored choices, keeping the rest.
+  Future<void> _patchLane(String boardId, String kind, void Function(Map<String, dynamic>) change) async {
+    final b = await _board(boardId);
     if (b == null) return;
     final all = (jsonDecode(b.lanes) as Map?)?.cast<String, dynamic>() ?? <String, dynamic>{};
-    final one = <String, dynamic>{if (name.trim().isNotEmpty) 'name': name.trim(), 'color': color};
-    all[kind] = one;
+    final one = ((all[kind] as Map?) ?? const {}).cast<String, dynamic>().map(MapEntry.new);
+    change(one);
+    if (one.isEmpty) {
+      all.remove(kind);
+    } else {
+      all[kind] = one;
+    }
     await (db.update(db.kBoards)..where((x) => x.id.equals(boardId))).write(KBoardsCompanion(lanes: Value(jsonEncode(all)), updatedAt: Value(_now())));
-    await _record('board.lane', {'id': boardId, 'lane': kind, 'name': name.trim().isEmpty ? null : name.trim(), 'color': color});
+  }
+
+  /// Where a card asked to go really goes: To-do or Later deleted on this
+  /// Kolumn send it where open cards go instead (the hub does the same).
+  Future<Lane> _resolve(String boardId, Lane to) async {
+    if (to.kind != LaneKind.todo && to.kind != LaneKind.later) return to;
+    final b = await _board(boardId);
+    if (!laneLook(b, kindKey(to.kind)).hidden) return to;
+    return homeLane(b, await columns(boardId)) ?? to;
+  }
+
+  KCardsCompanion _laneChange(Lane to, int now) => switch (to.kind) {
+    LaneKind.todo => const KCardsCompanion(columnId: Value(null), closedAt: Value(null), laterAt: Value(null), laterReason: Value(null)),
+    LaneKind.later => KCardsCompanion(columnId: const Value(null), closedAt: const Value(null), laterAt: Value(now), laterReason: const Value('manual')),
+    LaneKind.done => KCardsCompanion(closedAt: Value(now), laterAt: const Value(null), laterReason: const Value(null)),
+    LaneKind.column => KCardsCompanion(columnId: Value(to.columnId), closedAt: const Value(null), laterAt: const Value(null), laterReason: const Value(null)),
+  };
+
+  /// Moves any kolumn — Later, To-do and Done included — one place left
+  /// (-1) or right (1) on its Kolumn.
+  Future<void> moveLane(String boardId, Lane lane, int direction) => db.transaction(() async {
+    final order = laneOrder(await _board(boardId), await columns(boardId));
+    final i = order.indexWhere((e) => e.$1 == lane);
+    final j = i + direction;
+    if (i < 0 || j < 0 || j >= order.length) return;
+    final (a, pa) = order[i];
+    final (b, pb) = order[j];
+    // Two places at the same spot would not swap; nudge them apart.
+    final na = pb == pa ? pb + direction * 0.5 : pb;
+    final nb = pa;
+    final now = _now();
+    if (a.kind == LaneKind.column && b.kind == LaneKind.column) {
+      await (db.update(db.kColumns)..where((c) => c.id.equals(a.columnId!))).write(KColumnsCompanion(position: Value(na), updatedAt: Value(now)));
+      await (db.update(db.kColumns)..where((c) => c.id.equals(b.columnId!))).write(KColumnsCompanion(position: Value(nb), updatedAt: Value(now)));
+      await _record('column.move', {'id': a.columnId, 'position': na, 'swappedWith': b.columnId, 'otherPosition': nb});
+      return;
+    }
+    for (final (l, p) in [(a, na), (b, nb)]) {
+      if (l.kind == LaneKind.column) {
+        await (db.update(db.kColumns)..where((c) => c.id.equals(l.columnId!))).write(KColumnsCompanion(position: Value(p), updatedAt: Value(now)));
+        await _record('column.move', {'id': l.columnId, 'position': p});
+      } else {
+        await _patchLane(boardId, kindKey(l.kind), (one) => one['pos'] = p);
+        await _record('board.lane', {'id': boardId, 'lane': kindKey(l.kind), 'pos': p});
+      }
+    }
+  });
+
+  /// Deletes (hides) Later, To-do or Done on one Kolumn, or brings it back.
+  /// Open cards in a deleted To-do or Later go where open cards go; finished
+  /// cards in a deleted Done stay finished, out of sight. False when it is the
+  /// last place left for open cards.
+  Future<bool> setLaneHidden(String boardId, String kind, bool hidden) => db.transaction(() async {
+    final b = await _board(boardId);
+    final cols = await columns(boardId);
+    if (hidden && kind != 'done' && homeLane(b, cols, exclude: laneOfKind(kind)) == null) return false;
+    await _patchLane(boardId, kind, (one) => hidden ? one['hidden'] = true : one.remove('hidden'));
+    await _record('board.lane', {'id': boardId, 'lane': kind, 'hidden': hidden});
+    if (hidden && kind != 'done') {
+      final target = homeLane(await _board(boardId), cols);
+      if (target != null) {
+        final live = cols.map((c) => c.id).toSet();
+        final now = _now();
+        for (final c in await (db.select(db.kCards)..where((c) => c.boardId.equals(boardId) & c.deletedAt.isNull() & c.closedAt.isNull())).get()) {
+          final inIt = kind == 'later' ? c.laterAt != null : (c.laterAt == null && (c.columnId == null || !live.contains(c.columnId)));
+          if (inIt) await (db.update(db.kCards)..where((x) => x.id.equals(c.id))).write(_laneChange(target, now).copyWith(updatedAt: Value(now)));
+        }
+      }
+    }
+    return true;
   });
 
   Future<void> deleteBoard(String id) => db.transaction(() async {
@@ -135,7 +225,9 @@ class KolumnRepository {
     await _record('column.update', {'id': id, 'name': name?.trim(), 'color': color});
   });
 
-  /// Swaps a column with its neighbor. [direction] is -1 (left) or 1 (right).
+  /// Swaps a column with its neighbor column. [direction] is -1 (left) or 1
+  /// (right). (The board's menu uses [moveLane], which also passes Later,
+  /// To-do and Done.)
   Future<void> moveColumn(String boardId, String id, int direction) => db.transaction(() async {
     final cols = await columns(boardId);
     final i = cols.indexWhere((c) => c.id == id);
@@ -148,12 +240,26 @@ class KolumnRepository {
     await _record('column.move', {'id': a.id, 'position': b.position, 'swappedWith': b.id, 'otherPosition': a.position});
   });
 
-  /// Deletes a column. Its open cards go back to To-do, as in Fizzy.
-  Future<void> deleteColumn(String id) => db.transaction(() async {
+  /// Deletes a column. Its open cards go back to To-do (or, when this Kolumn
+  /// deleted To-do, where open cards go), as in Fizzy. False when it is the
+  /// last place left for open cards.
+  Future<bool> deleteColumn(String id) => db.transaction(() async {
     final now = _now();
+    final col = await (db.select(db.kColumns)..where((c) => c.id.equals(id))).getSingleOrNull();
+    if (col == null) return false;
+    final target = homeLane(await _board(col.boardId), await columns(col.boardId), exclude: Lane.column(id));
+    if (target == null) return false;
     await (db.update(db.kColumns)..where((c) => c.id.equals(id))).write(KColumnsCompanion(deletedAt: Value(now), updatedAt: Value(now)));
-    await (db.update(db.kCards)..where((c) => c.columnId.equals(id))).write(KCardsCompanion(columnId: const Value(null), updatedAt: Value(now)));
+    for (final c in await (db.select(db.kCards)..where((c) => c.columnId.equals(id))).get()) {
+      final open = c.closedAt == null && c.laterAt == null;
+      await (db.update(db.kCards)..where((x) => x.id.equals(c.id))).write(
+        open
+            ? _laneChange(target, now).copyWith(updatedAt: Value(now))
+            : KCardsCompanion(columnId: Value(target.kind == LaneKind.column ? target.columnId : null), updatedAt: Value(now)),
+      );
+    }
     await _record('column.delete', {'id': id});
+    return true;
   });
 
   // ---------------------------------------------------------------- cards
@@ -170,6 +276,8 @@ class KolumnRepository {
     await db.transaction(() async {
       final now = _now();
       final number = await _nextNumber();
+      // New cards land in To-do, or where open cards go when this Kolumn deleted it.
+      lane = await _resolve(boardId, lane);
       await db
           .into(db.kCards)
           .insert(
@@ -208,18 +316,9 @@ class KolumnRepository {
   /// its column; going to Done closes it.
   Future<void> moveCard(String id, Lane to) => db.transaction(() async {
     final now = _now();
-    final KCardsCompanion change;
-    switch (to.kind) {
-      case LaneKind.todo:
-        change = KCardsCompanion(columnId: const Value(null), closedAt: const Value(null), laterAt: const Value(null), laterReason: const Value(null));
-      case LaneKind.later:
-        change = KCardsCompanion(columnId: const Value(null), closedAt: const Value(null), laterAt: Value(now), laterReason: const Value('manual'));
-      case LaneKind.done:
-        change = KCardsCompanion(closedAt: Value(now), laterAt: const Value(null), laterReason: const Value(null));
-      case LaneKind.column:
-        change = KCardsCompanion(columnId: Value(to.columnId), closedAt: const Value(null), laterAt: const Value(null), laterReason: const Value(null));
-    }
-    await (db.update(db.kCards)..where((c) => c.id.equals(id))).write(change.copyWith(lastActiveAt: Value(now), updatedAt: Value(now)));
+    final c = await card(id);
+    if (c != null) to = await _resolve(c.boardId, to);
+    await (db.update(db.kCards)..where((c) => c.id.equals(id))).write(_laneChange(to, now).copyWith(lastActiveAt: Value(now), updatedAt: Value(now)));
     await _record('card.move', {'id': id, 'to': to.key});
   });
 

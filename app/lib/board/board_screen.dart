@@ -152,10 +152,13 @@ class _BoardViewState extends ConsumerState<BoardView> {
 
   String get _boardId => widget.board.id;
 
+  /// Where new cards land: To-do, unless this Kolumn deleted it.
+  Lane get _home => _lanes.where((l) => l.isHome).map((l) => l.lane).firstOrNull ?? (_lanes.isEmpty ? const Lane.todo() : _lanes.first.lane);
+
   void _restore(Lane? saved) {
     if (_restored) return;
     _restored = true;
-    if (saved != null && saved != const Lane.todo()) {
+    if (saved != null && saved != _home) {
       _open = saved;
       _open2 = saved;
     }
@@ -167,7 +170,7 @@ class _BoardViewState extends ConsumerState<BoardView> {
     setState(() {
       if (_narrow) {
         _open = lane;
-      } else if (lane != const Lane.todo()) {
+      } else if (lane != _home) {
         _open2 = lane;
       }
     });
@@ -177,10 +180,10 @@ class _BoardViewState extends ConsumerState<BoardView> {
 
   void _fold() {
     setState(() => _open2 = null);
-    ref.read(repositoryProvider).setSetting('open.$_boardId', 'todo');
+    ref.read(repositoryProvider).setSetting('open.$_boardId', _home.key);
   }
 
-  bool _isOpen(Lane lane) => _narrow ? lane == _open : (lane == const Lane.todo() || lane == _open2);
+  bool _isOpen(Lane lane) => _narrow ? lane == _open : (lane == _home || lane == _open2);
 
   double _widthOf(Lane lane) => _isOpen(lane) ? _openW : BoardMetrics.strip;
 
@@ -190,7 +193,7 @@ class _BoardViewState extends ConsumerState<BoardView> {
       // On a wide screen everything fits; only nudge if a lane is off-screen.
       if (_row.position.maxScrollExtent <= 0) return;
     }
-    final target = _narrow ? _open : (_open2 ?? const Lane.todo());
+    final target = _narrow ? _open : (_open2 ?? _home);
     var x = BoardMetrics.pad;
     for (final l in _lanes) {
       if (l.lane == target) break;
@@ -269,7 +272,7 @@ class _BoardViewState extends ConsumerState<BoardView> {
     if (saved.hasValue) _restore(saved.value);
     final hintDone = ref.watch(_hintProvider).value ?? true;
     _lanes = buildLanes(context, columns, cards, board: widget.board);
-    if (!_lanes.any((l) => l.lane == _open)) _open = const Lane.todo();
+    if (!_lanes.any((l) => l.lane == _open)) _open = _home;
     if (_open2 != null && !_lanes.any((l) => l.lane == _open2)) _open2 = null;
     final dragging = _dragId != null;
 
@@ -334,7 +337,7 @@ class _BoardViewState extends ConsumerState<BoardView> {
                     maxWidth: _openW,
                     child: OpenLane(
                       info: info,
-                      canFold: !_narrow && info.lane != const Lane.todo(),
+                      canFold: !_narrow && !info.isHome,
                       onFold: _fold,
                       boardId: _boardId,
                       dragId: _dragId,
@@ -601,7 +604,38 @@ class _AddColumnStrip extends ConsumerWidget {
             borderRadius: BorderRadius.circular(16),
             child: InkWell(
               borderRadius: BorderRadius.circular(16),
-              onTap: () => showColumnEditor(context, ref, boardId: boardId),
+              onTap: () async {
+                final board = ref.read(boardsProvider).value?.where((b) => b.id == boardId).firstOrNull;
+                final gone = [for (final k in const ['later', 'todo', 'done']) if (laneLook(board, k).hidden) k];
+                if (gone.isEmpty) {
+                  await showColumnEditor(context, ref, boardId: boardId);
+                  return;
+                }
+                final pick = await showModalBottomSheet<String>(
+                  context: context,
+                  showDragHandle: true,
+                  builder: (context) => SafeArea(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        ListTile(leading: const Icon(Icons.add_rounded), title: const Text('New kolumn'), onTap: () => Navigator.pop(context, 'new')),
+                        for (final k in gone)
+                          ListTile(
+                            leading: const Icon(Icons.undo_rounded),
+                            title: Text('Bring back "${laneLook(board, k).name}"'),
+                            onTap: () => Navigator.pop(context, k),
+                          ),
+                      ],
+                    ),
+                  ),
+                );
+                if (pick == null || !context.mounted) return;
+                if (pick == 'new') {
+                  await showColumnEditor(context, ref, boardId: boardId);
+                } else {
+                  await ref.read(repositoryProvider).setLaneHidden(boardId, pick, false);
+                }
+              },
               child: SizedBox(
                 width: BoardMetrics.strip,
                 height: 52,
@@ -652,7 +686,7 @@ class OpenLane extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final p = context.palette;
-    final isTodo = info.lane == const Lane.todo();
+    final isTodo = info.isHome;
     final readOnly = ref.watch(readOnlyProvider).value ?? false;
     return DragTarget<String>(
       onWillAcceptWithDetails: (_) => from != info.lane,
@@ -747,42 +781,53 @@ class _LaneHeader extends ConsumerWidget {
           const SizedBox(width: 6),
           Text('${info.cards.length}', style: t.bodyMedium!.copyWith(color: context.colors.onSurfaceVariant)),
           const Spacer(),
-          if (info.isTodoLane) _DraftsChip(boardId: boardId),
+          if (info.isHome) _DraftsChip(boardId: boardId),
           if (canFold) IconButton(tooltip: 'Fold this kolumn', onPressed: onFold, icon: const Icon(Icons.unfold_less_rounded, size: 20)),
-          if (col == null && !(ref.watch(readOnlyProvider).value ?? false))
-            IconButton(
-              tooltip: 'Rename or recolor this kolumn',
-              visualDensity: VisualDensity.compact,
-              onPressed: () => showColumnEditor(context, ref, boardId: boardId, builtIn: info.lane.kind, builtInName: info.name),
-              icon: const Icon(Icons.more_horiz_rounded),
-            )
-          else if (col != null && !(ref.watch(readOnlyProvider).value ?? false))
+          if (!(ref.watch(readOnlyProvider).value ?? false))
             PopupMenuButton<String>(
               tooltip: 'Options for this kolumn',
               icon: const Icon(Icons.more_horiz_rounded),
               onSelected: (v) async {
                 final repo = ref.read(repositoryProvider);
+                final kind = col == null ? kindKey(info.lane.kind) : null;
                 switch (v) {
                   case 'edit':
-                    await showColumnEditor(context, ref, boardId: boardId, column: col);
+                    await showColumnEditor(context, ref, boardId: boardId, column: col, builtIn: col == null ? info.lane.kind : null);
                   case 'left':
-                    await repo.moveColumn(boardId, col.id, -1);
                   case 'right':
-                    await repo.moveColumn(boardId, col.id, 1);
+                    await repo.moveLane(boardId, info.lane, v == 'left' ? -1 : 1);
                   case 'delete':
-                    final ok = await confirm(
-                      context,
-                      title: 'Delete "${col.name}"?',
-                      body: 'Its ${info.cards.length == 1 ? 'card goes' : 'cards go'} back to ${laneLook(ref.read(boardsProvider).value?.where((b) => b.id == boardId).firstOrNull, 'todo').name}. Nothing else is deleted.',
-                      action: 'Delete kolumn',
-                    );
-                    if (ok) await repo.deleteColumn(col.id);
+                    final board = ref.read(boardsProvider).value?.where((b) => b.id == boardId).firstOrNull;
+                    final columns = ref.read(columnsProvider(boardId)).value ?? const <KColumn>[];
+                    final home = homeLane(board, columns, exclude: info.lane);
+                    if (home == null && info.lane.kind != LaneKind.done) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('A Kolumn needs at least one kolumn for open cards. Add another first.')));
+                      }
+                      return;
+                    }
+                    final homeName = home == null ? '' : laneName(buildLanes(context, columns, const [], board: board), home);
+                    final n = info.cards.length;
+                    final body = switch (info.lane.kind) {
+                      LaneKind.done => 'Finished cards stay finished, out of sight. You can still find them, and they come back if you bring this kolumn back.',
+                      LaneKind.later =>
+                        '${n == 0 ? 'Nothing is in it.' : 'Its ${n == 1 ? 'card goes' : '$n cards go'} to $homeName.'} Cards will no longer move here on their own. You can bring it back from the + button.',
+                      _ => '${n == 0 ? 'Nothing is in it.' : 'Its ${n == 1 ? 'card goes' : '$n cards go'} to $homeName.'}${col == null ? ' New cards will land there too. You can bring it back from the + button.' : ' Nothing else is deleted.'}',
+                    };
+                    if (!context.mounted) return;
+                    final ok = await confirm(context, title: 'Delete "${info.name}"?', body: body, action: 'Delete kolumn');
+                    if (!ok) return;
+                    if (col != null) {
+                      await repo.deleteColumn(col.id);
+                    } else {
+                      await repo.setLaneHidden(boardId, kind!, true);
+                    }
                 }
               },
               itemBuilder: (_) => [
                 const PopupMenuItem(value: 'edit', child: Text('Rename or recolor')),
-                const PopupMenuItem(value: 'left', child: Text('Move left')),
-                const PopupMenuItem(value: 'right', child: Text('Move right')),
+                if (laneIndex > 0) const PopupMenuItem(value: 'left', child: Text('Move left')),
+                if (laneIndex < laneCount - 1) const PopupMenuItem(value: 'right', child: Text('Move right')),
                 const PopupMenuItem(value: 'delete', child: Text('Delete kolumn')),
               ],
             )

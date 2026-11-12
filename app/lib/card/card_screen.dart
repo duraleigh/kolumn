@@ -177,7 +177,7 @@ class _CardScreenState extends ConsumerState<CardScreen> {
     final board = boards.where((b) => b.id == boardId).firstOrNull;
     final lanes = buildLanes(context, columns, cards, board: board);
     final lane = Lane.of(card, columns.map((c) => c.id).toSet());
-    final info = lanes.firstWhere((l) => l.lane == lane, orElse: () => lanes[1]);
+    final info = lanes.firstWhere((l) => l.lane == lane, orElse: () => lanes.firstWhere((l) => l.isHome, orElse: () => lanes.first));
     final boardName = boards.where((b) => b.id == card.boardId).map((b) => b.name).firstOrNull ?? '';
     final c = context.colors;
     final p = context.palette;

@@ -1,4 +1,5 @@
 import 'database.dart';
+import 'lane_looks.dart';
 
 /// Kolumn's tidy-up (Fizzy's auto-postpone): a card nobody touches for its
 /// Kolumn's tidy-up time moves to Later on its own. A card with a due day
@@ -12,6 +13,7 @@ const _day = 86400000;
 /// will (a draft, finished, already in Later, or it has a due day).
 int? tidyDaysLeft(KCard card, KBoard? board, int nowMs) {
   if (card.status != 'published' || card.closedAt != null || card.laterAt != null || card.dueAt != null || card.deletedAt != null) return null;
+  if (laneLook(board, 'later').hidden) return null; // This Kolumn deleted Later: nothing moves on its own.
   final period = board?.tidyDays ?? tidyDefault;
   final left = (card.lastActiveAt + period * _day - nowMs) / _day;
   return left <= 0 ? 0 : left.ceil();
