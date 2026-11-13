@@ -243,6 +243,7 @@ class _PlannerSettings extends ConsumerWidget {
     }
 
     final ownerId = planner.creatorId;
+    final allowing = [for (final b in boards) if (kolumnAllowsPlanner(b, planner.id)) b];
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
       child: Column(
@@ -287,23 +288,23 @@ class _PlannerSettings extends ConsumerWidget {
               ),
             if (people.isEmpty && !manage) const ListTile(title: Text('Only you')),
           ]),
+          // Only Kolumns that allow this planner are listed; both must agree
+          // (his ruling, 2026-11-13). A Kolumn's maker chooses in its settings.
           group('Cards from Kolumns', [
-            if (boards.isEmpty) const ListTile(title: Text('No Kolumns yet')),
-            for (final b in boards)
+            if (allowing.isEmpty)
+              const ListTile(
+                title: Text('No Kolumns allow this planner yet'),
+                subtitle: Text('A Kolumn\'s maker chooses which planners may show its cards, in that Kolumn\'s settings.'),
+              ),
+            for (final b in allowing)
               SwitchListTile(
                 title: Text(b.name),
-                subtitle: const Text('Cards with a due day show on that day'),
+                subtitle: const Text('Cards with a due date show on that day'),
                 value: shown.contains(b.id),
                 onChanged: readOnly ? null : (on) => repo.updatePlanner(planner.id, boardIds: on ? [...shown, b.id] : shown.where((x) => x != b.id).toList()),
               ),
           ]),
           group('To-dos', [
-            SwitchListTile(
-              title: const Text('Move unfinished to the next day'),
-              subtitle: const Text('Late cards stay on their day, in red'),
-              value: planner.rollOver,
-              onChanged: readOnly ? null : (v) => repo.updatePlanner(planner.id, rollOver: v),
-            ),
             SwitchListTile(
               title: const Text('Sink finished to the bottom'),
               value: planner.sinkDone,

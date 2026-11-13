@@ -79,7 +79,7 @@ void main() {
       expect(find.text('9 Nov'), findsOneWidget);
       expect(find.text('11 Nov'), findsOneWidget);
       expect(find.text('Vocal warm-up'), findsOneWidget);
-      expect(find.text('Confirm hotel block'), findsOneWidget);
+      expect(find.text('LATE: Confirm hotel block'), findsWidgets, reason: 'late: red, with LATE: in front');
       expect(tester.takeException(), isNull);
       // Someday is below the week; scroll to it on a phone.
       await tester.scrollUntilVisible(find.text('Learn the new arrangement'), 300, scrollable: find.byType(Scrollable).first);
@@ -115,7 +115,7 @@ void main() {
     final t = (await p.todos(tester)).firstWhere((t) => t.title == 'Vocal warm-up');
     expect(t.doneAt, isNotNull);
     final text = tester.widget<Text>(find.text('Vocal warm-up'));
-    expect(text.style!.decoration, TextDecoration.lineThrough);
+    expect(text.textSpan!.style!.decoration, TextDecoration.lineThrough);
   });
 
   testWidgets('holding a to-do and dragging it onto another day moves it there', (tester) async {
@@ -131,6 +131,48 @@ void main() {
     await g.up();
     await settle(tester);
     expect((await p.todos(tester)).firstWhere((t) => t.title == 'Vocal warm-up').day, '2026-11-12');
+  });
+
+  testWidgets('an unfinished to-do dragged onto a past day is refused and flies back', (tester) async {
+    final p = await pumpPlanner(tester, phone);
+    final from = tester.getCenter(find.text('Rehearsal at the studio'));
+    final to = tester.getCenter(find.text('9 Nov'));
+    final g = await tester.startGesture(from);
+    await tester.pump(const Duration(milliseconds: 500));
+    for (var i = 1; i <= 10; i++) {
+      await g.moveTo(Offset.lerp(from, to + const Offset(0, 30), i / 10)!);
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    await g.up();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(find.text('Rehearsal at the studio'), findsNWidgets(2), reason: 'flying back: the row and its moving copy');
+    await settle(tester);
+    expect((await p.todos(tester)).firstWhere((t) => t.title == 'Rehearsal at the studio').day, '2026-11-12');
+    expect(find.text('Rehearsal at the studio'), findsOneWidget);
+  });
+
+  testWidgets('a late item stays in sight: pinned on other weeks, its day red in the month, a red box in other months', (tester) async {
+    await pumpPlanner(tester, phone);
+    await tester.fling(find.text('Vocal warm-up'), const Offset(-300, 0), 1500);
+    await settle(tester);
+    expect(find.text('16 Nov'), findsOneWidget, reason: 'next week');
+    expect(find.text('LATE: Confirm hotel block'), findsOneWidget, reason: 'pinned at the top of another week');
+    await tester.tap(find.text('LATE: Confirm hotel block'));
+    await settle(tester);
+    expect(find.byTooltip('Comments and activity'), findsOneWidget, reason: 'tapping it opens it');
+    Navigator.of(tester.element(find.byTooltip('Comments and activity'))).pop();
+    await settle(tester);
+    await tester.tap(find.byTooltip('Month'));
+    await settle(tester);
+    expect(find.text('LATE: Confirm hotel block'), findsOneWidget, reason: 'in its own month, on its red day');
+    await tester.fling(find.text('Nov 2026'), const Offset(-300, 0), 1500);
+    await settle(tester);
+    expect(find.text('Dec 2026'), findsNothing, reason: 'the title line itself does not swipe');
+    await tester.fling(find.bySemanticsLabel(RegExp(r'^Wed, 18 Nov')), const Offset(-300, 0), 1500);
+    await settle(tester);
+    expect(find.text('Dec 2026'), findsOneWidget);
+    expect(find.text('LATE: Confirm hotel block'), findsOneWidget, reason: 'another month: a red box under the calendar');
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('on a computer, a mouse drag moves a to-do to Someday', (tester) async {
@@ -191,15 +233,16 @@ void main() {
     expect(find.text('Vocal warm-up'), findsOneWidget);
     await tester.tap(find.bySemanticsLabel(RegExp(r'^Thu, 12 Nov')));
     await settle(tester);
-    expect(find.text('12 Nov'), findsOneWidget);
-    expect(find.text('Thursday'), findsOneWidget);
+    expect(find.text('Thursday'), findsOneWidget, reason: 'Day view: the day\'s name, bold, as the big title');
+    expect(find.textContaining('12 Nov'), findsOneWidget);
     expect(find.text('Rehearsal at the studio'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('the arrows step through weeks; the title goes back to today', (tester) async {
+  testWidgets('on a phone, swiping steps through weeks (no arrows); the title goes back to today', (tester) async {
     await pumpPlanner(tester, phone);
-    await tester.tap(find.byTooltip('Next week'));
+    expect(find.byTooltip('Next week'), findsNothing);
+    await tester.fling(find.text('Vocal warm-up'), const Offset(-300, 0), 1500);
     await settle(tester);
     expect(find.text('16 Nov'), findsOneWidget);
     expect(find.text('Vocal warm-up'), findsNothing);
@@ -224,8 +267,9 @@ void main() {
     await settle(tester);
     await tester.tap(find.byTooltip('Settings for My planner'));
     await settle(tester);
-    expect(find.text('Move unfinished to the next day'), findsOneWidget);
-    expect(find.text('Playground'), findsOneWidget);
+    expect(find.text('Move unfinished to the next day'), findsNothing, reason: 'the day rules always apply now');
+    expect(find.text('Sink finished to the bottom'), findsOneWidget);
+    expect(find.text('Playground'), findsOneWidget, reason: 'it allows this planner');
     expect(find.text('Cards from Kolumns'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });

@@ -1,11 +1,14 @@
 import 'dart:async';
 
+import 'package:drift/drift.dart' show Value;
+import 'package:flutter/foundation.dart' show setEquals;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../card/card_screen.dart';
 import '../data/database.dart';
+import '../data/due.dart';
 import '../data/lanes.dart';
 import '../data/repository.dart';
 import '../state/providers.dart';
@@ -54,9 +57,20 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
   Timer? _scrollTimer;
   Timer? _flipTimer;
 
+  // Late items stay in sight (his rule, 2026-11-13): each late row on screen
+  // is tracked, and any not in view is pinned at the top.
+  final _bodyKey = GlobalKey();
+  final Map<String, GlobalKey> _lateKeys = {};
+  Set<String> _lateInView = {};
+  Timer? _tick;
+
   @override
   void initState() {
     super.initState();
+    // Something can go late while the screen is open: look again each minute.
+    _tick = Timer.periodic(const Duration(minutes: 1), (_) {
+      if (mounted) setState(() {});
+    });
     _draftFocus.addListener(() {
       final slot = _adding;
       if (_draftFocus.hasFocus || slot == null) return;
@@ -68,8 +82,26 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
     });
   }
 
+  /// The rows of late items that are fully on screen right now.
+  void _checkLate() {
+    if (!mounted) return;
+    final box = _bodyKey.currentContext?.findRenderObject() as RenderBox?;
+    if (box == null || !box.attached || !box.hasSize) return;
+    final top = box.localToGlobal(Offset.zero).dy;
+    final bottom = top + box.size.height;
+    final seen = <String>{};
+    _lateKeys.forEach((id, k) {
+      final rb = k.currentContext?.findRenderObject() as RenderBox?;
+      if (rb == null || !rb.attached || !rb.hasSize) return;
+      final y = rb.localToGlobal(Offset.zero).dy;
+      if (y >= top - 0.5 && y + rb.size.height <= bottom + 0.5) seen.add(id);
+    });
+    if (!setEquals(seen, _lateInView)) setState(() => _lateInView = seen);
+  }
+
   @override
   void dispose() {
+    _tick?.cancel();
     _search.dispose();
     _scroll.dispose();
     _draft.dispose();
@@ -101,7 +133,8 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
     final a = parseDay(_view == PlannerView.week ? mondayOf(_anchor) : _anchor);
     switch (_view) {
       case PlannerView.day:
-        return dayHeading(_anchor);
+        // The day's name, bold, like the month in the other views (his ask, 2026-11-13).
+        return weekdayLong[parseDay(_anchor).weekday - 1];
       case PlannerView.week:
       case PlannerView.month:
         return '${wide ? monthLong[a.month - 1] : monthShort[a.month - 1]} ${a.year}';
@@ -153,8 +186,25 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
     }
   }
 
+  /// His moving rules, the same for dragging and "Move to a different date":
+  /// an unfinished to-do never to a past day nor past its due day; a finished
+  /// one never to a future day; only unfinished ones to Someday. Cards keep
+  /// to days. A drop anywhere else flies back.
+  bool _canDrop(PlannerEntry e, String toKey) {
+    if (ref.read(readOnlyProvider).value ?? false) return false;
+    final to = TodoSlot.fromKey(toKey);
+    if (to == null) return false;
+    if (e.isCard) return to.day != null;
+    final today = ref.read(plannerTodayProvider);
+    final t = e.todo!;
+    // One day of a repeating to-do is finished or not on its own.
+    final probe = e.repeats ? t.copyWith(doneAt: Value(e.done ? 1 : null)) : t;
+    return canMoveTodo(probe, to, today: today);
+  }
+
   Future<void> _move(PlannerEntry e, String toKey) async {
     if (e.slotKey == toKey) return;
+    if (!_canDrop(e, toKey)) return;
     final repo = ref.read(repositoryProvider);
     final to = TodoSlot.fromKey(toKey);
     if (to == null) return;
@@ -271,7 +321,12 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
       onDragStart: _dragStart,
       onDragEnd: _dragEnd,
       onDragUpdate: _dragUpdate,
+      canDrop: _canDrop,
+      lateKey: (id) => _lateKeys.putIfAbsent(id, () => GlobalKey()),
     );
+    // Keys only for rows that are late now.
+    _lateKeys.removeWhere((id, _) => !data.lateItems.any((e) => e.id == id));
+    WidgetsBinding.instance.addPostFrameCallback((_) => _checkLate());
 
     Widget body;
     if (_searching) {
@@ -312,7 +367,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                       )
                     : _Header(
                         title: _title(wide),
-                        sub: _view == PlannerView.day ? weekdayLong[parseDay(_anchor).weekday - 1] : null,
+                        sub: _view == PlannerView.day ? dayLabel(_anchor, today: ref.read(plannerTodayProvider)) : null,
                         wide: wide,
                         planner: data.planner,
                         onTitle: _goToday,
@@ -322,8 +377,30 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                         prevLabel: _view == PlannerView.day ? 'Previous day' : (_view == PlannerView.month ? 'Previous month' : 'Previous week'),
                         nextLabel: _view == PlannerView.day ? 'Next day' : (_view == PlannerView.month ? 'Next month' : 'Next week'),
                       ),
+                if (!_searching && _view != PlannerView.month)
+                  _LateStack(ctx: ctx, items: [for (final e in data.lateItems) if (!_lateInView.contains(e.id)) e]),
                 Expanded(
-                  child: RefreshIndicator(onRefresh: () => ref.read(syncServiceProvider).syncNow(), child: body),
+                  key: _bodyKey,
+                  child: NotificationListener<ScrollNotification>(
+                    onNotification: (_) {
+                      WidgetsBinding.instance.addPostFrameCallback((_) => _checkLate());
+                      return false;
+                    },
+                    // On a phone, swipe left or right for the next or previous
+                    // month, week or day (his ask, 2026-11-13).
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.translucent,
+                      onHorizontalDragEnd: wide || _searching || _dragging
+                          ? null
+                          : (d) {
+                              final v = d.primaryVelocity ?? 0;
+                              if (v.abs() < 250) return;
+                              HapticFeedback.selectionClick();
+                              _step(v < 0 ? 1 : -1);
+                            },
+                      child: RefreshIndicator(onRefresh: () => ref.read(syncServiceProvider).syncNow(), child: body),
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -378,6 +455,8 @@ class _Ctx {
     required this.onDragStart,
     required this.onDragEnd,
     required this.onDragUpdate,
+    required this.canDrop,
+    required this.lateKey,
   });
 
   final PlannerData data;
@@ -396,6 +475,8 @@ class _Ctx {
   final VoidCallback onDragStart;
   final VoidCallback onDragEnd;
   final void Function(DragUpdateDetails) onDragUpdate;
+  final bool Function(PlannerEntry, String) canDrop;
+  final GlobalKey Function(String entryId) lateKey;
 
   double get row => wide ? PlannerMetrics.rowWide : PlannerMetrics.rowPhone;
   double get font => wide ? 14 : 16;
@@ -453,6 +534,84 @@ class _Header extends ConsumerWidget {
         ),
       ),
     );
+    final plannerChip = Material(
+      color: context.palette.chip,
+      shape: const StadiumBorder(),
+      child: InkWell(
+        customBorder: const StadiumBorder(),
+        onTap: () => showPlannersSheet(context, ref),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minHeight: wide ? 40 : 34, maxWidth: wide ? 260 : 220),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.calendar_today_outlined, size: wide ? 16 : 14, color: c.onSurface),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Text(
+                    planner.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: wide ? 14 : 13, fontWeight: FontWeight.w600, color: c.onSurface),
+                  ),
+                ),
+                Icon(Icons.expand_more_rounded, size: 18, color: c.onSurface),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    final titleRow = Tooltip(
+      message: 'Go to today',
+      child: InkWell(
+        borderRadius: BorderRadius.circular(10),
+        onTap: onTitle,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.baseline,
+          textBaseline: TextBaseline.alphabetic,
+          children: [
+            Flexible(
+              child: Text(
+                title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: wide ? 40 : 34, fontWeight: FontWeight.w700, letterSpacing: -0.8, height: 1.1, color: c.onSurface),
+              ),
+            ),
+            if (sub != null) ...[
+              const SizedBox(width: 10),
+              Flexible(
+                child: Text(sub!, maxLines: 1, overflow: TextOverflow.fade, softWrap: false, style: TextStyle(fontSize: 17, color: c.onSurfaceVariant)),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+    if (!wide) {
+      // A phone (his choice, option A): the planner and search on a small first
+      // line; the big title alone on the second; no arrows (swipe instead).
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(18, 8, 8, 6),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Flexible(child: Align(alignment: Alignment.centerLeft, child: plannerChip)),
+                const Spacer(),
+                IconButton(tooltip: 'Search', onPressed: onSearch, icon: const Icon(Icons.search_rounded)),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Padding(padding: const EdgeInsets.only(right: 10), child: titleRow),
+          ],
+        ),
+      );
+    }
     return Padding(
       padding: EdgeInsets.fromLTRB(wide ? 28 : 18, wide ? 22 : 14, wide ? 22 : 12, wide ? 14 : 8),
       child: Row(
@@ -738,7 +897,7 @@ class _Lines extends StatelessWidget {
       );
     }
     return DragTarget<PlannerEntry>(
-      onWillAcceptWithDetails: (d) => !ctx.readOnly && !(d.data.isCard && isSomeday),
+      onWillAcceptWithDetails: (d) => !ctx.readOnly && !(d.data.isCard && isSomeday) && ctx.canDrop(d.data, slotKey),
       onAcceptWithDetails: (d) => ctx.onMove(d.data, slotKey),
       builder: (context, candidates, _) {
         final over = candidates.isNotEmpty;
@@ -757,56 +916,103 @@ class _Lines extends StatelessWidget {
   }
 }
 
-class _EntryRow extends StatelessWidget {
+/// The words of a line, with "LATE:" in front when it is late (bold while
+/// still late; plain once finished late).
+TextSpan _titleSpan(PlannerEntry e, TextStyle style) {
+  if (!e.state.showsLate) return TextSpan(text: e.title, style: style);
+  return TextSpan(
+    style: style,
+    children: [
+      TextSpan(text: 'LATE: ', style: TextStyle(fontWeight: e.late ? FontWeight.w800 : style.fontWeight)),
+      TextSpan(text: e.title),
+    ],
+  );
+}
+
+class _EntryRow extends StatefulWidget {
   const _EntryRow({required this.ctx, required this.entry});
   final _Ctx ctx;
   final PlannerEntry entry;
 
   @override
+  State<_EntryRow> createState() => _EntryRowState();
+}
+
+class _EntryRowState extends State<_EntryRow> with SingleTickerProviderStateMixin {
+  Offset? _origin;
+
+  /// A drop on a day it may not go to: the lifted row flies back to where it
+  /// came from (his ask, 2026-11-13), since a drag does not do that by itself.
+  void _flyBack(Offset from, Widget ghost) {
+    final to = _origin;
+    if (to == null || !mounted) return;
+    final overlay = Overlay.of(context);
+    late OverlayEntry entry;
+    entry = OverlayEntry(
+      builder: (_) => TweenAnimationBuilder<Offset>(
+        tween: Tween(begin: from, end: to),
+        duration: const Duration(milliseconds: 380),
+        curve: Curves.easeOutCubic,
+        onEnd: () => entry.remove(),
+        builder: (_, o, child) => Positioned(left: o.dx, top: o.dy, child: IgnorePointer(child: child!)),
+        child: ghost,
+      ),
+    );
+    overlay.insert(entry);
+    HapticFeedback.lightImpact();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final ctx = widget.ctx;
     final c = context.colors;
     final p = context.palette;
-    final e = entry;
-    final fg = e.done ? c.onSurfaceVariant : (e.late ? p.dangerText : c.onSurface);
+    final e = widget.entry;
+    final late = e.late;
+    final fg = late ? p.lateRowText : (e.done ? c.onSurfaceVariant : (e.state == DueState.dueToday ? p.dueToday : c.onSurface));
     final bell = ctx.reminders.containsKey(e.isCard ? e.card!.id : e.todo!.id);
     final icon = ctx.wide ? 13.0 : 15.0;
     Widget row(bool ghost) => Container(
       height: ctx.row,
       decoration: ghost
           ? BoxDecoration(
-              color: p.card,
+              color: late ? p.lateRow : p.card,
               borderRadius: BorderRadius.circular(14),
               boxShadow: p.liftShadow,
               border: Border.all(color: c.primary, width: 2),
             )
           : BoxDecoration(
+              // Late: the whole row is red, with white words (his rule).
+              color: late ? p.lateRow : null,
               border: Border(bottom: BorderSide(color: c.outlineVariant.withValues(alpha: 0.7))),
             ),
-      padding: EdgeInsets.symmetric(horizontal: ghost ? 12 : 2),
+      padding: EdgeInsets.symmetric(horizontal: ghost || late ? 10 : 2),
       child: Row(
         children: [
           if (e.isCard) ...[
             Container(
               width: 8,
               height: 8,
-              decoration: BoxDecoration(color: e.late ? c.error : ctx.boardColor(context, e.card!.boardId), borderRadius: BorderRadius.circular(2)),
+              decoration: BoxDecoration(color: late ? p.lateRowText : ctx.boardColor(context, e.card!.boardId), borderRadius: BorderRadius.circular(2)),
             ),
             const SizedBox(width: 7),
           ],
           if (e.repeats) ...[Icon(Icons.repeat_rounded, size: icon, color: fg), const SizedBox(width: 5)],
           if (bell) ...[Icon(Icons.notifications_none_rounded, size: icon, color: fg), const SizedBox(width: 5)],
           Expanded(
-            child: Text(
-              e.title,
+            child: Text.rich(
+              _titleSpan(
+                e,
+                TextStyle(
+                  fontSize: ctx.font,
+                  color: fg,
+                  fontWeight: e.isCard || e.state == DueState.dueToday ? FontWeight.w600 : FontWeight.w400,
+                  decoration: e.done ? TextDecoration.lineThrough : null,
+                  decorationColor: fg,
+                ),
+              ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: ctx.font,
-                color: fg,
-                fontWeight: e.isCard ? FontWeight.w500 : FontWeight.w400,
-                decoration: e.done ? TextDecoration.lineThrough : null,
-                decorationColor: fg,
-              ),
             ),
           ),
           if (!ghost)
@@ -820,7 +1026,10 @@ class _EntryRow extends StatelessWidget {
                   width: ctx.wide ? 30 : 44,
                   height: ctx.row,
                   child: Center(
-                    child: CheckCircle(done: e.done, size: ctx.wide ? 18 : 22),
+                    child: Theme(
+                      data: late ? Theme.of(context).copyWith(colorScheme: c.copyWith(onSurface: p.lateRowText)) : Theme.of(context),
+                      child: CheckCircle(done: e.done, size: ctx.wide ? 18 : 22),
+                    ),
                   ),
                 ),
               ),
@@ -829,23 +1038,33 @@ class _EntryRow extends StatelessWidget {
       ),
     );
 
-    final body = InkWell(onTap: () => ctx.onOpen(e), child: row(false));
+    Widget body = InkWell(onTap: () => ctx.onOpen(e), child: row(false));
+    if (late) body = KeyedSubtree(key: ctx.lateKey(e.id), child: body);
     if (ctx.readOnly) return body;
-    final feedback = Material(
+    final width = ctx.wide ? 220.0 : 280.0;
+    final ghost = Material(
       type: MaterialType.transparency,
-      child: Transform.rotate(
-        angle: -0.03,
-        child: SizedBox(width: ctx.wide ? 220 : 280, child: row(true)),
-      ),
+      child: Transform.rotate(angle: -0.03, child: SizedBox(width: width, child: row(true))),
     );
     final placeholder = Opacity(opacity: 0.3, child: row(false));
+    void started() {
+      final rb = context.findRenderObject() as RenderBox?;
+      _origin = rb?.localToGlobal(Offset.zero);
+      ctx.onDragStart();
+    }
+
+    void ended(DraggableDetails d) {
+      ctx.onDragEnd();
+      if (!d.wasAccepted) _flyBack(d.offset, ghost);
+    }
+
     if (ctx.wide) {
       return Draggable<PlannerEntry>(
         data: e,
-        feedback: feedback,
+        feedback: ghost,
         childWhenDragging: placeholder,
-        onDragStarted: ctx.onDragStart,
-        onDragEnd: (_) => ctx.onDragEnd(),
+        onDragStarted: started,
+        onDragEnd: ended,
         onDragUpdate: ctx.onDragUpdate,
         child: body,
       );
@@ -853,17 +1072,74 @@ class _EntryRow extends StatelessWidget {
     return LongPressDraggable<PlannerEntry>(
       data: e,
       delay: PlannerMetrics.holdDelay,
-      feedback: feedback,
+      feedback: ghost,
       childWhenDragging: placeholder,
-      onDragStarted: ctx.onDragStart,
-      onDragEnd: (_) => ctx.onDragEnd(),
+      onDragStarted: started,
+      onDragEnd: ended,
       onDragUpdate: ctx.onDragUpdate,
       child: body,
     );
   }
 }
 
-/// Tweek's round tick: an empty ring, or a filled gray ring with a check.
+/// Late items whose own row is not in view, stacked in red at the top, so
+/// they can never be scrolled out of sight (his rule, 2026-11-13). Tapping one
+/// opens it.
+class _LateStack extends StatelessWidget {
+  const _LateStack({required this.ctx, required this.items});
+  final _Ctx ctx;
+  final List<PlannerEntry> items;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      alignment: Alignment.topCenter,
+      child: items.isEmpty
+          ? const SizedBox(width: double.infinity)
+          : Padding(
+              padding: EdgeInsets.fromLTRB(ctx.wide ? 26 : 16, 0, ctx.wide ? 26 : 16, 6),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (final e in items)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 3),
+                      child: Material(
+                        color: p.lateRow,
+                        borderRadius: BorderRadius.circular(10),
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(10),
+                          onTap: () => ctx.onOpen(e),
+                          child: Container(
+                            constraints: const BoxConstraints(minHeight: 40),
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Text.rich(
+                                    _titleSpan(e, TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: p.lateRowText)),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Text(dayHeading(e.slotKey), style: TextStyle(fontSize: 13, color: p.lateRowText.withValues(alpha: 0.85))),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+    );
+  }
+}
+
 // ------------------------------------------------------------------ week (phone)
 
 class _PhoneWeek extends StatelessWidget {
@@ -1018,6 +1294,8 @@ class _Month extends StatelessWidget {
       weeks.add([for (var i = 0; i < 7; i++) addDays(d, i)]);
     }
     final cellH = ctx.wide ? 118.0 : 92.0;
+    final monthKey = dayKey(DateTime(f.year, f.month, 1)).substring(0, 7);
+    final elsewhere = [for (final e in ctx.data.lateItems) if (e.slotKey.substring(0, 7) != monthKey) e];
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
       padding: EdgeInsets.fromLTRB(ctx.wide ? 22 : 8, 0, ctx.wide ? 22 : 8, 110),
@@ -1047,6 +1325,12 @@ class _Month extends StatelessWidget {
                 ),
             ],
           ),
+        // Late items from other months: red boxes under the calendar, so they
+        // stay in sight here too (his rule, 2026-11-13).
+        if (elsewhere.isNotEmpty) ...[
+          const SizedBox(height: 14),
+          _LateStack(ctx: ctx, items: elsewhere),
+        ],
       ],
     );
   }
@@ -1068,6 +1352,8 @@ class _MonthCell extends StatelessWidget {
     final isToday = day == ctx.today;
     final weekend = parseDay(day).weekday >= 6;
     final show = ctx.wide ? 4 : 3;
+    // A late item's own day, in its own month: the whole square goes red.
+    final late = inMonth && items.any((e) => e.late);
     return Semantics(
       button: true,
       label: '${dayLabel(day)}, ${items.length} ${items.length == 1 ? 'item' : 'items'}',
@@ -1078,6 +1364,7 @@ class _MonthCell extends StatelessWidget {
           child: Container(
             height: height,
             decoration: BoxDecoration(
+              color: late ? p.lateRow : null,
               border: Border(top: BorderSide(color: c.outlineVariant.withValues(alpha: 0.7))),
             ),
             padding: const EdgeInsets.fromLTRB(2, 5, 2, 2),
@@ -1092,7 +1379,7 @@ class _MonthCell extends StatelessWidget {
                     decoration: BoxDecoration(shape: BoxShape.circle, color: isToday ? c.primary : Colors.transparent),
                     child: Text(
                       '${parseDay(day).day}',
-                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: isToday ? c.onPrimary : (weekend ? c.onSurfaceVariant : c.onSurface)),
+                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: isToday ? c.onPrimary : (late ? p.lateRowText : (weekend ? c.onSurfaceVariant : c.onSurface))),
                     ),
                   ),
                 ),
@@ -1101,24 +1388,29 @@ class _MonthCell extends StatelessWidget {
                   Container(
                     margin: const EdgeInsets.only(bottom: 2),
                     padding: const EdgeInsets.symmetric(horizontal: 3),
-                    decoration: BoxDecoration(color: e.late ? p.dangerBg : (e.isCard ? c.primaryContainer : p.chip), borderRadius: BorderRadius.circular(4)),
-                    child: Text(
-                      e.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.clip,
-                      softWrap: false,
-                      style: TextStyle(
-                        fontSize: 10,
-                        height: 1.5,
-                        color: e.late ? p.dangerText : (e.done ? c.onSurfaceVariant : c.onSurface),
-                        decoration: e.done ? TextDecoration.lineThrough : null,
+                    decoration: BoxDecoration(
+                      color: e.late ? Colors.transparent : (late ? p.card.withValues(alpha: 0.9) : (e.isCard ? c.primaryContainer : p.chip)),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text.rich(
+                      _titleSpan(
+                        e,
+                        TextStyle(
+                          fontSize: 10,
+                          height: 1.5,
+                          color: e.late ? p.lateRowText : (e.done ? c.onSurfaceVariant : (e.state == DueState.dueToday ? p.dueToday : c.onSurface)),
+                          decoration: e.done ? TextDecoration.lineThrough : null,
+                        ),
                       ),
+                      maxLines: e.late ? 2 : 1,
+                      overflow: TextOverflow.clip,
+                      softWrap: e.late,
                     ),
                   ),
                 if (items.length > show)
                   Padding(
                     padding: const EdgeInsets.only(left: 2),
-                    child: Text('${items.length - show} more', style: TextStyle(fontSize: 10, color: c.onSurfaceVariant)),
+                    child: Text('${items.length - show} more', style: TextStyle(fontSize: 10, color: late ? p.lateRowText : c.onSurfaceVariant)),
                   ),
               ],
             ),
@@ -1181,7 +1473,7 @@ class _SearchResults extends StatelessWidget {
             e.title,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: TextStyle(color: e.late ? context.palette.dangerText : null, decoration: e.done ? TextDecoration.lineThrough : null),
+            style: TextStyle(color: e.late ? context.palette.dangerText : null, fontWeight: e.late ? FontWeight.w700 : null, decoration: e.done ? TextDecoration.lineThrough : null),
           ),
           subtitle: Text(e.isCard ? '$where · card #${e.card!.number}' : where),
           onTap: () => ctx.onOpen(e),
