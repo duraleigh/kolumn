@@ -92,25 +92,32 @@ Future<TestGesture> holdAndLift(WidgetTester tester, String title) async {
 }
 
 void main() {
-  testWidgets('phone: only To-do is open, the rest are strips', (tester) async {
+  testWidgets('phone: the main kolumn and every one to its right are open; Later is a strip', (tester) async {
     await pumpApp(tester, phone);
     expect(find.byTooltip('Add a card'), findsOneWidget, reason: 'one + button for the whole Kolumn');
     expect(find.text(holdCard), findsOneWidget);
-    expect(stripFor('In progress'), findsOneWidget);
-    expect(stripFor('Later'), findsOneWidget);
-    expect(stripFor('Done'), findsOneWidget);
+    expect(find.text(priorityCard), findsOneWidget, reason: 'In progress, right of To-do, is open');
+    expect(stripFor('In progress'), findsNothing);
+    expect(stripFor('Done'), findsNothing);
+    expect(stripFor('Later'), findsOneWidget, reason: 'left of the main kolumn: a strip');
+    expect(tester.getTopLeft(find.text(holdCard)).dx, lessThan(120), reason: 'To-do starts at the left, just after the Later strip');
   });
 
-  testWidgets('phone: tapping a strip opens it and folds To-do (one open at a time)', (tester) async {
+  testWidgets('phone: tapping Later opens it alone; tapping any folded one puts everything back', (tester) async {
     await pumpApp(tester, phone);
+    await tester.tap(stripFor('Later'));
+    await _settle(tester);
+    expect(find.text(laterCard), findsOneWidget);
+    expect(find.text(holdCard), findsNothing, reason: 'To-do folded into a strip');
+    expect(find.text(priorityCard), findsNothing, reason: 'and everything right of it');
+    expect(stripFor('To-do'), findsOneWidget);
+    expect(stripFor('In progress'), findsOneWidget);
     await tester.tap(stripFor('In progress'));
     await _settle(tester);
-    expect(find.text(priorityCard), findsOneWidget);
-    expect(find.text(holdCard), findsNothing, reason: 'To-do folded into a strip');
-    expect(stripFor('To-do'), findsOneWidget);
-    await tester.tap(stripFor('Waiting on'));
-    await _settle(tester);
-    expect(find.text(priorityCard), findsNothing, reason: 'In progress folded again');
+    expect(stripFor('Later'), findsOneWidget, reason: 'Later folds again');
+    expect(find.text(holdCard), findsOneWidget, reason: 'the main kolumn is open again');
+    expect(find.text(priorityCard), findsOneWidget, reason: 'and everything to its right');
+    expect(tester.getTopLeft(find.text(priorityCard)).dx, lessThan(phone.width), reason: 'the tapped one comes into view');
   });
 
   for (final size in [smallPhone, phone, largePhone]) {
@@ -152,15 +159,16 @@ void main() {
     });
   }
 
-  testWidgets('phone: holding a card at the left edge flips to the column on the left', (tester) async {
+  testWidgets('phone: holding a card at the right edge slides the row to the next kolumn', (tester) async {
     await pumpApp(tester, phone);
+    final before = tester.getTopLeft(find.text(priorityCard)).dx;
     final g = await holdAndLift(tester, holdCard);
-    await g.moveTo(const Offset(6, 300));
+    await g.moveTo(Offset(phone.width - 6, 300));
     await tester.pump(const Duration(milliseconds: 100));
     await g.moveBy(const Offset(0, 2));
     await tester.pump(const Duration(milliseconds: 800));
     await tester.pump(const Duration(milliseconds: 400));
-    expect(find.text(laterCard), findsOneWidget, reason: 'Later is open now');
+    expect(tester.getTopLeft(find.text(priorityCard)).dx, lessThan(before - 100), reason: 'In progress slid into view');
     await g.up();
     await _settle(tester);
   });
@@ -236,7 +244,7 @@ void main() {
 
   testWidgets('To-do, Later and Done can be renamed and recolored on a Kolumn', (tester) async {
     final h = await pumpApp(tester, phone);
-    await tester.tap(find.byTooltip('Options for this kolumn'));
+    await tester.tap(find.byTooltip('Options for this kolumn').first);
     await _settle(tester);
     await tester.tap(find.text('Rename or recolor'));
     await _settle(tester);
@@ -252,13 +260,13 @@ void main() {
     // Done gets a new name too; its strip and the drop tray use it.
     await tester.runAsync(() => h.repo.setLaneLook(board.id, 'done', name: 'Released', color: 1));
     await _settle(tester);
-    expect(stripFor('Released'), findsOneWidget);
+    expect(find.text('Released'), findsWidgets, reason: 'Done, open right of the main kolumn, has its new name');
     final g = await holdAndLift(tester, holdCard);
     expect(trayText('Released'), findsOneWidget);
     await g.up();
     await _settle(tester);
     // And back to the usual name.
-    await tester.tap(find.byTooltip('Options for this kolumn'));
+    await tester.tap(find.byTooltip('Options for this kolumn').first);
     await _settle(tester);
     await tester.tap(find.text('Rename or recolor'));
     await _settle(tester);
@@ -271,7 +279,7 @@ void main() {
 
   testWidgets('To-do has the same menu as every kolumn: move it, delete it, bring it back', (tester) async {
     final h = await pumpApp(tester, phone);
-    await tester.tap(find.byTooltip('Options for this kolumn'));
+    await tester.tap(find.byTooltip('Options for this kolumn').first);
     await _settle(tester);
     for (final item in ['Rename or recolor', 'Move left', 'Move right', 'Delete kolumn']) {
       expect(find.text(item), findsOneWidget, reason: item);
@@ -300,7 +308,7 @@ void main() {
     await _settle(tester);
     await tester.tap(find.text('Bring back "To-do"'));
     await _settle(tester);
-    expect(stripFor('To-do'), findsOneWidget, reason: 'To-do is back, as a strip beside the open kolumn');
+    expect(find.text('To-do'), findsWidgets, reason: 'To-do is back');
     final back = await tester.runAsync(() => h.repo.addCard(board.id, 'After To-do came back'));
     expect((await tester.runAsync(() => h.repo.card(back!)))!.columnId, isNull, reason: 'new cards land in To-do again');
     expect(tester.takeException(), isNull);
@@ -318,7 +326,8 @@ void main() {
 
   testWidgets('the + button adds to the kolumn in the middle of the screen', (tester) async {
     final h = await pumpApp(tester, phone);
-    await tester.tap(stripFor('In progress'));
+    // Swipe In progress to the middle.
+    await tester.drag(find.byType(SingleChildScrollView).first, Offset(-(phone.width - 110), 0));
     await _settle(tester);
     await tester.tap(find.byTooltip('Add a card'));
     await _settle(tester);
@@ -332,13 +341,15 @@ void main() {
     expect(find.text('Order the merch'), findsOneWidget);
   });
 
-  testWidgets('on a phone, swiping brings the next kolumn to the middle and it opens by itself', (tester) async {
+  testWidgets('on a phone, swiping only scrolls: nothing folds or opens by itself', (tester) async {
     await pumpApp(tester, phone);
-    expect(find.text(priorityCard), findsNothing);
+    final before = tester.getTopLeft(find.text(priorityCard)).dx;
     await tester.fling(find.byType(SingleChildScrollView).first, const Offset(-160, 0), 600);
     await _settle(tester);
-    expect(find.text(priorityCard), findsOneWidget, reason: 'In progress came to the middle and opened');
-    expect(stripFor('To-do'), findsOneWidget);
+    expect(tester.getTopLeft(find.text(priorityCard)).dx, lessThan(before));
+    expect(stripFor('To-do'), findsNothing, reason: 'To-do stays open');
+    expect(stripFor('In progress'), findsNothing);
+    expect(stripFor('Later'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

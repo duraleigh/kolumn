@@ -135,6 +135,12 @@ class _BoardViewState extends ConsumerState<BoardView> {
   /// On a wide screen: kolumns LEFT of the main one that were tapped open.
   /// Everything from the main one rightward is always open (his ask, 2026-11-12).
   final Set<Lane> _openLeft = {};
+
+  /// On a phone (his rule, 2026-11-13): the main kolumn and every one to its
+  /// right start open and stay open; swiping only scrolls them. A kolumn LEFT
+  /// of the main one stays a strip until tapped; then it is the only one open
+  /// ([_leftOpen]) until any folded one is tapped, which puts everything back.
+  Lane? _leftOpen;
   bool _restored = false;
 
   String? _dragId;
@@ -148,6 +154,7 @@ class _BoardViewState extends ConsumerState<BoardView> {
   @override
   void dispose() {
     _edgeTimer?.cancel();
+    _slide?.cancel();
     _row.dispose();
     super.dispose();
   }
@@ -163,13 +170,15 @@ class _BoardViewState extends ConsumerState<BoardView> {
     if (saved != null && saved != _home) {
       _open = saved;
     }
-    WidgetsBinding.instance.addPostFrameCallback((_) => _centerOpen(animate: false));
+    WidgetsBinding.instance.addPostFrameCallback((_) => _centerOpen(animate: false, start: true));
   }
 
   void _setOpen(Lane lane) {
     final repo = ref.read(repositoryProvider);
     setState(() {
       if (_narrow) {
+        // A left kolumn opens alone; tapping any folded one puts things back.
+        _leftOpen = _isLeftOfHome(lane) && _leftOpen != lane ? lane : null;
         _open = lane;
       } else if (_isLeftOfHome(lane)) {
         _openLeft.contains(lane) ? _openLeft.remove(lane) : _openLeft.add(lane);
@@ -187,11 +196,14 @@ class _BoardViewState extends ConsumerState<BoardView> {
     return i >= 0 && h >= 0 && i < h;
   }
 
-  bool _isOpen(Lane lane) => _narrow ? lane == _open : (!_isLeftOfHome(lane) || _openLeft.contains(lane));
+  bool _isOpen(Lane lane) {
+    if (_narrow) return _leftOpen != null ? lane == _leftOpen : !_isLeftOfHome(lane);
+    return !_isLeftOfHome(lane) || _openLeft.contains(lane);
+  }
 
   /// The kolumn the + button adds to: the open one nearest the middle of the screen.
   Lane get _focused {
-    if (_narrow || !_row.hasClients) return _open;
+    if (!_row.hasClients) return _leftOpen ?? _home;
     final middle = _row.offset + _row.position.viewportDimension / 2;
     var x = BoardMetrics.pad;
     Lane? best;
@@ -210,43 +222,28 @@ class _BoardViewState extends ConsumerState<BoardView> {
     return best ?? _home;
   }
 
-  /// On a phone, a swipe brings the next kolumn (or the one before) to the
-  /// middle, and it opens by itself (his ask, 2026-11-12).
-  double? _swipeFrom;
-
-  void _settleOnMiddle(int direction) {
-    if (!_narrow || _dragId != null || _lanes.isEmpty) return;
-    if (direction == 0) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _centerOpen());
-      return;
-    }
-    final i = _lanes.indexWhere((l) => l.lane == _open);
-    final j = (i + direction).clamp(0, _lanes.length - 1);
-    if (i < 0 || j == i) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _centerOpen());
-      return;
-    }
-    HapticFeedback.selectionClick();
-    _setOpen(_lanes[j].lane);
-  }
-
-
   double _widthOf(Lane lane) => _isOpen(lane) ? _openW : BoardMetrics.strip;
 
-  void _centerOpen({bool animate = true}) {
+  void _centerOpen({bool animate = true, bool start = false}) {
     if (!mounted || !_row.hasClients) return;
     if (!_narrow) {
       // On a wide screen everything fits; only nudge if a lane is off-screen.
       if (_row.position.maxScrollExtent <= 0) return;
     }
-    final target = _narrow ? _open : _home;
+    // A phone starts on the main kolumn, with the strip before it in view.
+    final target = _narrow ? (start ? _home : _open) : _home;
     var x = BoardMetrics.pad;
     for (final l in _lanes) {
       if (l.lane == target) break;
       x += _widthOf(l.lane) + BoardMetrics.gap;
     }
     final view = _row.position.viewportDimension;
-    final dest = (x - (view - _widthOf(target)) / 2).clamp(0.0, _row.position.maxScrollExtent);
+    final i = _lanes.indexWhere((l) => l.lane == target);
+    // On a phone: the kolumn at the left, with the one before it just in view
+    // (a whole strip, or a sliver of an open kolumn).
+    final prev = i > 0 ? _lanes[i - 1].lane : null;
+    final leadIn = prev == null ? BoardMetrics.pad : (_isOpen(prev) ? 16 + BoardMetrics.gap : BoardMetrics.strip + BoardMetrics.gap);
+    final dest = (_narrow ? x - leadIn : x - (view - _widthOf(target)) / 2).clamp(0.0, _row.position.maxScrollExtent);
     if (animate) {
       _row.animateTo(dest, duration: const Duration(milliseconds: 320), curve: Curves.easeOutCubic);
     } else {
@@ -283,13 +280,26 @@ class _BoardViewState extends ConsumerState<BoardView> {
     }
   }
 
+  /// Holding a card at the screen edge slides the row one kolumn over.
   void _flip(int side) {
-    final i = _lanes.indexWhere((l) => l.lane == _open);
-    final j = (i + side).clamp(0, _lanes.length - 1);
-    if (i < 0 || j == i) return;
+    if (!_row.hasClients) return;
+    final p = _row.position;
+    final to = (p.pixels + side * (_openW + BoardMetrics.gap)).clamp(p.minScrollExtent, p.maxScrollExtent);
+    if (to == p.pixels) return;
     HapticFeedback.selectionClick();
-    _setOpen(_lanes[j].lane);
+    // Stepped by hand: with a finger still down, the row's own slide is cut short.
+    _slide?.cancel();
+    final from = p.pixels;
+    var t = 0;
+    _slide = Timer.periodic(const Duration(milliseconds: 16), (timer) {
+      t += 16;
+      final k = Curves.easeOutCubic.transform((t / 260).clamp(0.0, 1.0));
+      if (_row.hasClients) _row.jumpTo(from + (to - from) * k);
+      if (t >= 260) timer.cancel();
+    });
   }
+
+  Timer? _slide;
 
   void _dragEnded() {
     _edgeTimer?.cancel();
@@ -319,6 +329,7 @@ class _BoardViewState extends ConsumerState<BoardView> {
     final hintDone = ref.watch(_hintProvider).value ?? true;
     _lanes = buildLanes(context, columns, cards, board: widget.board);
     if (!_lanes.any((l) => l.lane == _open)) _open = _home;
+    if (_leftOpen != null && (!_lanes.any((l) => l.lane == _leftOpen) || !_isLeftOfHome(_leftOpen!))) _leftOpen = null;
     _openLeft.removeWhere((l) => !_lanes.any((x) => x.lane == l) || !_isLeftOfHome(l));
     final dragging = _dragId != null;
 
@@ -372,7 +383,8 @@ class _BoardViewState extends ConsumerState<BoardView> {
     final strips = _lanes.where((l) => !_isOpen(l.lane)).length;
     final opens = _lanes.length - strips;
     if (_narrow) {
-      _openW = math.max(240, box.maxWidth - 2 * (BoardMetrics.strip + BoardMetrics.gap) - 2 * BoardMetrics.pad + 8);
+      // Nearly the screen's width, with the strip before it and the next kolumn peeking.
+      _openW = math.max(240, box.maxWidth - 2 * BoardMetrics.pad - BoardMetrics.strip - 2 * BoardMetrics.gap - 16);
     } else {
       final free = box.maxWidth - 2 * BoardMetrics.pad - _lanes.length * BoardMetrics.gap - (strips + 1) * BoardMetrics.strip;
       _openW = math.max(BoardMetrics.minOpenWide, free / math.max(1, opens));
@@ -417,19 +429,8 @@ class _BoardViewState extends ConsumerState<BoardView> {
     }
     children.add(const SizedBox(width: BoardMetrics.gap));
     if (!(ref.watch(readOnlyProvider).value ?? false)) children.add(_AddColumnStrip(boardId: _boardId));
-    return NotificationListener<ScrollNotification>(
-      onNotification: (n) {
-        if (n.metrics.axis != Axis.horizontal || !_narrow) return false;
-        // Only a finger's swipe counts; the board's own centering does not.
-        if (n is ScrollStartNotification && n.dragDetails != null) _swipeFrom = n.metrics.pixels;
-        if (n is ScrollEndNotification && _swipeFrom != null) {
-          final moved = n.metrics.pixels - _swipeFrom!;
-          _swipeFrom = null;
-          _settleOnMiddle(moved > 16 ? 1 : (moved < -16 ? -1 : 0));
-        }
-        return false;
-      },
-      child: SingleChildScrollView(
+    // Swiping simply scrolls the open kolumns on and off the screen.
+    return SingleChildScrollView(
       controller: _row,
       scrollDirection: Axis.horizontal,
       physics: _dragId != null ? const NeverScrollableScrollPhysics() : const BouncingScrollPhysics(),
@@ -437,7 +438,6 @@ class _BoardViewState extends ConsumerState<BoardView> {
       child: SizedBox(
         height: box.maxHeight - 18,
         child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: children),
-      ),
       ),
     );
   }
