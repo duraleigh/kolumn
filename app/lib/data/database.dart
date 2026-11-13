@@ -516,12 +516,19 @@ class KolumnDb extends _$KolumnDb {
         await m.addColumn(kBoards, kBoards.shareKey);
       }
       if (from < 9) {
-        await m.addColumn(kBoards, kBoards.plannerIds);
-        await m.addColumn(kColumns, kColumns.plannerIds);
-        await m.addColumn(kCards, kCards.pinnedAt);
-        await m.addColumn(kTodos, kTodos.dueAt);
-        await m.addColumn(kTodos, kTodos.dueHasTime);
-        await m.addColumn(kNotifications, kNotifications.kind);
+        // A table made earlier in this same update already has its new fields
+        // (it is made from today's layout), so add each only when missing.
+        Future<void> add(TableInfo t, GeneratedColumn c) async {
+          final have = await customSelect('PRAGMA table_info(${t.actualTableName})').get();
+          if (!have.any((r) => r.read<String>('name') == c.name)) await m.addColumn(t, c);
+        }
+
+        await add(kBoards, kBoards.plannerIds);
+        await add(kColumns, kColumns.plannerIds);
+        await add(kCards, kCards.pinnedAt);
+        await add(kTodos, kTodos.dueAt);
+        await add(kTodos, kTodos.dueHasTime);
+        await add(kNotifications, kNotifications.kind);
         for (final t in <TableInfo>[kTodoEvents, kTodoWatches, kReminderReads]) {
           await m.createTable(t);
         }

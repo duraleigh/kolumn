@@ -211,7 +211,15 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
     HapticFeedback.mediumImpact();
     if (e.isCard) {
       if (to.day == null) return;
-      await repo.setCardDue(e.card!.id, to.day);
+      final c = e.card!;
+      if (c.dueAt != null && c.dueHasTime) {
+        // Same time of day, on the new day.
+        final t = DateTime.fromMillisecondsSinceEpoch(c.dueAt!);
+        final d = parseDay(to.day!);
+        await repo.setCardDueAt(c.id, DateTime(d.year, d.month, d.day, t.hour, t.minute).millisecondsSinceEpoch, hasTime: true);
+      } else {
+        await repo.setCardDue(c.id, to.day);
+      }
       return;
     }
     final t = e.todo!;
