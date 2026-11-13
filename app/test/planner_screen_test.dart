@@ -11,6 +11,7 @@ import 'package:kolumn/planner/planner_model.dart';
 import 'package:kolumn/state/providers.dart';
 import 'package:kolumn/sync/hub_client.dart';
 import 'package:kolumn/sync/sync_service.dart';
+import 'package:kolumn/ui/item_sheet.dart';
 
 const phone = Size(390, 844);
 const smallPhone = Size(320, 640);
@@ -156,6 +157,29 @@ void main() {
     expect(find.byTooltip('Reminder'), findsOneWidget);
     expect(find.byTooltip('Who it\'s for'), findsOneWidget);
     expect(find.textContaining('Tomorrow'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('the to-do pop-up: a due pill, no tick beside the title, no Heading button, the card\'s buttons', (tester) async {
+    await pumpPlanner(tester, phone);
+    await tester.tap(find.text('Rehearsal at the studio'));
+    await settle(tester);
+    expect(find.text('Add a due date'), findsOneWidget);
+    expect(find.text('Heading'), findsNothing);
+    expect(find.descendant(of: find.byType(ItemSheetFrame), matching: find.byType(CheckCircle)), findsNothing, reason: 'the big check at the bottom marks it done');
+    for (final b in ['Photo', 'Camera', 'File']) {
+      expect(find.widgetWithText(ActionChip, b), findsOneWidget);
+    }
+    // "Add a step" and the title stretch to the same right edge as the note.
+    final note = tester.getTopRight(find.widgetWithText(TextField, 'Add a note'));
+    final step = tester.getTopRight(find.widgetWithText(TextField, 'Add a step'));
+    final title = tester.getTopRight(find.widgetWithText(TextField, 'Rehearsal at the studio'));
+    expect(step.dx, note.dx);
+    expect(title.dx, note.dx);
+    await tester.tap(find.byTooltip('More'));
+    await settle(tester);
+    expect(find.text('Stop following'), findsOneWidget, reason: 'its maker follows it automatically');
+    expect(find.text('Move to a different date'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

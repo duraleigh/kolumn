@@ -664,53 +664,6 @@ Future<String?> pickTag(BuildContext context, List<String> known) {
   );
 }
 
-/// My pinned cards, from any board.
-Future<void> showPinsSheet(BuildContext context, void Function(KCard) open) => showModalBottomSheet<void>(
-  context: context,
-  isScrollControlled: true,
-  builder: (context) => Consumer(
-    builder: (context, ref, _) {
-      final pins = ref.watch(pinsProvider).value ?? const <KPin>[];
-      final cards = {for (final c in ref.watch(allCardsProvider).value ?? const <KCard>[]) c.id: c};
-      final boards = {for (final b in ref.watch(boardsProvider).value ?? const <KBoard>[]) b.id: b.name};
-      final list = [for (final p in pins) ?cards[p.cardId]];
-      return SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text('Pinned', style: Theme.of(context).textTheme.titleLarge),
-              const SizedBox(height: 4),
-              Text('Your own shortcuts. Pin a card from its screen.', style: Theme.of(context).textTheme.bodySmall),
-              const SizedBox(height: 12),
-              if (list.isEmpty) const Padding(padding: EdgeInsets.all(16), child: Text('Nothing pinned yet.')),
-              for (final c in list)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 6),
-                  child: Material(
-                    color: context.palette.lane,
-                    borderRadius: BorderRadius.circular(KShapes.lg),
-                    child: ListTile(
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(KShapes.lg)),
-                      leading: const Icon(Icons.push_pin_rounded),
-                      title: Text(c.title, maxLines: 2, overflow: TextOverflow.ellipsis),
-                      subtitle: Text(boards[c.boardId] ?? ''),
-                      onTap: () {
-                        Navigator.pop(context);
-                        open(c);
-                      },
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ),
-      );
-    },
-  ),
-);
-
 /// My drafts on a board.
 Future<void> showDraftsSheet(BuildContext context, String boardId, void Function(KCard) open) => showModalBottomSheet<void>(
   context: context,

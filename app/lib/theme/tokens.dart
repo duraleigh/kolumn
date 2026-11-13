@@ -135,6 +135,9 @@ class KolumnPalette extends ThemeExtension<KolumnPalette> {
     required this.trayShadow,
     required this.dangerBg,
     required this.dangerText,
+    required this.dueToday,
+    required this.lateRow,
+    required this.lateRowText,
   });
 
   final Color lane;
@@ -148,6 +151,13 @@ class KolumnPalette extends ThemeExtension<KolumnPalette> {
   final List<BoxShadow> trayShadow;
   final Color dangerBg;
   final Color dangerText;
+
+  /// Due today (his rule, 2026-11-13): yellow on dark, a deep readable amber on light.
+  final Color dueToday;
+
+  /// Late: a red row with white words.
+  final Color lateRow;
+  final Color lateRowText;
 
   static const KolumnPalette light = KolumnPalette(
     lane: Color(0xFFF2EFF8),
@@ -167,6 +177,9 @@ class KolumnPalette extends ThemeExtension<KolumnPalette> {
     trayShadow: [BoxShadow(color: Color(0x244653D0), blurRadius: 34, offset: Offset(0, -14))],
     dangerBg: Color(0xFFFFDAD6),
     dangerText: Color(0xFF93000A),
+    dueToday: Color(0xFF92400E),
+    lateRow: Color(0xFFB3261E),
+    lateRowText: Color(0xFFFFFFFF),
   );
 
   static const KolumnPalette dark = KolumnPalette(
@@ -181,6 +194,9 @@ class KolumnPalette extends ThemeExtension<KolumnPalette> {
     trayShadow: [BoxShadow(color: Color(0x73000000), blurRadius: 34, offset: Offset(0, -14))],
     dangerBg: Color(0xFF3B1D22),
     dangerText: Color(0xFFFCA5A5),
+    dueToday: Color(0xFFFACC15),
+    lateRow: Color(0xFFB3261E),
+    lateRowText: Color(0xFFFFFFFF),
   );
 
   @override

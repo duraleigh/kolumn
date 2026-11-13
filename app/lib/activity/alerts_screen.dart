@@ -86,7 +86,7 @@ class AlertsScreen extends ConsumerWidget {
                             unread: n.readAt == null,
                             onTap: () {
                               if (n.readAt == null) repo.setAlertRead(n.cardId, true);
-                              Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => CardScreen(cardId: card.id, boardId: card.boardId)));
+                              showCardSheet(context, card.id);
                             },
                             onLongPress: () => repo.setAlertRead(n.cardId, n.readAt == null),
                           );

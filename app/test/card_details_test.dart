@@ -52,7 +52,7 @@ Future<void> pumpCard(WidgetTester tester, KolumnRepository repo, String board, 
         syncServiceProvider.overrideWithValue(sync),
         syncStatusProvider.overrideWith((ref) => Stream.value(SyncStatus(SyncState.upToDate, lastSynced: DateTime.now()))),
       ],
-      child: MaterialApp(theme: KolumnTheme.light(), home: CardScreen(cardId: card, boardId: board)),
+      child: MaterialApp(theme: KolumnTheme.light(), home: Scaffold(body: CardSheet(cardId: card))),
     ),
   );
   await settle(tester);
@@ -195,10 +195,10 @@ void main() {
       await tester.testTextInput.receiveAction(TextInputAction.done);
       await settle(tester);
       expect(find.text('Call the venue'), findsOneWidget);
-      expect(find.text('Checklist · 0 of 1'), findsOneWidget);
+      expect(find.text('Heading'), findsNothing, reason: 'no Heading button, on cards or to-dos');
       await tester.tap(find.text('Call the venue'));
       await settle(tester);
-      expect(find.text('Checklist · 1 of 1'), findsOneWidget);
+      expect((await tester.runAsync(() => repo.watchSteps(card).first))!.single.done, isTrue);
       await tester.runAsync(db.close);
     });
 
@@ -208,6 +208,10 @@ void main() {
       late String board, card;
       await tester.runAsync(() async => (repo, board, card) = await seed(db));
       await pumpCard(tester, repo, board, card);
+      expect(find.widgetWithText(TextField, 'Write a comment… (@ mentions, # links)'), findsNothing, reason: 'comments are tucked away until the pen');
+      await tester.tap(find.byTooltip('Comments and activity'));
+      await settle(tester);
+      expect(find.textContaining('Activity'), findsOneWidget);
       final box = find.widgetWithText(TextField, 'Write a comment… (@ mentions, # links)');
       await tester.enterText(box, 'Ask @Ja');
       await settle(tester);
@@ -221,15 +225,47 @@ void main() {
       await tester.runAsync(db.close);
     });
 
-    testWidgets('pinning from the card screen', (tester) async {
+    testWidgets('⋮ pins the card to the top of its kolumn, and follows it', (tester) async {
       final db = memoryDb();
       late KolumnRepository repo;
       late String board, card;
       await tester.runAsync(() async => (repo, board, card) = await seed(db));
       await pumpCard(tester, repo, board, card);
-      await tester.tap(find.byTooltip('Pin to my shortcuts'));
+      await tester.tap(find.byTooltip('More'));
       await settle(tester);
-      expect(find.byTooltip('Unpin'), findsOneWidget);
+      expect(find.text('Move to a different kolumn'), findsOneWidget);
+      expect(find.text('Delete card'), findsOneWidget);
+      await tester.tap(find.text('Pin to the top of its kolumn'));
+      await settle(tester);
+      expect((await tester.runAsync(() => repo.card(card)))!.pinnedAt, isNotNull);
+      expect(find.textContaining('pinned to the top'), findsOneWidget);
+      await tester.tap(find.byTooltip('More'));
+      await settle(tester);
+      await tester.tap(find.text('Follow'));
+      await settle(tester);
+      expect((await tester.runAsync(() => repo.watchWatch(card).first))!.watching, isTrue);
+      await tester.runAsync(db.close);
+    });
+
+    testWidgets('the due pill goes straight to the calendar with the time at 11:59 PM', (tester) async {
+      final db = memoryDb();
+      late KolumnRepository repo;
+      late String board, card;
+      await tester.runAsync(() async => (repo, board, card) = await seed(db));
+      await pumpCard(tester, repo, board, card);
+      await tester.tap(find.text('Add a due date'));
+      await settle(tester);
+      expect(find.byType(CalendarDatePicker), findsOneWidget);
+      expect(find.byKey(const ValueKey('time-wheel')), findsOneWidget);
+      expect(find.text('11'), findsWidgets);
+      expect(find.text('59'), findsWidgets);
+      await tester.tap(find.text('Set'));
+      await settle(tester);
+      final c = (await tester.runAsync(() => repo.card(card)))!;
+      final d = DateTime.fromMillisecondsSinceEpoch(c.dueAt!);
+      expect((d.hour, d.minute), (23, 59));
+      expect(c.dueHasTime, isFalse);
+      expect(find.textContaining('Due Today'), findsOneWidget);
       await tester.runAsync(db.close);
     });
   });

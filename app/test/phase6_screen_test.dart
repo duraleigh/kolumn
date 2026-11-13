@@ -132,8 +132,8 @@ void main() {
     expect(find.text('Riley Stone assigned you to Book the van'), findsOneWidget);
     await tester.tap(find.text('Riley Stone mentioned you on Finalize setlist'));
     await settle(tester);
-    expect(find.byType(BackButton), findsOneWidget, reason: 'the card opened');
-    await tester.pageBack();
+    expect(find.byTooltip('Comments and activity'), findsOneWidget, reason: 'the card opened');
+    Navigator.of(tester.element(find.byTooltip('Comments and activity'))).pop();
     await settle(tester);
     expect(find.text('1 new'), findsOneWidget);
     await tester.tap(find.text('Mark all read'));

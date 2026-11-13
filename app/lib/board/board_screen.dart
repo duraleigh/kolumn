@@ -543,7 +543,6 @@ class _TopBar extends ConsumerWidget {
             onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const FindScreen())),
             icon: const Icon(Icons.search_rounded),
           ),
-          _PinsButton(),
           _RefreshButton(),
           IconButton(tooltip: 'Settings', onPressed: () => showSettingsSheet(context, ref), icon: const Icon(Icons.tune_rounded)),
         ],
@@ -579,24 +578,6 @@ String _statusLine(WidgetRef ref) {
   }
 }
 
-class _PinsButton extends ConsumerWidget {
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final n = (ref.watch(pinsProvider).value ?? const <KPin>[]).length;
-    return IconButton(
-      tooltip: 'Pinned cards',
-      onPressed: () => showPinsSheet(
-        context,
-        (card) => Navigator.of(context).push(
-          MaterialPageRoute<void>(
-            builder: (_) => CardScreen(cardId: card.id, boardId: card.boardId),
-          ),
-        ),
-      ),
-      icon: Badge(isLabelVisible: n > 0, label: Text('$n'), child: const Icon(Icons.push_pin_outlined)),
-    );
-  }
-}
 
 class _RefreshButton extends ConsumerWidget {
   @override
@@ -853,9 +834,7 @@ class OpenLane extends ConsumerWidget {
                                   onDragStarted: onDragStarted,
                                   onDragUpdate: onDragUpdate,
                                   onDragEnded: onDragEnded,
-                                  onTap: () => Navigator.of(context).push(
-                                    MaterialPageRoute<void>(builder: (_) => CardScreen(cardId: card.id, boardId: boardId)),
-                                  ),
+                                  onTap: () => showCardSheet(context, card.id),
                                 ),
                               ),
                             );
@@ -974,11 +953,7 @@ class _DraftsChip extends ConsumerWidget {
       onPressed: () => showDraftsSheet(
         context,
         boardId,
-        (card) => Navigator.of(context).push(
-          MaterialPageRoute<void>(
-            builder: (_) => CardScreen(cardId: card.id, boardId: card.boardId),
-          ),
-        ),
+        (card) => showCardSheet(context, card.id),
       ),
       icon: const Icon(Icons.edit_note_rounded, size: 18),
       label: Text('Drafts $n'),

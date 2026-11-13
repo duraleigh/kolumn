@@ -13,44 +13,26 @@ import '../data/database.dart';
 import '../data/repository.dart';
 import '../state/providers.dart';
 import '../theme/tokens.dart';
+import '../data/due.dart';
 import '../ui/bits.dart';
+import '../ui/item_sheet.dart';
 import '../ui/sheets.dart';
 import 'days.dart';
 import 'planner_model.dart';
-import 'planner_screen.dart' show CheckCircle;
 import 'repeat.dart';
 
 /// Opens a to-do: a sheet from the bottom on a phone, a panel in the middle
 /// on a computer. [day] is the day it was opened from (which day of a
-/// repeating to-do).
-Future<void> showTodoSheet(BuildContext context, WidgetRef ref, {required String todoId, String? day}) {
-  final wide = MediaQuery.sizeOf(context).width >= 840;
-  final sheet = _TodoSheet(todoId: todoId, day: day);
-  if (wide) {
-    return showDialog<void>(
-      context: context,
-      builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(KShapes.sheet)),
-        child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 480, maxHeight: 760), child: sheet),
-      ),
-    );
-  }
-  return showModalBottomSheet<void>(
-    context: context,
-    isScrollControlled: true,
-    useSafeArea: true,
-    showDragHandle: true,
-    builder: (context) => Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
-      child: sheet,
-    ),
-  );
-}
+/// repeating to-do). Built from the shared pieces in item_sheet.dart: this is
+/// the template a Kolumn card follows.
+Future<void> showTodoSheet(BuildContext context, WidgetRef ref, {required String todoId, String? day}) =>
+    showItemSheet(context, (wide) => _TodoSheet(todoId: todoId, day: day, wide: wide));
 
 class _TodoSheet extends ConsumerStatefulWidget {
-  const _TodoSheet({required this.todoId, this.day});
+  const _TodoSheet({required this.todoId, this.day, required this.wide});
   final String todoId;
   final String? day;
+  final bool wide;
 
   @override
   ConsumerState<_TodoSheet> createState() => _TodoSheetState();
@@ -92,11 +74,11 @@ class _TodoSheetState extends ConsumerState<_TodoSheet> {
 
   KTodo? _current;
 
-  Future<void> _attach({required bool photo}) async {
+  Future<void> _attach({required bool photo, ImageSource source = ImageSource.gallery}) async {
     String path;
     String name;
     if (photo) {
-      final x = await ImagePicker().pickImage(source: ImageSource.gallery, maxWidth: 2400, maxHeight: 2400, imageQuality: 85);
+      final x = await ImagePicker().pickImage(source: source, maxWidth: 2400, maxHeight: 2400, imageQuality: 85);
       if (x == null) return;
       path = x.path;
       name = x.name;
@@ -118,7 +100,7 @@ class _TodoSheetState extends ConsumerState<_TodoSheet> {
     await _repo.addTodoFile(widget.todoId, localPath: keep.path, filename: name, mime: mimeFor(name), size: size);
   }
 
-  Future<void> _openFile(KTodoFile f) async {
+  Future<void> _openFile(FileTileData f) async {
     final bytes = await ref.read(fileBytesProvider((f.id, false)).future);
     if (bytes == null) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('That file can\'t be opened right now. Check your connection.')));
@@ -131,11 +113,22 @@ class _TodoSheetState extends ConsumerState<_TodoSheet> {
     await OpenFilex.open(out.path, type: f.mime);
   }
 
-  Future<void> _pickDay(KTodo t) async {
-    final rule = RepeatRule.fromJson(t.repeat);
-    final slot = await pickTodoDay(context, current: TodoSlot.of(t), allowSomeday: rule == null, today: ref.read(plannerTodayProvider));
-    if (slot == null || slot == TodoSlot.of(t)) return;
-    await _repo.updateTodo(t.id, slot: slot);
+  /// The due pill: straight to the calendar, with the time wheel under it at 11:59 PM.
+  Future<void> _pickDue(KTodo t, DueState state) async {
+    final today = ref.read(plannerTodayProvider);
+    // Never earlier than the day it sits on (a late one: than today).
+    final first = state == DueState.late || t.day == null || t.day!.compareTo(today) < 0 && t.doneAt == null ? today : t.day!;
+    final r = await pickDueMoment(
+      context,
+      title: 'Due date',
+      current: t.dueAt,
+      currentHasTime: t.dueHasTime,
+      startDay: first,
+      firstDay: first,
+      removeLabel: t.dueAt == null ? null : 'Remove the due date',
+    );
+    if (r == null) return;
+    await _repo.setTodoDue(t, r.at, hasTime: r.hasTime);
   }
 
   Future<void> _repeat(KTodo t) async {
@@ -197,7 +190,8 @@ class _TodoSheetState extends ConsumerState<_TodoSheet> {
     await _repo.updateTodo(t.id, assigneeId: picked == -1 ? null : picked, clearAssignee: picked == -1);
   }
 
-  Future<void> _more(KTodo t) async {
+  /// ⋮: Follow · Move to a different date · Move to another planner · Delete.
+  Future<void> _more(KTodo t, bool following) async {
     final rule = RepeatRule.fromJson(t.repeat);
     final planners = ref.read(plannersProvider).value ?? const <KPlanner>[];
     final choice = await showModalBottomSheet<String>(
@@ -207,6 +201,14 @@ class _TodoSheetState extends ConsumerState<_TodoSheet> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            ListTile(
+              leading: Icon(following ? Icons.notifications_off_outlined : Icons.notifications_active_outlined),
+              title: Text(following ? 'Stop following' : 'Follow'),
+              subtitle: Text(following ? 'You hear when it\'s finished, its due date changes, or it goes late' : 'Hear when it\'s finished, its due date changes, or it goes late'),
+              onTap: () => Navigator.pop(context, 'follow'),
+            ),
+            if (rule == null)
+              ListTile(leading: const Icon(Icons.event_repeat_outlined), title: const Text('Move to a different date'), onTap: () => Navigator.pop(context, 'date')),
             if (planners.length > 1)
               ListTile(
                 leading: const Icon(Icons.drive_file_move_outline),
@@ -226,6 +228,24 @@ class _TodoSheetState extends ConsumerState<_TodoSheet> {
     );
     if (!mounted || choice == null) return;
     switch (choice) {
+      case 'follow':
+        await _repo.setTodoWatch(t.id, !following);
+      case 'date':
+        final today = ref.read(plannerTodayProvider);
+        final finished = t.doneAt != null;
+        final due = t.dueAt == null ? null : dueDay(t.dueAt!, hasTime: t.dueHasTime);
+        final to = await pickDayWheel(
+          context,
+          title: 'Move to a different date',
+          initial: t.day ?? today,
+          min: finished ? null : today,
+          max: finished ? today : due,
+          note: finished
+              ? 'A finished to-do can\'t move to a day that hasn\'t happened yet.'
+              : (due == null ? 'An unfinished to-do can\'t move to a day that has passed.' : 'Not before today, and not after its due date.'),
+        );
+        if (to == null || !canMoveTodo(t, TodoSlot.day(to), today: today)) return;
+        await _repo.updateTodo(t.id, slot: TodoSlot.day(to));
       case 'skip':
         await _repo.skipTodoDay(t, widget.day!);
         if (mounted) Navigator.pop(context);
@@ -322,15 +342,17 @@ class _TodoSheetState extends ConsumerState<_TodoSheet> {
       _note.text = t.note;
     }
     _current = t;
-    final c = context.colors;
-    final p = context.palette;
     final readOnly = ref.watch(readOnlyProvider).value ?? false;
     final today = ref.watch(plannerTodayProvider);
+    final now = ref.watch(plannerNowProvider)();
     final rule = RepeatRule.fromJson(t.repeat);
     final steps = ref.watch(todoStepsProvider(t.id)).value ?? const <KTodoStep>[];
     final files = ref.watch(todoFilesProvider(t.id)).value ?? const <KTodoFile>[];
     final reminder = ref.watch(reminderMapProvider)[t.id];
     final names = ref.watch(peopleNamesProvider);
+    final me = ref.watch(meIdProvider).value;
+    final watch = ref.watch(todoWatchProvider(t.id)).value;
+    final following = watch?.watching ?? (t.creatorId == me || t.assigneeId == me);
     KPlanner? planner;
     for (final x in ref.watch(plannersProvider).value ?? const <KPlanner>[]) {
       if (x.id == t.plannerId) planner = x;
@@ -340,242 +362,103 @@ class _TodoSheetState extends ConsumerState<_TodoSheet> {
     final done = rule == null
         ? t.doneAt != null
         : widget.day != null && marks.any((m) => m.todoId == t.id && m.day == widget.day && m.mark == 'done' && m.deletedAt == null);
+    final state = rule != null ? DueState.none : dueState(dueAt: t.dueAt, hasTime: t.dueHasTime, doneAt: t.doneAt, now: now);
 
     void toggle() {
       if (rule != null && widget.day == null) return;
       _repo.setTodoDone(t, !done, day: widget.day);
     }
 
-    final when = <String>[
+    final caption = <String>[
+      planner?.name ?? '',
       t.day == null ? 'Someday' : (rule != null && widget.day != null ? friendlyDay(widget.day!, today: today) : friendlyDay(t.day!, today: today)),
       if (rule != null) rule.describe(t.day!),
       if (reminder != null) 'reminder ${_reminderText(reminder, today)}',
     ];
 
-    Widget barButton(IconData icon, String label, VoidCallback? onTap, {bool on = false}) => Tooltip(
-      message: label,
-      child: IconButton(
-        onPressed: readOnly ? null : onTap,
-        icon: Icon(icon, color: on ? c.primary : c.onSurface),
-        style: IconButton.styleFrom(minimumSize: const Size(48, 48)),
-      ),
-    );
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Flexible(
-          child: ListView(
-            shrinkWrap: true,
-            padding: const EdgeInsets.fromLTRB(22, 4, 22, 8),
-            children: [
-              InkWell(
-                borderRadius: BorderRadius.circular(10),
-                onTap: readOnly ? null : () => _pickDay(t),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 6),
-                  child: Row(
-                    children: [
-                      Icon(Icons.calendar_today_outlined, size: 17, color: c.onSurfaceVariant),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(when.join(' · '), style: TextStyle(fontSize: 14, color: c.onSurfaceVariant)),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 6),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _title,
-                      readOnly: readOnly,
-                      onChanged: (_) => _changed(),
-                      maxLines: null,
-                      textCapitalization: TextCapitalization.sentences,
-                      style: TextStyle(
-                        fontSize: 23,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: -0.4,
-                        height: 1.2,
-                        color: done ? c.onSurfaceVariant : c.onSurface,
-                        decoration: done ? TextDecoration.lineThrough : null,
-                      ),
-                      decoration: const InputDecoration(isCollapsed: true, border: InputBorder.none),
-                    ),
-                  ),
-                  Semantics(
-                    button: true,
-                    label: done ? 'Mark not done' : 'Mark done',
-                    child: InkResponse(
-                      onTap: readOnly ? null : toggle,
-                      radius: 24,
-                      child: Padding(
-                        padding: const EdgeInsets.all(6),
-                        child: CheckCircle(done: done, size: 26),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              if (t.assigneeId != null) ...[
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    PersonAvatar(id: t.assigneeId!, name: names[t.assigneeId!] ?? '?', size: 24),
-                    const SizedBox(width: 8),
-                    Text('For ${names[t.assigneeId!] ?? 'someone'}', style: TextStyle(fontSize: 14, color: c.onSurfaceVariant)),
-                  ],
-                ),
-              ],
-              const SizedBox(height: 10),
-              TextField(
-                controller: _note,
+    return ItemSheetFrame(
+      wide: widget.wide,
+      main: [
+        CaptionLine(parts: caption),
+        if (rule == null)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: DuePill(
+                dueAt: t.dueAt,
+                hasTime: t.dueHasTime,
+                state: state,
                 readOnly: readOnly,
-                onChanged: (_) => _changed(),
-                maxLines: null,
-                minLines: 1,
-                textCapitalization: TextCapitalization.sentences,
-                style: const TextStyle(fontSize: 15, height: 1.5),
-                decoration: InputDecoration(isCollapsed: true, border: InputBorder.none, hintText: readOnly ? '' : 'Add a note'),
+                today: today,
+                onPick: () => _pickDue(t, state),
+                onClear: () => _repo.setTodoDue(t, null),
               ),
-              const SizedBox(height: 10),
-              for (final s in steps)
-                _StepRow(
-                  step: s,
-                  readOnly: readOnly,
-                  onToggle: () => _repo.updateTodoStep(s, done: !s.done),
-                  onMenu: () => _stepMenu(s),
-                ),
-              if (!readOnly)
-                Row(
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.only(right: 12),
-                      child: Icon(Icons.add_rounded, size: 20, color: c.onSurfaceVariant),
-                    ),
-                    Expanded(
-                      child: TextField(
-                        controller: _step,
-                        textCapitalization: TextCapitalization.sentences,
-                        textInputAction: TextInputAction.next,
-                        onEditingComplete: () {},
-                        onSubmitted: (v) {
-                          if (v.trim().isEmpty) return;
-                          _repo.addTodoStep(t.id, v);
-                          _step.clear();
-                        },
-                        style: const TextStyle(fontSize: 15),
-                        decoration: const InputDecoration(isCollapsed: true, border: InputBorder.none, hintText: 'Add a step'),
-                      ),
-                    ),
-                    TextButton(
-                      onPressed: () async {
-                        final n = await askText(context, title: 'New heading', action: 'Add', hint: 'Heading');
-                        if (n != null && n.trim().isNotEmpty) await _repo.addTodoStep(t.id, n, heading: true);
-                      },
-                      child: const Text('Heading'),
-                    ),
-                  ],
-                ),
-              if (files.isNotEmpty) ...[
-                const SizedBox(height: 12),
-                GridView.count(
-                  crossAxisCount: 2,
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  mainAxisSpacing: 8,
-                  crossAxisSpacing: 8,
-                  childAspectRatio: 1.9,
-                  children: [
-                    for (final f in files)
-                      Material(
-                        color: p.chip,
-                        borderRadius: BorderRadius.circular(14),
-                        clipBehavior: Clip.antiAlias,
-                        child: InkWell(
-                          onTap: () => _openFile(f),
-                          onLongPress: readOnly
-                              ? null
-                              : () async {
-                                  final ok = await confirm(context, title: 'Remove this file?', body: f.filename, action: 'Remove');
-                                  if (ok) await _repo.deleteTodoFile(f);
-                                },
-                          child: f.mime.startsWith('image/')
-                              ? HubPicture(fileId: f.id)
-                              : Padding(
-                                  padding: const EdgeInsets.all(12),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Text(
-                                        f.filename,
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                                      ),
-                                      const SizedBox(height: 3),
-                                      Text(sizeText(f.size), style: TextStyle(fontSize: 12, color: c.onSurfaceVariant)),
-                                    ],
-                                  ),
-                                ),
-                        ),
-                      ),
-                  ],
-                ),
-              ],
-              if (!readOnly)
-                Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: Wrap(
-                    spacing: 8,
-                    children: [
-                      TextButton.icon(onPressed: () => _attach(photo: true), icon: const Icon(Icons.photo_outlined, size: 18), label: const Text('Photo')),
-                      TextButton.icon(onPressed: () => _attach(photo: false), icon: const Icon(Icons.attach_file_rounded, size: 18), label: const Text('File')),
-                    ],
-                  ),
-                ),
-            ],
-          ),
-        ),
-        SafeArea(
-          top: false,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(14, 6, 14, 12),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                barButton(Icons.person_outline_rounded, 'Who it\'s for', () => _assign(t, planner), on: t.assigneeId != null),
-                barButton(Icons.repeat_rounded, 'Repeat', () => _repeat(t), on: rule != null),
-                Tooltip(
-                  message: done ? 'Mark not done' : 'Done',
-                  child: Material(
-                    color: c.onSurface,
-                    shape: const CircleBorder(),
-                    elevation: 3,
-                    child: InkWell(
-                      customBorder: const CircleBorder(),
-                      onTap: readOnly
-                          ? null
-                          : () {
-                              toggle();
-                              if (!done) Navigator.pop(context);
-                            },
-                      child: SizedBox(width: 56, height: 56, child: Icon(done ? Icons.undo_rounded : Icons.check_rounded, color: c.surface)),
-                    ),
-                  ),
-                ),
-                barButton(Icons.notifications_none_rounded, 'Reminder', () => _remind(t), on: reminder != null),
-                barButton(Icons.more_horiz_rounded, 'More', () => _more(t)),
-              ],
             ),
           ),
+        TitleField(controller: _title, readOnly: readOnly, onChanged: _changed, done: done, hint: 'To-do'),
+        if (t.assigneeId != null) ...[
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              PersonAvatar(id: t.assigneeId!, name: names[t.assigneeId!] ?? '?', size: 24),
+              const SizedBox(width: 8),
+              Text('For ${names[t.assigneeId!] ?? 'someone'}', style: TextStyle(fontSize: 14, color: context.colors.onSurfaceVariant)),
+            ],
+          ),
+        ],
+        const SizedBox(height: 10),
+        NoteField(controller: _note, readOnly: readOnly, onChanged: _changed),
+        const SizedBox(height: 10),
+        for (final s in steps)
+          ChecklistRow(
+            content: s.content,
+            done: s.done,
+            heading: s.heading,
+            star: s.star,
+            indent: s.indent,
+            readOnly: readOnly,
+            onToggle: () => _repo.updateTodoStep(s, done: !s.done),
+            onMenu: () => _stepMenu(s),
+          ),
+        if (!readOnly) AddStepField(controller: _step, onAdd: (v) => _repo.addTodoStep(t.id, v)),
+        if (!readOnly)
+          AttachChips(
+            onPhoto: () => _attach(photo: true),
+            onCamera: () => _attach(photo: true, source: ImageSource.camera),
+            onFile: () => _attach(photo: false),
+          ),
+        FileTiles(
+          files: [for (final f in files) FileTileData(id: f.id, filename: f.filename, mime: f.mime, size: f.size, uploaded: f.uploaded)],
+          onOpen: _openFile,
+          onHold: readOnly
+              ? null
+              : (f) async {
+                  final ok = await confirm(context, title: 'Remove this file?', body: f.filename, action: 'Remove');
+                  if (!ok) return;
+                  final row = files.where((x) => x.id == f.id).firstOrNull;
+                  if (row != null) await _repo.deleteTodoFile(row);
+                },
         ),
       ],
+      bar: ItemBar(
+        children: [
+          BarIcon(icon: Icons.person_outline_rounded, label: 'Who it\'s for', onTap: readOnly ? null : () => _assign(t, planner), on: t.assigneeId != null),
+          BarIcon(icon: Icons.repeat_rounded, label: 'Repeat', onTap: readOnly ? null : () => _repeat(t), on: rule != null),
+          BarCenter(
+            icon: done ? Icons.undo_rounded : Icons.check_rounded,
+            label: done ? 'Mark not done' : 'Done',
+            onTap: readOnly
+                ? null
+                : () {
+                    toggle();
+                    if (!done) Navigator.pop(context);
+                  },
+          ),
+          BarIcon(icon: Icons.notifications_none_rounded, label: 'Reminder', onTap: readOnly ? null : () => _remind(t), on: reminder != null),
+          BarIcon(icon: Icons.more_horiz_rounded, label: 'More', onTap: readOnly ? null : () => _more(t, following)),
+        ],
+      ),
     );
   }
 }
@@ -588,61 +471,6 @@ String _reminderText(int at, String today) {
 }
 
 String reminderLabel(int at, {String? today}) => _reminderText(at, today ?? todayKey());
-
-class _StepRow extends StatelessWidget {
-  const _StepRow({required this.step, required this.readOnly, required this.onToggle, required this.onMenu});
-  final KTodoStep step;
-  final bool readOnly;
-  final VoidCallback onToggle;
-  final VoidCallback onMenu;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-    if (step.heading) {
-      return InkWell(
-        onLongPress: readOnly ? null : onMenu,
-        child: Padding(
-          padding: const EdgeInsets.only(top: 12, bottom: 4),
-          child: Text(step.content, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
-        ),
-      );
-    }
-    return InkWell(
-      onTap: readOnly ? null : onToggle,
-      onLongPress: readOnly ? null : onMenu,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(minHeight: 40),
-        child: Padding(
-          padding: EdgeInsets.only(left: 20.0 * step.indent),
-          child: Row(
-            children: [
-              CheckCircle(done: step.done, size: 18),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  step.content,
-                  style: TextStyle(
-                    fontSize: 15,
-                    color: step.done ? c.onSurfaceVariant : c.onSurface,
-                    decoration: step.done ? TextDecoration.lineThrough : null,
-                  ),
-                ),
-              ),
-              if (step.star) Icon(Icons.star_rounded, size: 17, color: context.palette.accentText),
-              if (!readOnly)
-                IconButton(
-                  tooltip: 'Step options',
-                  onPressed: onMenu,
-                  icon: Icon(Icons.more_vert_rounded, size: 18, color: c.onSurfaceVariant),
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
 
 // ------------------------------------------------------------------ choosing a day
 
@@ -884,58 +712,26 @@ class ReminderChoice {
   final int? at;
 }
 
-/// Tweek's day-and-time wheel. Only the person who sets a reminder gets it.
-Future<ReminderChoice?> pickReminder(BuildContext context, {int? current, required String day}) {
-  final d = parseDay(day);
-  var picked = current != null ? DateTime.fromMillisecondsSinceEpoch(current) : DateTime(d.year, d.month, d.day, 9);
-  if (current == null && picked.isBefore(DateTime.now())) {
+/// The bell: the same calendar and time-only wheel as the due pill (his
+/// ruling, 2026-11-13). Only the person who sets a reminder gets it.
+Future<ReminderChoice?> pickReminder(BuildContext context, {int? current, required String day}) async {
+  var start = DateTime(parseDay(day).year, parseDay(day).month, parseDay(day).day, 9);
+  if (current == null && start.isBefore(DateTime.now())) {
     final n = DateTime.now().add(const Duration(hours: 1));
-    picked = DateTime(n.year, n.month, n.day, n.hour);
+    start = DateTime(n.year, n.month, n.day, n.hour);
   }
-  // The wheel moves in 5-minute steps and must start on one.
-  picked = DateTime(picked.year, picked.month, picked.day, picked.hour, picked.minute - picked.minute % 5);
-  return showModalBottomSheet<ReminderChoice>(
-    context: context,
-    showDragHandle: true,
-    builder: (context) {
-      final c = context.colors;
-      return SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text('Reminder', textAlign: TextAlign.center, style: Theme.of(context).textTheme.titleLarge),
-              const SizedBox(height: 8),
-              Container(
-                height: 200,
-                decoration: BoxDecoration(color: context.palette.chip, borderRadius: BorderRadius.circular(18)),
-                child: CupertinoTheme(
-                  data: CupertinoThemeData(
-                    brightness: Theme.of(context).brightness,
-                    textTheme: CupertinoTextThemeData(dateTimePickerTextStyle: TextStyle(fontSize: 19, color: c.onSurface)),
-                  ),
-                  child: CupertinoDatePicker(initialDateTime: picked, minuteInterval: 5, use24hFormat: false, onDateTimeChanged: (v) => picked = v),
-                ),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                'Only you get this reminder. The to-do stays on its day.',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 13, color: c.onSurfaceVariant),
-              ),
-              const SizedBox(height: 12),
-              FilledButton(
-                style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(50), backgroundColor: c.onSurface, foregroundColor: c.surface),
-                onPressed: () => Navigator.pop(context, ReminderChoice(picked.millisecondsSinceEpoch)),
-                child: const Text('Set reminder'),
-              ),
-              if (current != null) TextButton(onPressed: () => Navigator.pop(context, const ReminderChoice(null)), child: const Text('Remove reminder')),
-            ],
-          ),
-        ),
-      );
-    },
+  final r = await pickDueMoment(
+    context,
+    title: 'Reminder',
+    current: current,
+    currentHasTime: true,
+    startDay: dayKey(start),
+    startHour: start.hour,
+    startMinute: 0,
+    firstDay: todayKey(),
+    setLabel: 'Set reminder',
+    removeLabel: current == null ? null : 'Remove reminder',
+    note: 'Only you get this reminder.',
   );
+  return r == null ? null : ReminderChoice(r.at);
 }

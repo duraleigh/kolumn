@@ -355,7 +355,7 @@ class _FindScreenState extends ConsumerState<FindScreen> {
                           borderRadius: BorderRadius.circular(16),
                           child: InkWell(
                             borderRadius: BorderRadius.circular(16),
-                            onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => CardScreen(cardId: card.id, boardId: card.boardId))),
+                            onTap: () => showCardSheet(context, card.id),
                             child: IntrinsicHeight(
                               child: Row(
                                 crossAxisAlignment: CrossAxisAlignment.stretch,

@@ -306,7 +306,7 @@ class _EventCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(18),
         child: InkWell(
           borderRadius: BorderRadius.circular(18),
-          onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => CardScreen(cardId: card.id, boardId: card.boardId))),
+          onTap: () => showCardSheet(context, card.id),
           child: Container(
             decoration: BoxDecoration(borderRadius: BorderRadius.circular(18), boxShadow: p.cardShadow),
             padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),

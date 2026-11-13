@@ -265,3 +265,7 @@ final plannerDataProvider = Provider.family<PlannerData?, String>((ref, id) {
     now: ref.watch(plannerNowProvider)(),
   );
 });
+
+/// Whether this person follows a to-do (null: never chose; then its maker and
+/// its person follow it).
+final todoWatchProvider = StreamProvider.family<KTodoWatch?, String>((ref, id) => ref.watch(repositoryProvider).watchTodoWatch(id));

@@ -12,54 +12,49 @@ import 'package:path_provider/path_provider.dart';
 import '../board/board_screen.dart' show moveWithUndo;
 import '../board/lane_info.dart';
 import '../data/database.dart';
+import '../data/due.dart';
 import '../data/lane_looks.dart';
+import '../data/lanes.dart';
+import '../data/repository.dart';
 import '../data/tidy.dart';
 import '../planner/days.dart';
 import '../planner/planner_model.dart';
 import '../planner/todo_sheet.dart';
-import '../data/lanes.dart';
-import '../data/repository.dart';
 import '../state/providers.dart';
 import '../theme/tokens.dart';
 import '../ui/bits.dart';
+import '../ui/item_sheet.dart';
 import '../ui/sheets.dart';
 import 'composer.dart';
 
-/// One card, opened: everything on it.
-class CardScreen extends ConsumerStatefulWidget {
-  const CardScreen({super.key, required this.cardId, required this.boardId});
+/// Opens a card (his ask, 2026-11-13): the same pop-up as a Planner to-do,
+/// sliding up from the bottom, made from the same pieces — plus a part that
+/// slides up with its comments and activity (the pen button, or pull the top
+/// edge up). Bottom bar: who's on it · Priority · the pen · reminder · ⋮.
+Future<void> showCardSheet(BuildContext context, String cardId) => showItemSheet(context, (wide) => CardSheet(cardId: cardId, wide: wide));
+
+class CardSheet extends ConsumerStatefulWidget {
+  const CardSheet({super.key, required this.cardId, this.wide = false});
   final String cardId;
-  final String boardId;
+  final bool wide;
 
   @override
-  ConsumerState<CardScreen> createState() => _CardScreenState();
+  ConsumerState<CardSheet> createState() => _CardSheetState();
 }
 
-class _CardScreenState extends ConsumerState<CardScreen> {
+class _CardSheetState extends ConsumerState<CardSheet> {
   final _title = TextEditingController();
   final _notes = TextEditingController();
-  final _notesFocus = FocusNode();
   final _newStep = TextEditingController();
   bool _loaded = false;
-  bool _editingNotes = false;
   Timer? _save;
-  late final KolumnRepository _repo;
-
-  @override
-  void initState() {
-    super.initState();
-    _repo = ref.read(repositoryProvider);
-    _notesFocus.addListener(() {
-      if (!_notesFocus.hasFocus && _editingNotes) setState(() => _editingNotes = false);
-    });
-  }
+  late final KolumnRepository _repo = ref.read(repositoryProvider);
 
   @override
   void dispose() {
     _flush();
     _title.dispose();
     _notes.dispose();
-    _notesFocus.dispose();
     _newStep.dispose();
     super.dispose();
   }
@@ -79,38 +74,7 @@ class _CardScreenState extends ConsumerState<CardScreen> {
   Future<void> _openCard(String id) async {
     final c = await _repo.card(id);
     if (c == null || !mounted) return;
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => CardScreen(cardId: id, boardId: c.boardId),
-      ),
-    );
-  }
-
-  void _wrapSelection(String mark) {
-    final sel = _notes.selection;
-    final text = _notes.text;
-    final start = sel.isValid ? sel.start : text.length;
-    final end = sel.isValid ? sel.end : text.length;
-    final picked = text.substring(start, end);
-    final next = text.replaceRange(start, end, '$mark$picked$mark');
-    _notes.value = TextEditingValue(
-      text: next,
-      selection: TextSelection.collapsed(offset: start + mark.length + picked.length + (picked.isEmpty ? 0 : mark.length)),
-    );
-    _changed();
-  }
-
-  void _bulletLine() {
-    final sel = _notes.selection;
-    final text = _notes.text;
-    final at = sel.isValid ? sel.start : text.length;
-    final lineStart = at == 0 ? 0 : text.lastIndexOf('\n', at - 1) + 1;
-    final next = text.replaceRange(lineStart, lineStart, '- ');
-    _notes.value = TextEditingValue(
-      text: next,
-      selection: TextSelection.collapsed(offset: at + 2),
-    );
-    _changed();
+    await showCardSheet(context, id);
   }
 
   Future<void> _attach({required bool photo, ImageSource source = ImageSource.gallery}) async {
@@ -160,229 +124,398 @@ class _CardScreenState extends ConsumerState<CardScreen> {
     await OpenFilex.open(out.path, type: f.mime);
   }
 
+  Future<void> _fileMenu(KFile f, String? coverId) async {
+    final c = context.colors;
+    final isImage = f.mime.startsWith('image/');
+    final pick = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (_) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (isImage)
+              ListTile(
+                leading: const Icon(Icons.wallpaper_rounded),
+                title: Text(coverId == f.id ? 'Stop using as cover' : 'Use as the card\'s cover'),
+                onTap: () => Navigator.pop(context, 'cover'),
+              ),
+            ListTile(
+              leading: Icon(Icons.delete_outline_rounded, color: c.error),
+              title: const Text('Remove from card'),
+              onTap: () => Navigator.pop(context, 'delete'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (pick == 'cover') await _repo.setCover(widget.cardId, coverId == f.id ? null : f.id);
+    if (pick == 'delete') await _repo.deleteFile(f);
+  }
+
+  Future<void> _stepMenu(KStep s) async {
+    final choice = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(leading: const Icon(Icons.edit_outlined), title: const Text('Edit'), onTap: () => Navigator.pop(context, 'edit')),
+            ListTile(
+              leading: Icon(Icons.delete_outline_rounded, color: context.colors.error),
+              title: Text('Delete', style: TextStyle(color: context.colors.error)),
+              onTap: () => Navigator.pop(context, 'delete'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (!mounted || choice == null) return;
+    if (choice == 'edit') {
+      final n = await askText(context, title: 'Edit step', initial: s.content, action: 'Save');
+      if (n != null && n.trim().isNotEmpty) await _repo.updateStep(s, content: n);
+    } else {
+      await _repo.deleteStep(s);
+    }
+  }
+
+  Future<void> _pickDue(KCard card) async {
+    final today = ref.read(plannerTodayProvider);
+    final r = await pickDueMoment(
+      context,
+      title: 'Due date',
+      current: card.dueAt,
+      currentHasTime: card.dueHasTime,
+      startDay: today,
+      firstDay: today,
+      removeLabel: card.dueAt == null ? null : 'Remove the due date',
+    );
+    if (r == null) return;
+    await _repo.setCardDueAt(card.id, r.at, hasTime: r.hasTime);
+  }
+
+  Future<void> _remind(KCard card) async {
+    final today = ref.read(plannerTodayProvider);
+    final current = ref.read(reminderMapProvider)[card.id];
+    final r = await pickReminder(context, current: current, day: card.dueAt == null ? today : _laterOf(dueDay(card.dueAt!, hasTime: card.dueHasTime), today));
+    if (r != null) await _repo.setReminder(card.id, 'card', r.at);
+  }
+
+  static String _laterOf(String a, String b) => a.compareTo(b) > 0 ? a : b;
+
+  /// ⋮: Follow · Pin to the top of its kolumn · Move to a different kolumn · Delete.
+  Future<void> _more(KCard card, {required bool following, required List<LaneInfo> lanes, required Lane lane, required List<KBoard> boards}) async {
+    final c = context.colors;
+    final pinned = card.pinnedAt != null;
+    final choice = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: Icon(following ? Icons.notifications_off_outlined : Icons.notifications_active_outlined),
+              title: Text(following ? 'Stop following' : 'Follow'),
+              subtitle: Text(following ? 'You hear about changes to this card' : 'Hear about changes to this card'),
+              onTap: () => Navigator.pop(context, 'follow'),
+            ),
+            ListTile(
+              leading: Icon(pinned ? Icons.push_pin_rounded : Icons.push_pin_outlined),
+              title: Text(pinned ? 'Unpin from the top' : 'Pin to the top of its kolumn'),
+              subtitle: Text(pinned ? 'It goes back among the others' : 'It stays at the top until unpinned, for everyone'),
+              onTap: () => Navigator.pop(context, 'pin'),
+            ),
+            ListTile(leading: const Icon(Icons.drive_file_move_outline), title: const Text('Move to a different kolumn'), onTap: () => Navigator.pop(context, 'move')),
+            ListTile(
+              leading: Icon(Icons.delete_outline_rounded, color: c.error),
+              title: Text('Delete card', style: TextStyle(color: c.error)),
+              onTap: () => Navigator.pop(context, 'delete'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (!mounted || choice == null) return;
+    switch (choice) {
+      case 'follow':
+        await _repo.setWatching(card.id, !following);
+      case 'pin':
+        await _repo.setPinTop(card.id, !pinned);
+      case 'move':
+        final others = boards.where((b) => b.id != card.boardId).toList();
+        final to = await _showMoveAnywhere(context, lanes: lanes, current: lane, boards: others, title: card.title);
+        if (to == null || !mounted) return;
+        if (to.lane != null) {
+          await moveWithUndo(context, ref, card.id, to.lane!, lane, lanes);
+        } else {
+          _flush();
+          await _repo.moveCardToBoard(card.id, to.board!.id);
+          if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Moved to ${to.board!.name}, in ${laneLook(to.board, 'todo').name}')));
+        }
+      case 'delete':
+        final messenger = ScaffoldMessenger.of(context);
+        _save?.cancel();
+        _save = null;
+        await _repo.deleteCard(card.id);
+        if (!mounted) return;
+        Navigator.pop(context);
+        messenger.showSnackBar(
+          SnackBar(
+            content: const Text('Card deleted'),
+            action: SnackBarAction(label: 'Undo', onPressed: () => _repo.restoreCard(card.id)),
+          ),
+        );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final card = ref.watch(cardProvider(widget.cardId)).value;
-    final boardId = card?.boardId ?? widget.boardId;
-    final columns = ref.watch(columnsProvider(boardId)).value ?? const <KColumn>[];
-    final cards = ref.watch(cardsProvider(boardId)).value ?? const <KCard>[];
-    final boards = ref.watch(boardsProvider).value ?? const <KBoard>[];
-    if (card == null) return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    if (card == null || card.deletedAt != null) {
+      return const SizedBox(height: 200, child: Center(child: Text('This card is gone.')));
+    }
     if (!_loaded) {
       _loaded = true;
       _title.text = card.title;
       _notes.text = card.description;
     }
+    final boardId = card.boardId;
+    final columns = ref.watch(columnsProvider(boardId)).value ?? const <KColumn>[];
+    final cards = ref.watch(cardsProvider(boardId)).value ?? const <KCard>[];
+    final boards = ref.watch(boardsProvider).value ?? const <KBoard>[];
     final readOnly = ref.watch(readOnlyProvider).value ?? false;
     final board = boards.where((b) => b.id == boardId).firstOrNull;
     final lanes = buildLanes(context, columns, cards, board: board);
     final lane = Lane.of(card, columns.map((c) => c.id).toSet());
     final info = lanes.firstWhere((l) => l.lane == lane, orElse: () => lanes.firstWhere((l) => l.isHome, orElse: () => lanes.first));
-    final boardName = boards.where((b) => b.id == card.boardId).map((b) => b.name).firstOrNull ?? '';
-    final c = context.colors;
-    final p = context.palette;
-    final t = Theme.of(context).textTheme;
+    final today = ref.watch(plannerTodayProvider);
+    final now = ref.watch(plannerNowProvider)();
+    final state = dueState(dueAt: card.dueAt, hasTime: card.dueHasTime, doneAt: card.closedAt, now: now);
     final priority = card.priorityAt != null;
-    final pinned = (ref.watch(pinsProvider).value ?? const <KPin>[]).any((x) => x.cardId == card.id);
-    final draft = card.status == 'draft';
+    final following = ref.watch(watchProvider(card.id)).value?.watching ?? false;
+    final reminder = ref.watch(reminderMapProvider)[card.id];
+    final names = ref.watch(peopleNamesProvider);
+    final people = ref.watch(peopleProvider).value ?? const <KPerson>[];
+    final assigned = (ref.watch(allAssigneesProvider).value ?? const <KAssignee>[]).where((a) => a.cardId == card.id).map((a) => a.userId).toList();
+    final steps = ref.watch(stepsProvider(card.id)).value ?? const <KStep>[];
+    final files = (ref.watch(filesProvider(card.id)).value ?? const <KFile>[]).where((f) => f.commentId == null).toList();
+    final left = tidyDaysLeft(card, board, now);
+    final c = context.colors;
 
-    return Scaffold(
-      appBar: AppBar(
-        // The card's number lives here now, not on the card face (his ask, 2026-11-12).
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(card.synced ? 'Card #${card.number}' : 'New card', style: t.titleMedium!.copyWith(fontWeight: FontWeight.w700)),
-            Text(boardName, maxLines: 1, overflow: TextOverflow.ellipsis, style: t.bodySmall!.copyWith(color: c.onSurfaceVariant)),
-          ],
-        ),
-        actions: [
-          IconButton(
-            tooltip: pinned ? 'Unpin' : 'Pin to my shortcuts',
-            onPressed: () => _repo.setPinned(card.id, !pinned),
-            icon: Icon(pinned ? Icons.push_pin_rounded : Icons.push_pin_outlined, color: pinned ? p.accentText : null),
+    return ItemSheetFrame(
+      wide: widget.wide,
+      main: [
+        if (card.status == 'draft')
+          _DraftBanner(
+            onPost: () async {
+              _flush();
+              await _repo.publishCard(card.id);
+            },
           ),
-          if (!readOnly) ...[
-            PopupMenuButton<String>(
-              tooltip: 'Card options',
-              onSelected: (v) async {
-                if (v == 'board') {
-                  final others = boards.where((b) => b.id != card.boardId).toList();
-                  final to = await pickBoard(context, others);
-                  if (to == null) return;
-                  _flush();
-                  await _repo.moveCardToBoard(card.id, to.id);
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Moved to ${to.name}, in ${laneLook(to, 'todo').name}')));
-                  }
-                } else if (v == 'delete') {
-                  final messenger = ScaffoldMessenger.of(context);
-                  _save?.cancel();
-                  _save = null;
-                  await _repo.deleteCard(card.id);
-                  if (!context.mounted) return;
-                  Navigator.pop(context);
-                  messenger.showSnackBar(
-                    SnackBar(
-                      content: const Text('Card deleted'),
-                      action: SnackBarAction(label: 'Undo', onPressed: () => _repo.restoreCard(card.id)),
-                    ),
-                  );
-                }
-              },
-              itemBuilder: (_) => [
-                if (boards.length > 1) const PopupMenuItem(value: 'board', child: Text('Move to another Kolumn')),
-                const PopupMenuItem(value: 'delete', child: Text('Delete card')),
-              ],
+        if (card.coverId != null)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 14),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(20),
+              child: AspectRatio(aspectRatio: 16 / 9, child: HubPicture(fileId: card.coverId!)),
             ),
-          ],
-        ],
-      ),
-      body: Column(
-        children: [
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(18, 4, 18, 24),
-              children: [
-                if (draft)
-                  _DraftBanner(
-                    onPost: () async {
-                      _flush();
-                      await _repo.publishCard(card.id);
-                    },
-                  ),
-                if (card.coverId != null)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 14),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(20),
-                      child: AspectRatio(
-                        aspectRatio: 16 / 9,
-                        child: HubPicture(fileId: card.coverId!),
-                      ),
-                    ),
-                  ),
-                TextField(
-                  controller: _title,
-                  readOnly: readOnly,
-                  onChanged: (_) => _changed(),
-                  maxLines: null,
-                  textCapitalization: TextCapitalization.sentences,
-                  style: t.headlineSmall!.copyWith(fontWeight: FontWeight.w600),
-                  decoration: const InputDecoration(
-                    filled: false,
-                    border: InputBorder.none,
-                    enabledBorder: InputBorder.none,
-                    contentPadding: EdgeInsets.zero,
-                    hintText: 'Card title',
-                  ),
-                ),
-                const SizedBox(height: 12),
-                // Where it is, Priority, due day and reminder: one row of buttons.
-                _TimeRow(
-                  card: card,
-                  readOnly: readOnly,
-                  leading: [
-                    _Pill(
-                      dot: info.color,
-                      text: info.name,
-                      trailing: Icons.expand_more_rounded,
-                      onTap: readOnly
-                          ? null
-                          : () async {
-                              final to = await showMoveSheet(context, lanes: lanes, current: lane, title: card.title);
-                              if (to != null && context.mounted) await moveWithUndo(context, ref, card.id, to, lane, lanes);
-                            },
-                    ),
-                    _Pill(
-                      icon: priority ? Icons.star_rounded : Icons.star_outline_rounded,
-                      text: 'Priority',
-                      bg: priority ? c.primaryContainer : null,
-                      fg: priority ? c.onPrimaryContainer : null,
-                      onTap: readOnly ? null : () => _repo.setPriority(card.id, !priority),
-                    ),
+          ),
+        // The card's number lives here, not on the card face (his ask, 2026-11-12).
+        CaptionLine(dot: info.color, parts: [card.synced ? 'Card #${card.number}' : 'New card', board?.name ?? '', info.name, if (card.pinnedAt != null) 'pinned to the top']),
+        Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: DuePill(
+              dueAt: card.dueAt,
+              hasTime: card.dueHasTime,
+              state: state,
+              readOnly: readOnly,
+              today: today,
+              onPick: () => _pickDue(card),
+              onClear: () => _repo.setCardDueAt(card.id, null),
+            ),
+          ),
+        ),
+        if (left != null && tidyWarning(card, board, now))
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Text(
+              left <= 1
+                  ? 'Nobody has touched this card in a while. It moves to ${laneLook(board, 'later').name} tomorrow unless someone does.'
+                  : 'Nobody has touched this card in a while. It moves to ${laneLook(board, 'later').name} in $left days unless someone does.',
+              style: TextStyle(fontSize: 13, color: c.onSurfaceVariant),
+            ),
+          ),
+        TitleField(controller: _title, readOnly: readOnly, onChanged: _changed, hint: 'Card title'),
+        if (assigned.isNotEmpty) ...[
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 12,
+            runSpacing: 6,
+            children: [
+              for (final id in assigned)
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    PersonAvatar(id: id, name: names[id] ?? '?', size: 24),
+                    const SizedBox(width: 8),
+                    Text(names[id] ?? 'Someone', style: TextStyle(fontSize: 14, color: c.onSurfaceVariant)),
                   ],
                 ),
-                const SizedBox(height: 20),
-                _MetaBlock(cardId: card.id, readOnly: readOnly),
-                const SizedBox(height: 24),
-                const _SectionTitle('Notes'),
-                _notesBox(readOnly),
-                const SizedBox(height: 8),
-                _Reactions(cardId: card.id, commentId: null, readOnly: readOnly),
-                const SizedBox(height: 24),
-                _StepsSection(cardId: card.id, readOnly: readOnly, controller: _newStep),
-                const SizedBox(height: 24),
-                _FilesSection(
-                  cardId: card.id,
-                  coverId: card.coverId,
-                  readOnly: readOnly,
-                  onAddPhoto: (cam) => _attach(photo: true, source: cam ? ImageSource.camera : ImageSource.gallery),
-                  onAddFile: () => _attach(photo: false),
-                  onOpen: _openFile,
-                ),
-                const SizedBox(height: 24),
-                _CommentsSection(cardId: card.id, readOnly: readOnly, onOpenCard: _openCard),
-                const SizedBox(height: 12),
-                _History(cardId: card.id, createdAt: card.createdAt),
-              ],
-            ),
+            ],
           ),
-          if (!readOnly) CommentComposer(cardId: card.id),
+        ],
+        const SizedBox(height: 10),
+        NoteField(controller: _notes, readOnly: readOnly, onChanged: _changed, onOpenCard: _openCard),
+        const SizedBox(height: 10),
+        for (final s in steps)
+          ChecklistRow(
+            content: s.content,
+            done: s.done,
+            readOnly: readOnly,
+            onToggle: () => _repo.updateStep(s, done: !s.done),
+            onMenu: () => _stepMenu(s),
+          ),
+        if (!readOnly) AddStepField(controller: _newStep, onAdd: (v) => _repo.addStep(card.id, v)),
+        if (!readOnly)
+          AttachChips(
+            onPhoto: () => _attach(photo: true),
+            onCamera: () => _attach(photo: true, source: ImageSource.camera),
+            onFile: () => _attach(photo: false),
+          ),
+        FileTiles(
+          files: [for (final f in files) FileTileData(id: f.id, filename: f.filename, mime: f.mime, size: f.size, uploaded: f.uploaded, cover: card.coverId == f.id)],
+          onOpen: (t) => _openFile(files.firstWhere((f) => f.id == t.id)),
+          onHold: readOnly ? null : (t) => _fileMenu(files.firstWhere((f) => f.id == t.id), card.coverId),
+        ),
+      ],
+      // Pulled up (or the pen): comments and activity, with a box to write in.
+      more: (context) => [
+        _Reactions(cardId: card.id, commentId: null, readOnly: readOnly),
+        const SizedBox(height: 16),
+        _CommentsSection(cardId: card.id, readOnly: readOnly, onOpenCard: _openCard),
+        const SizedBox(height: 8),
+        _Activity(cardId: card.id, createdAt: card.createdAt),
+      ],
+      composer: readOnly ? null : CommentComposer(cardId: card.id),
+      bar: ItemBar(
+        children: [
+          BarIcon(
+            icon: Icons.person_outline_rounded,
+            label: 'Who\'s on it',
+            on: assigned.isNotEmpty,
+            onTap: readOnly
+                ? null
+                : () => showModalBottomSheet<void>(
+                    context: context,
+                    isScrollControlled: true,
+                    showDragHandle: true,
+                    builder: (_) => _AssignSheet(cardId: card.id, people: people),
+                  ),
+          ),
+          BarIcon(icon: priority ? Icons.star_rounded : Icons.star_outline_rounded, label: priority ? 'Priority (tap to remove)' : 'Make it Priority', on: priority, onTap: readOnly ? null : () => _repo.setPriority(card.id, !priority)),
+          Builder(
+            builder: (context) => BarCenter(icon: Icons.edit_note_rounded, label: 'Comments and activity', onTap: () => ItemSheetFrame.of(context)?.toggle()),
+          ),
+          BarIcon(icon: Icons.notifications_none_rounded, label: 'Reminder', on: reminder != null, onTap: () => _remind(card)),
+          BarIcon(
+            icon: Icons.more_horiz_rounded,
+            label: 'More',
+            onTap: readOnly ? null : () => _more(card, following: following, lanes: lanes, lane: lane, boards: boards),
+          ),
         ],
       ),
     );
   }
+}
 
-  Widget _notesBox(bool readOnly) {
-    final p = context.palette;
-    if (_editingNotes && !readOnly) {
-      return Container(
-        decoration: BoxDecoration(color: p.card, borderRadius: BorderRadius.circular(20), boxShadow: p.cardShadow),
-        padding: const EdgeInsets.fromLTRB(6, 2, 6, 6),
-        child: Column(
-          children: [
-            Row(
-              children: [
-                IconButton(tooltip: 'Bold', onPressed: () => _wrapSelection('**'), icon: const Icon(Icons.format_bold_rounded)),
-                IconButton(tooltip: 'Italic', onPressed: () => _wrapSelection('_'), icon: const Icon(Icons.format_italic_rounded)),
-                IconButton(tooltip: 'Bullet', onPressed: _bulletLine, icon: const Icon(Icons.format_list_bulleted_rounded)),
-                const Spacer(),
-                TextButton(onPressed: () => _notesFocus.unfocus(), child: const Text('Done')),
-              ],
+/// Where "Move to a different kolumn" goes: one of this Kolumn's kolumns, or another Kolumn.
+class _MoveTarget {
+  const _MoveTarget.lane(Lane this.lane) : board = null;
+  const _MoveTarget.board(KBoard this.board) : lane = null;
+  final Lane? lane;
+  final KBoard? board;
+}
+
+/// One list: this Kolumn's kolumns, then the other Kolumns (his answer, 2026-11-13).
+Future<_MoveTarget?> _showMoveAnywhere(BuildContext context, {required List<LaneInfo> lanes, required Lane current, required List<KBoard> boards, required String title}) {
+  return showModalBottomSheet<_MoveTarget>(
+    context: context,
+    isScrollControlled: true,
+    showDragHandle: true,
+    builder: (context) {
+      final c = context.colors;
+      final t = Theme.of(context).textTheme;
+      Widget row({required Widget lead, required String name, required String trail, required bool here, VoidCallback? onTap}) => Padding(
+        padding: const EdgeInsets.only(bottom: 6),
+        child: Material(
+          color: here ? c.primaryContainer : context.palette.lane,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(KShapes.lg),
+            side: here ? BorderSide(color: c.primary, width: 2) : BorderSide.none,
+          ),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(KShapes.lg),
+            onTap: here ? null : onTap,
+            child: SizedBox(
+              height: 52,
+              child: Row(
+                children: [
+                  const SizedBox(width: 14),
+                  lead,
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(name, style: t.bodyLarge!.copyWith(fontWeight: FontWeight.w500, color: here ? c.onPrimaryContainer : null)),
+                  ),
+                  Text(trail, style: t.bodySmall),
+                  const SizedBox(width: 14),
+                ],
+              ),
             ),
-            TextField(
-              controller: _notes,
-              focusNode: _notesFocus,
-              onChanged: (_) => _changed(),
-              minLines: 4,
-              maxLines: null,
-              textCapitalization: TextCapitalization.sentences,
-              decoration: const InputDecoration(filled: false, hintText: 'Add notes…', border: InputBorder.none, enabledBorder: InputBorder.none),
-            ),
-          ],
+          ),
         ),
       );
-    }
-    final text = _notes.text.trim();
-    return InkWell(
-      borderRadius: BorderRadius.circular(20),
-      onTap: readOnly
-          ? null
-          : () => setState(() {
-              _editingNotes = true;
-              _notesFocus.requestFocus();
-            }),
-      child: Container(
-        width: double.infinity,
-        decoration: BoxDecoration(color: p.card, borderRadius: BorderRadius.circular(20), boxShadow: p.cardShadow),
-        padding: const EdgeInsets.all(16),
-        child: text.isEmpty
-            ? Text(readOnly ? 'No notes.' : 'Tap to add notes…', style: Theme.of(context).textTheme.bodyLarge!.copyWith(color: context.colors.onSurfaceVariant))
-            : FormattedText(text, onOpenCard: _openCard),
-      ),
-    );
-  }
+      return SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text('Move to a different kolumn', style: t.titleLarge),
+              const SizedBox(height: 2),
+              Text(title, maxLines: 2, overflow: TextOverflow.ellipsis, style: t.bodySmall),
+              const SizedBox(height: 12),
+              for (final l in lanes)
+                row(
+                  lead: Container(width: 12, height: 12, decoration: BoxDecoration(color: l.color, shape: BoxShape.circle)),
+                  name: l.name,
+                  trail: l.lane == current ? 'here now' : '${l.cards.length}',
+                  here: l.lane == current,
+                  onTap: () => Navigator.pop(context, _MoveTarget.lane(l.lane)),
+                ),
+              if (boards.isNotEmpty) ...[
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(4, 12, 4, 8),
+                  child: Text('Other Kolumns', style: t.titleSmall!.copyWith(fontWeight: FontWeight.w700)),
+                ),
+                for (final b in boards)
+                  row(
+                    lead: Icon(Icons.view_kanban_outlined, size: 18, color: c.onSurfaceVariant),
+                    name: b.name,
+                    trail: 'to ${laneLook(b, 'todo').name}',
+                    here: false,
+                    onTap: () => Navigator.pop(context, _MoveTarget.board(b)),
+                  ),
+              ],
+            ],
+          ),
+        ),
+      );
+    },
+  );
 }
 
 class _SectionTitle extends StatelessWidget {
@@ -430,123 +563,6 @@ class _DraftBanner extends StatelessWidget {
   }
 }
 
-// ------------------------------------------------------------------ people, tags, following
-
-class _MetaBlock extends ConsumerWidget {
-  const _MetaBlock({required this.cardId, required this.readOnly});
-  final String cardId;
-  final bool readOnly;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final p = context.palette;
-    final c = context.colors;
-    final t = Theme.of(context).textTheme;
-    final repo = ref.read(repositoryProvider);
-    final names = ref.watch(peopleNamesProvider);
-    final people = ref.watch(peopleProvider).value ?? const <KPerson>[];
-    final assigned = (ref.watch(allAssigneesProvider).value ?? const <KAssignee>[]).where((a) => a.cardId == cardId).map((a) => a.userId).toList();
-    final allTags = ref.watch(allTagsProvider).value ?? const <KTag>[];
-    final tags = allTags.where((x) => x.cardId == cardId).map((x) => x.tag).toList()..sort();
-    final watching = ref.watch(watchProvider(cardId)).value?.watching ?? false;
-
-    Widget row(IconData icon, String label, Widget value, {VoidCallback? onTap, bool last = false}) => InkWell(
-      onTap: onTap,
-      child: Container(
-        constraints: const BoxConstraints(minHeight: 52),
-        padding: const EdgeInsets.symmetric(vertical: 6),
-        decoration: BoxDecoration(
-          border: last ? null : Border(bottom: BorderSide(color: c.outlineVariant.withValues(alpha: 0.5))),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, size: 20, color: c.onSurfaceVariant),
-            const SizedBox(width: 12),
-            SizedBox(
-              width: 80,
-              child: Text(label, style: t.bodyMedium!.copyWith(color: c.onSurfaceVariant)),
-            ),
-            Expanded(child: value),
-          ],
-        ),
-      ),
-    );
-
-    return Container(
-      decoration: BoxDecoration(color: p.card, borderRadius: BorderRadius.circular(20), boxShadow: p.cardShadow),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
-      child: Column(
-        children: [
-          row(
-            Icons.person_outline_rounded,
-            'Assigned',
-            assigned.isEmpty
-                ? Text(readOnly ? 'Nobody' : 'Tap to assign', style: t.bodyMedium!.copyWith(color: c.onSurfaceVariant))
-                : Wrap(
-                    spacing: 10,
-                    runSpacing: 6,
-                    children: [
-                      for (final id in assigned)
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            PersonAvatar(id: id, name: names[id] ?? '?', size: 24),
-                            const SizedBox(width: 6),
-                            Text(names[id] ?? 'Someone', style: t.bodyMedium),
-                          ],
-                        ),
-                    ],
-                  ),
-            onTap: readOnly
-                ? null
-                : () => showModalBottomSheet<void>(
-                    context: context,
-                    isScrollControlled: true,
-                    builder: (_) => _AssignSheet(cardId: cardId, people: people),
-                  ),
-          ),
-          row(
-            Icons.sell_outlined,
-            'Tags',
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                for (final tag in tags)
-                  InputChip(label: Text(tag), visualDensity: VisualDensity.compact, onDeleted: readOnly ? null : () => repo.setTag(cardId, tag, false)),
-                if (!readOnly)
-                  ActionChip(
-                    avatar: const Icon(Icons.add_rounded, size: 18),
-                    label: const Text('Tag'),
-                    visualDensity: VisualDensity.compact,
-                    onPressed: () async {
-                      final known = ({for (final x in allTags) x.tag}..removeAll(tags)).toList()..sort();
-                      final tag = await pickTag(context, known);
-                      if (tag != null) await repo.setTag(cardId, tag, true);
-                    },
-                  ),
-                if (readOnly && tags.isEmpty) Text('None', style: t.bodyMedium!.copyWith(color: c.onSurfaceVariant)),
-              ],
-            ),
-          ),
-          row(
-            Icons.visibility_outlined,
-            'Following',
-            Row(
-              children: [
-                Expanded(child: Text(watching ? 'You\'ll hear about changes' : 'Not following', style: t.bodyMedium)),
-                Switch(value: watching, onChanged: (v) => repo.setWatching(cardId, v)),
-              ],
-            ),
-            last: true,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _AssignSheet extends ConsumerWidget {
   const _AssignSheet({required this.cardId, required this.people});
   final String cardId;
@@ -578,260 +594,6 @@ class _AssignSheet extends ConsumerWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-// ------------------------------------------------------------------ steps
-
-class _StepsSection extends ConsumerWidget {
-  const _StepsSection({required this.cardId, required this.readOnly, required this.controller});
-  final String cardId;
-  final bool readOnly;
-  final TextEditingController controller;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final steps = ref.watch(stepsProvider(cardId)).value ?? const <KStep>[];
-    final repo = ref.read(repositoryProvider);
-    final p = context.palette;
-    final c = context.colors;
-    final done = steps.where((s) => s.done).length;
-    if (readOnly && steps.isEmpty) return const SizedBox.shrink();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _SectionTitle(steps.isEmpty ? 'Checklist' : 'Checklist · $done of ${steps.length}'),
-        Container(
-          decoration: BoxDecoration(color: p.card, borderRadius: BorderRadius.circular(20), boxShadow: p.cardShadow),
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-          child: Column(
-            children: [
-              for (final s in steps)
-                Dismissible(
-                  key: ValueKey(s.id),
-                  direction: readOnly ? DismissDirection.none : DismissDirection.endToStart,
-                  background: Container(
-                    alignment: Alignment.centerRight,
-                    padding: const EdgeInsets.only(right: 16),
-                    child: Icon(Icons.delete_outline_rounded, color: c.error),
-                  ),
-                  onDismissed: (_) => repo.deleteStep(s),
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(12),
-                    onTap: readOnly ? null : () => repo.updateStep(s, done: !s.done),
-                    onLongPress: readOnly
-                        ? null
-                        : () async {
-                            final n = await askText(context, title: 'Edit step', initial: s.content, action: 'Save');
-                            if (n != null) await repo.updateStep(s, content: n);
-                          },
-                    child: Container(
-                      constraints: const BoxConstraints(minHeight: 48),
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      child: Row(
-                        children: [
-                          AnimatedContainer(
-                            duration: const Duration(milliseconds: 160),
-                            width: 24,
-                            height: 24,
-                            decoration: BoxDecoration(
-                              color: s.done ? c.primary : Colors.transparent,
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: s.done ? c.primary : p.dash, width: 2),
-                            ),
-                            child: s.done ? Icon(Icons.check_rounded, size: 16, color: c.onPrimary) : null,
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              s.content,
-                              style: TextStyle(
-                                fontSize: 15,
-                                decoration: s.done ? TextDecoration.lineThrough : null,
-                                color: s.done ? c.onSurfaceVariant : c.onSurface,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              if (!readOnly)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(8, 0, 4, 4),
-                  child: Row(
-                    children: [
-                      Icon(Icons.add_rounded, color: p.accentText),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: TextField(
-                          controller: controller,
-                          textCapitalization: TextCapitalization.sentences,
-                          decoration: const InputDecoration(filled: false, hintText: 'Add a step', border: InputBorder.none, enabledBorder: InputBorder.none),
-                          onSubmitted: (v) async {
-                            if (v.trim().isEmpty) return;
-                            await repo.addStep(cardId, v);
-                            controller.clear();
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-            ],
-          ),
-        ),
-        if (!readOnly && steps.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.only(top: 6, left: 4),
-            child: Text('Tap to tick · hold to edit · swipe left to remove', style: Theme.of(context).textTheme.bodySmall),
-          ),
-      ],
-    );
-  }
-}
-
-// ------------------------------------------------------------------ files
-
-class _FilesSection extends ConsumerWidget {
-  const _FilesSection({
-    required this.cardId,
-    required this.coverId,
-    required this.readOnly,
-    required this.onAddPhoto,
-    required this.onAddFile,
-    required this.onOpen,
-  });
-  final String cardId;
-  final String? coverId;
-  final bool readOnly;
-  final void Function(bool camera) onAddPhoto;
-  final VoidCallback onAddFile;
-  final void Function(KFile) onOpen;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final files = (ref.watch(filesProvider(cardId)).value ?? const <KFile>[]).where((f) => f.commentId == null).toList();
-    final repo = ref.read(repositoryProvider);
-    final p = context.palette;
-    final c = context.colors;
-    if (readOnly && files.isEmpty) return const SizedBox.shrink();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _SectionTitle(files.isEmpty ? 'Photos and files' : 'Photos and files · ${files.length}'),
-        if (files.isNotEmpty)
-          LayoutBuilder(
-            builder: (context, box) {
-              final w = (box.maxWidth - 16) / 3;
-              return Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (final f in files)
-                    GestureDetector(
-                      onTap: () => onOpen(f),
-                      onLongPress: readOnly
-                          ? null
-                          : () async {
-                              final isImage = f.mime.startsWith('image/');
-                              final pick = await showModalBottomSheet<String>(
-                                context: context,
-                                builder: (_) => SafeArea(
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      if (isImage)
-                                        ListTile(
-                                          leading: const Icon(Icons.wallpaper_rounded),
-                                          title: Text(coverId == f.id ? 'Stop using as cover' : 'Use as the card\'s cover'),
-                                          onTap: () => Navigator.pop(context, 'cover'),
-                                        ),
-                                      ListTile(
-                                        leading: Icon(Icons.delete_outline_rounded, color: c.error),
-                                        title: const Text('Remove from card'),
-                                        onTap: () => Navigator.pop(context, 'delete'),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              );
-                              if (pick == 'cover') await repo.setCover(cardId, coverId == f.id ? null : f.id);
-                              if (pick == 'delete') await repo.deleteFile(f);
-                            },
-                      child: SizedBox(
-                        width: w,
-                        height: w,
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(16),
-                          child: Stack(
-                            fit: StackFit.expand,
-                            children: [
-                              if (f.mime.startsWith('image/'))
-                                HubPicture(fileId: f.id)
-                              else
-                                Container(
-                                  color: p.lane,
-                                  padding: const EdgeInsets.all(8),
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Icon(Icons.description_outlined, color: p.accentText, size: 30),
-                                      const SizedBox(height: 6),
-                                      Text(
-                                        f.filename,
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
-                                        textAlign: TextAlign.center,
-                                        style: const TextStyle(fontSize: 12),
-                                      ),
-                                      Text(sizeText(f.size), style: Theme.of(context).textTheme.bodySmall),
-                                    ],
-                                  ),
-                                ),
-                              if (!f.uploaded)
-                                Positioned(
-                                  right: 6,
-                                  top: 6,
-                                  child: Container(
-                                    padding: const EdgeInsets.all(4),
-                                    decoration: BoxDecoration(color: c.inverseSurface, shape: BoxShape.circle),
-                                    child: Icon(Icons.cloud_upload_outlined, size: 14, color: c.onInverseSurface),
-                                  ),
-                                ),
-                              if (coverId == f.id)
-                                Positioned(
-                                  left: 6,
-                                  bottom: 6,
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                    decoration: BoxDecoration(color: c.inverseSurface, borderRadius: BorderRadius.circular(999)),
-                                    child: Text('Cover', style: TextStyle(fontSize: 11, color: c.onInverseSurface)),
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
-              );
-            },
-          ),
-        if (!readOnly) ...[
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            children: [
-              ActionChip(avatar: const Icon(Icons.photo_outlined, size: 18), label: const Text('Photo'), onPressed: () => onAddPhoto(false)),
-              ActionChip(avatar: const Icon(Icons.photo_camera_outlined, size: 18), label: const Text('Camera'), onPressed: () => onAddPhoto(true)),
-              ActionChip(avatar: const Icon(Icons.attach_file_rounded, size: 18), label: const Text('File'), onPressed: onAddFile),
-            ],
-          ),
-        ],
-      ],
     );
   }
 }
@@ -1056,10 +818,11 @@ class _CommentsSection extends ConsumerWidget {
   }
 }
 
-// ------------------------------------------------------------------ history
+// ------------------------------------------------------------------ activity
 
-class _History extends ConsumerWidget {
-  const _History({required this.cardId, required this.createdAt});
+/// What happened to the card, newest last.
+class _Activity extends ConsumerWidget {
+  const _Activity({required this.cardId, required this.createdAt});
   final String cardId;
   final int createdAt;
 
@@ -1074,167 +837,16 @@ class _History extends ConsumerWidget {
         '${historyLine(e.action, (jsonDecode(e.particulars) as Map).cast<String, dynamic>(), e.userId == me ? 'You' : (names[e.userId] ?? 'Someone'))} · ${shortWhen(e.createdAt)}',
     ];
     if (lines.isEmpty) lines.add('Added ${shortWhen(createdAt)}');
-    // Folded away until wanted: it is the least-read part of a card.
-    return Theme(
-      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-      child: ExpansionTile(
-        tilePadding: const EdgeInsets.symmetric(horizontal: 2),
-        childrenPadding: const EdgeInsets.only(left: 2, bottom: 8),
-        expandedCrossAxisAlignment: CrossAxisAlignment.start,
-        title: Text('History · ${lines.length}', style: t.titleSmall!.copyWith(fontWeight: FontWeight.w700)),
-        children: [
-          for (final l in lines.take(30))
-            Padding(
-              padding: const EdgeInsets.only(bottom: 4),
-              child: Text(l, style: t.bodySmall),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-/// A card's due day (no times), its reminder (this person's own), and the
-/// tidy-up countdown when it is getting close.
-class _TimeRow extends ConsumerWidget {
-  const _TimeRow({required this.card, required this.readOnly, this.leading = const []});
-  final KCard card;
-  final bool readOnly;
-
-  /// The other buttons that share the row: the kolumn, Priority.
-  final List<Widget> leading;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final repo = ref.read(repositoryProvider);
-    final c = context.colors;
-    final p = context.palette;
-    final today = ref.watch(plannerTodayProvider);
-    final due = card.dueAt == null ? null : dueDayOf(card.dueAt!);
-    final late = due != null && card.closedAt == null && due.compareTo(today) < 0;
-    final reminder = ref.watch(reminderMapProvider)[card.id];
-    KBoard? board;
-    for (final b in ref.watch(boardsProvider).value ?? const <KBoard>[]) {
-      if (b.id == card.boardId) board = b;
-    }
-    final left = tidyDaysLeft(card, board, DateTime.now().millisecondsSinceEpoch);
-
-    Widget chip({required IconData icon, required String text, required VoidCallback? onTap, Color? bg, Color? fg, VoidCallback? onClear}) => Material(
-      color: bg ?? p.chip,
-      shape: const StadiumBorder(),
-      child: InkWell(
-        customBorder: const StadiumBorder(),
-        onTap: onTap,
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(12, 8, onClear == null ? 14 : 4, 8),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 17, color: fg ?? c.onSurface),
-              const SizedBox(width: 6),
-              Text(
-                text,
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: fg ?? c.onSurface),
-              ),
-              if (onClear != null)
-                InkResponse(
-                  radius: 16,
-                  onTap: onClear,
-                  child: Padding(
-                    padding: const EdgeInsets.all(4),
-                    child: Icon(Icons.close_rounded, size: 16, color: fg ?? c.onSurfaceVariant),
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
-
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            ...leading,
-            chip(
-              icon: Icons.event_outlined,
-              text: due == null
-                  ? (readOnly ? 'No due day' : 'Add a due day')
-                  : (late ? 'Late · ${dayLabel(due, today: today)}' : 'Due ${friendlyDay(due, today: today)}'),
-              bg: late ? p.dangerBg : null,
-              fg: late ? p.dangerText : null,
-              onTap: readOnly
-                  ? null
-                  : () async {
-                      final slot = await pickTodoDay(context, current: TodoSlot.day(due ?? today), allowSomeday: false, today: today);
-                      if (slot?.day != null) await repo.setCardDue(card.id, slot!.day);
-                    },
-              onClear: readOnly || due == null ? null : () => repo.setCardDue(card.id, null),
-            ),
-            chip(
-              icon: Icons.notifications_none_rounded,
-              text: reminder == null ? 'Remind me' : reminderLabel(reminder, today: today),
-              onTap: () async {
-                final r = await pickReminder(context, current: reminder, day: due ?? today);
-                if (r != null) await repo.setReminder(card.id, 'card', r.at);
-              },
-            ),
-          ],
-        ),
-        if (left != null && tidyWarning(card, board, DateTime.now().millisecondsSinceEpoch))
+        _SectionTitle('Activity · ${lines.length}'),
+        for (final l in lines.reversed.take(40))
           Padding(
-            padding: const EdgeInsets.only(top: 8, left: 4),
-            child: Text(
-              left <= 1
-                  ? 'Nobody has touched this card in a while. It moves to ${laneLook(board, 'later').name} tomorrow unless someone does.'
-                  : 'Nobody has touched this card in a while. It moves to ${laneLook(board, 'later').name} in $left days unless someone does.',
-              style: TextStyle(fontSize: 13, color: c.onSurfaceVariant),
-            ),
+            padding: const EdgeInsets.only(bottom: 6, left: 2),
+            child: Text(l, style: t.bodySmall),
           ),
       ],
-    );
-  }
-}
-
-/// One of the round buttons at the top of a card: the kolumn it is in,
-/// Priority, its due day, its reminder.
-class _Pill extends StatelessWidget {
-  const _Pill({required this.text, this.icon, this.dot, this.trailing, this.onTap, this.bg, this.fg});
-  final String text;
-  final IconData? icon;
-  final Color? dot;
-  final IconData? trailing;
-  final VoidCallback? onTap;
-  final Color? bg;
-  final Color? fg;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-    final color = fg ?? c.onSurface;
-    return Material(
-      color: bg ?? context.palette.chip,
-      shape: const StadiumBorder(),
-      child: InkWell(
-        customBorder: const StadiumBorder(),
-        onTap: onTap,
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(12, 8, trailing == null ? 14 : 8, 8),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (dot != null) Container(width: 10, height: 10, decoration: BoxDecoration(color: dot, shape: BoxShape.circle)),
-              if (icon != null) Icon(icon, size: 17, color: color),
-              const SizedBox(width: 6),
-              Text(text, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: color)),
-              if (trailing != null) ...[const SizedBox(width: 2), Icon(trailing, size: 18, color: c.onSurfaceVariant)],
-            ],
-          ),
-        ),
-      ),
     );
   }
 }

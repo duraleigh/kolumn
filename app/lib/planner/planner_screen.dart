@@ -14,6 +14,7 @@ import 'days.dart';
 import 'planner_model.dart';
 import 'planner_sheets.dart';
 import 'todo_sheet.dart';
+import '../ui/item_sheet.dart';
 
 enum PlannerView { week, month, day }
 
@@ -146,11 +147,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
 
   void _open(PlannerEntry e) {
     if (e.isCard) {
-      Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) => CardScreen(cardId: e.card!.id, boardId: e.card!.boardId),
-        ),
-      );
+      showCardSheet(context, e.card!.id);
     } else {
       showTodoSheet(context, ref, todoId: e.todo!.id, day: e.day);
     }
@@ -867,29 +864,6 @@ class _EntryRow extends StatelessWidget {
 }
 
 /// Tweek's round tick: an empty ring, or a filled gray ring with a check.
-class CheckCircle extends StatelessWidget {
-  const CheckCircle({super.key, required this.done, this.size = 22});
-  final bool done;
-  final double size;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-    final done0 = c.onSurfaceVariant.withValues(alpha: 0.55);
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 160),
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: done ? done0 : Colors.transparent,
-        border: Border.all(color: done ? done0 : c.onSurface, width: 1.6),
-      ),
-      child: done ? Icon(Icons.check_rounded, size: size * 0.7, color: c.surface) : null,
-    );
-  }
-}
-
 // ------------------------------------------------------------------ week (phone)
 
 class _PhoneWeek extends StatelessWidget {
