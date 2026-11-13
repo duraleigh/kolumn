@@ -21,6 +21,11 @@ class KolumnExport {
 
   Future<Map<int, String>> _names() async => {for (final p in await db.select(db.kPeople).get()) p.id: p.name};
 
+  String _time(int ms) {
+    final d = DateTime.fromMillisecondsSinceEpoch(ms);
+    return '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
+  }
+
   String _when(int? ms) => ms == null ? '' : DateTime.fromMillisecondsSinceEpoch(ms).toIso8601String().substring(0, 16).replaceFirst('T', ' ');
 
   /// One Kolumn: its kolumns, left to right, and every card in each.
@@ -33,7 +38,6 @@ class KolumnExport {
     final ids = cards.map((c) => c.id).toList();
     final steps = await (db.select(db.kSteps)..where((s) => s.cardId.isIn(ids) & s.deletedAt.isNull())).get();
     final comments = await (db.select(db.kComments)..where((s) => s.cardId.isIn(ids) & s.deletedAt.isNull())).get();
-    final tags = await (db.select(db.kTags)..where((s) => s.cardId.isIn(ids) & s.deletedAt.isNull())).get();
     final assignees = await (db.select(db.kAssignees)..where((s) => s.cardId.isIn(ids) & s.deletedAt.isNull())).get();
     final files = await (db.select(db.kFiles)..where((s) => s.cardId.isIn(ids) & s.deletedAt.isNull())).get();
     final events = await (db.select(db.kEvents)..where((s) => s.cardId.isIn(ids))).get();
@@ -45,8 +49,9 @@ class KolumnExport {
       'title': c.title,
       'notes': c.description,
       'priority': c.priorityAt != null,
-      'dueDay': c.dueAt == null ? null : dueDayOf(c.dueAt!),
-      'tags': [for (final t in tags.where((t) => t.cardId == c.id)) t.tag],
+      'dueDay': c.dueAt == null ? null : dueDay(c.dueAt!, hasTime: c.dueHasTime),
+      'dueTime': c.dueAt == null || !c.dueHasTime ? null : _time(c.dueAt!),
+      'pinnedToTop': c.pinnedAt != null,
       'assignedTo': [for (final a in assignees.where((a) => a.cardId == c.id)) names[a.userId] ?? 'someone'],
       'addedBy': names[c.creatorId] ?? '',
       'added': _when(c.createdAt),
@@ -85,7 +90,7 @@ class KolumnExport {
   Future<String> kolumnCsv(String boardId) async {
     final k = await kolumn(boardId);
     final rows = <List<String>>[
-      ['Kolumn', 'In', 'Number', 'Title', 'Priority', 'Due', 'Tags', 'Assigned to', 'Added by', 'Added', 'Finished', 'Checklist done', 'Notes'],
+      ['Kolumn', 'In', 'Number', 'Title', 'Priority', 'Due', 'Due time', 'Assigned to', 'Added by', 'Added', 'Finished', 'Checklist done', 'Notes'],
     ];
     for (final lane in (k['kolumns'] as List).cast<Map<String, Object?>>()) {
       for (final c in (lane['cards'] as List).cast<Map<String, Object?>>()) {
@@ -97,7 +102,7 @@ class KolumnExport {
           '${c['title']}',
           c['priority'] == true ? 'yes' : '',
           '${c['dueDay'] ?? ''}',
-          (c['tags'] as List).join(', '),
+          '${c['dueTime'] ?? ''}',
           (c['assignedTo'] as List).join(', '),
           '${c['addedBy']}',
           '${c['added']}',
@@ -127,6 +132,8 @@ class KolumnExport {
             'day': t.day,
             'someday': t.day == null ? t.list : null,
             'done': t.doneAt != null,
+            'dueDay': t.dueAt == null ? null : dueDay(t.dueAt!, hasTime: t.dueHasTime),
+            'dueTime': t.dueAt == null || !t.dueHasTime ? null : _time(t.dueAt!),
             'repeats': t.repeat == null || t.day == null ? null : RepeatRule.fromJson(t.repeat)?.describe(t.day!),
             'note': t.note,
             'checklist': [

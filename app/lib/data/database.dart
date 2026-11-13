@@ -19,6 +19,8 @@ class KBoards extends Table {
   TextColumn get lanes => text().withDefault(const Constant('{}'))();
   // Schema 8: the secret view-only link, as the hub gives it to whoever may manage it.
   TextColumn get shareKey => text().nullable()();
+  // Schema 9: which planners may show its cards (a JSON list; empty: none).
+  TextColumn get plannerIds => text().withDefault(const Constant('[]'))();
   // Sharing, as the hub last reported it (schema 2).
   BoolColumn get allAccess => boolean().withDefault(const Constant(true))();
   IntColumn get creatorId => integer().nullable()();
@@ -39,6 +41,8 @@ class KColumns extends Table {
   TextColumn get name => text()();
   IntColumn get color => integer().withDefault(const Constant(0))();
   RealColumn get position => real()();
+  // Schema 9: null follows its Kolumn's planners; a JSON list narrows them.
+  TextColumn get plannerIds => text().nullable()();
   IntColumn get createdAt => integer()();
   IntColumn get updatedAt => integer()();
   IntColumn get deletedAt => integer().nullable()();
@@ -61,6 +65,8 @@ class KCards extends Table {
   IntColumn get laterAt => integer().nullable()();
   TextColumn get laterReason => text().nullable()();
   IntColumn get priorityAt => integer().nullable()();
+  // Schema 9: pinned to the top of its kolumn (for everyone) until unpinned.
+  IntColumn get pinnedAt => integer().nullable()();
   IntColumn get dueAt => integer().nullable()();
   BoolColumn get dueHasTime => boolean().withDefault(const Constant(false))();
   IntColumn get lastActiveAt => integer()();
@@ -276,6 +282,9 @@ class KTodos extends Table {
   IntColumn get doneAt => integer().nullable()();
   RealColumn get position => real().withDefault(const Constant(0))();
   TextColumn get repeat => text().nullable()();
+  // Schema 9: a due moment (11:59 PM of the day unless a time was picked).
+  IntColumn get dueAt => integer().nullable()();
+  BoolColumn get dueHasTime => boolean().withDefault(const Constant(false))();
   IntColumn get assigneeId => integer().nullable()();
   IntColumn get creatorId => integer().nullable()();
   IntColumn get createdAt => integer()();
@@ -354,6 +363,8 @@ class KReminders extends Table {
 class KNotifications extends Table {
   TextColumn get cardId => text()();
   TextColumn get boardId => text()();
+  // Schema 9: 'card', or 'todo' (then cardId is the to-do and boardId its planner).
+  TextColumn get kind => text().withDefault(const Constant('card'))();
   IntColumn get creatorId => integer().withDefault(const Constant(0))();
   TextColumn get action => text()();
   TextColumn get particulars => text().withDefault(const Constant('{}'))();
@@ -388,6 +399,43 @@ class KViews extends Table {
   Set<Column> get primaryKey => {id};
 }
 
+// ---------------------------------------------------------------- schema 9: the 2026-11-13 changes
+
+/// A line of a to-do's history (added, finished, due date set, late…).
+@DataClassName('KTodoEvent')
+class KTodoEvents extends Table {
+  IntColumn get id => integer()();
+  TextColumn get todoId => text()();
+  TextColumn get plannerId => text()();
+  IntColumn get userId => integer().withDefault(const Constant(0))();
+  TextColumn get action => text()();
+  TextColumn get particulars => text().withDefault(const Constant('{}'))();
+  IntColumn get createdAt => integer()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// To-dos this person follows (or stopped following).
+@DataClassName('KTodoWatch')
+class KTodoWatches extends Table {
+  TextColumn get todoId => text()();
+  BoolColumn get watching => boolean()();
+
+  @override
+  Set<Column> get primaryKey => {todoId};
+}
+
+/// Reminders that went off and were seen in Alerts (kept on this phone only).
+@DataClassName('KReminderRead')
+class KReminderReads extends Table {
+  TextColumn get itemId => text()();
+  IntColumn get at => integer()();
+
+  @override
+  Set<Column> get primaryKey => {itemId, at};
+}
+
 @DriftDatabase(
   tables: [
     KBoards,
@@ -415,6 +463,9 @@ class KViews extends Table {
     KNotifications,
     KBoardWatches,
     KViews,
+    KTodoEvents,
+    KTodoWatches,
+    KReminderReads,
   ],
 )
 class KolumnDb extends _$KolumnDb {
@@ -423,7 +474,7 @@ class KolumnDb extends _$KolumnDb {
   KolumnDb.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 8;
+  int get schemaVersion => 9;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -463,6 +514,17 @@ class KolumnDb extends _$KolumnDb {
       }
       if (from < 8) {
         await m.addColumn(kBoards, kBoards.shareKey);
+      }
+      if (from < 9) {
+        await m.addColumn(kBoards, kBoards.plannerIds);
+        await m.addColumn(kColumns, kColumns.plannerIds);
+        await m.addColumn(kCards, kCards.pinnedAt);
+        await m.addColumn(kTodos, kTodos.dueAt);
+        await m.addColumn(kTodos, kTodos.dueHasTime);
+        await m.addColumn(kNotifications, kNotifications.kind);
+        for (final t in <TableInfo>[kTodoEvents, kTodoWatches, kReminderReads]) {
+          await m.createTable(t);
+        }
       }
     },
   );

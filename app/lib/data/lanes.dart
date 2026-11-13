@@ -60,10 +60,13 @@ class Lane {
 /// arrived, or from an older app) sits above them in the automatic order.
 List<KCard> sortForLane(Lane lane, Iterable<KCard> cards) {
   final all = cards.toList();
-  final placed = all.where((c) => c.position != null).toList()..sort((a, b) => a.position!.compareTo(b.position!));
-  final list = all.where((c) => c.position == null).toList();
+  // Pinned to the top (2026-11-13) first, the latest pin on top; they stay there until unpinned.
+  final pinned = all.where((c) => c.pinnedAt != null).toList()..sort((a, b) => b.pinnedAt!.compareTo(a.pinnedAt!));
+  final rest = all.where((c) => c.pinnedAt == null);
+  final placed = rest.where((c) => c.position != null).toList()..sort((a, b) => a.position!.compareTo(b.position!));
+  final list = rest.where((c) => c.position == null).toList();
   _autoSort(lane, list);
-  return [...list, ...placed];
+  return [...pinned, ...list, ...placed];
 }
 
 void _autoSort(Lane lane, List<KCard> list) {

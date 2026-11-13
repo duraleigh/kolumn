@@ -47,7 +47,8 @@ void main() {
       expect(van['notes'], 'Ask about the dock');
       expect(van['priority'], isTrue);
       expect(van['dueDay'], '2026-11-13');
-      expect(van['tags'], ['venue']);
+      expect(van.containsKey('tags'), isFalse, reason: 'tags are shown nowhere (2026-11-13)');
+      expect(jsonEncode(k), isNot(contains('"venue"')));
       expect((van['checklist'] as List).single, {'step': 'Call the venue', 'done': false});
       expect(((van['comments'] as List).single as Map)['by'], 'Clay Aiken');
       expect(jsonEncode(k), isNot(contains('Secret')), reason: 'drafts are left out');
@@ -73,7 +74,7 @@ void main() {
       final all = await KolumnExport(repo).everything();
       expect((all['kolumns'] as List), hasLength(1));
       expect(((all['planners'] as List).single as Map)['toDos'], [
-        {'title': 'Warm-up', 'day': '2026-11-12', 'someday': null, 'done': false, 'repeats': null, 'note': '', 'checklist': <Object>[]},
+        {'title': 'Warm-up', 'day': '2026-11-12', 'someday': null, 'done': false, 'dueDay': null, 'dueTime': null, 'repeats': null, 'note': '', 'checklist': <Object>[]},
       ]);
       expect(KolumnExport.fileName('Fall/tour: 2026?'), startsWith('Kolumn - Falltour 2026 - '));
     });

@@ -4,6 +4,7 @@ import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kolumn/data/database.dart';
+import 'package:kolumn/data/due.dart';
 import 'package:kolumn/data/lanes.dart';
 import 'package:kolumn/data/repository.dart';
 import 'package:kolumn/data/tidy.dart';
@@ -128,7 +129,16 @@ void main() {
         marks.putIfAbsent(m.todoId, () => {})[m.day] = m.mark;
       }
       final planner = (await repo.watchPlanners().first).firstWhere((p) => p.id == plannerId);
-      return PlannerData(planner: planner, todos: await repo.watchTodos(plannerId).first, marks: marks, cards: await repo.watchAllCards().first, today: today);
+      return PlannerData(
+        planner: planner,
+        todos: await repo.watchTodos(plannerId).first,
+        marks: marks,
+        cards: await repo.watchAllCards().first,
+        boards: await repo.watchBoards().first,
+        columns: await (db.select(db.kColumns)).get(),
+        today: today,
+        now: now,
+      );
     }
 
     test('everyone starts with "My planner", showing the Kolumns they can see', () async {
@@ -203,50 +213,121 @@ void main() {
       expect((await sent('todo.update')).last['repeat'], {'every': 1, 'unit': 'day'});
     });
 
-    test('"move unfinished to the next day": late to-dos roll to today; finished, repeating and switched-off ones stay', () async {
+    test('his day rules: unfinished to-dos move to the TOP of today until late; late ones stop on their due day', () async {
       final p = await repo.createPlanner('Tour');
-      final off = await repo.createPlanner('Family');
-      await repo.updatePlanner(off, rollOver: false);
-      final late = await repo.addTodo(p, const TodoSlot.day('2026-11-09'), 'Book flights');
+      final other = await repo.createPlanner('Family');
+      final today = await repo.addTodo(p, const TodoSlot.day('2026-11-11'), 'Already today');
+      final first = await repo.addTodo(p, const TodoSlot.day('2026-11-09'), 'Book flights');
+      final second = await repo.addTodo(p, const TodoSlot.day('2026-11-10'), 'Pack');
       final done = await repo.addTodo(p, const TodoSlot.day('2026-11-09'), 'Call the venue');
       await repo.setTodoDone((await repo.todo(done))!, true);
       final rep = await repo.addTodo(p, const TodoSlot.day('2026-11-09'), 'Warm-up');
       await repo.updateTodo(rep, repeat: const RepeatRule());
       final future = await repo.addTodo(p, const TodoSlot.day('2026-11-20'), 'Charlotte');
       final someday = await repo.addTodo(p, const TodoSlot.someday(1), 'Ideas');
-      final other = await repo.addTodo(off, const TodoSlot.day('2026-11-09'), 'Dentist');
-      expect(await repo.rollOver('2026-11-11'), 1);
-      expect((await repo.todo(late))!.day, '2026-11-11');
-      expect((await repo.todo(done))!.day, '2026-11-09');
+      final dueLater = await repo.addTodo(p, const TodoSlot.day('2026-11-09'), 'Due Friday');
+      await repo.setTodoDue((await repo.todo(dueLater))!, endOfDayMs('2026-11-13'));
+      final late = await repo.addTodo(p, const TodoSlot.day('2026-11-08'), 'Due Tuesday');
+      await repo.setTodoDue((await repo.todo(late))!, endOfDayMs('2026-11-10'));
+      final family = await repo.addTodo(other, const TodoSlot.day('2026-11-09'), 'Dentist');
+
+      expect((await repo.todo(done))!.day, '2026-11-11', reason: 'a finished to-do lives on the day it was finished');
+      expect(await repo.rollOver('2026-11-11'), 5);
+      expect((await repo.todo(first))!.day, '2026-11-11');
+      expect((await repo.todo(dueLater))!.day, '2026-11-11', reason: 'not yet due: it keeps moving forward');
+      expect((await repo.todo(late))!.day, '2026-11-10', reason: 'late: it stops on its due day');
+      expect((await repo.todo(family))!.day, '2026-11-11', reason: 'every planner follows the rules (no switch)');
       expect((await repo.todo(rep))!.day, '2026-11-09');
       expect((await repo.todo(future))!.day, '2026-11-20');
       expect((await repo.todo(someday))!.day, isNull);
-      expect((await repo.todo(other))!.day, '2026-11-09');
+      final d = await data(p);
+      expect(d.entries('2026-11-11').where((e) => !e.done && !e.repeats).map((e) => e.title), ['Book flights', 'Due Friday', 'Pack', 'Already today'], reason: 'moved ones go on top, in the order they were placed');
+      expect((await repo.todo(second))!.day, '2026-11-11');
+      expect(d.entries('2026-11-10').where((e) => !e.repeats).single.late, isTrue);
+      expect(d.lateItems.single.todo!.id, late);
       expect(await repo.rollOver('2026-11-11'), 0, reason: 'nothing left to move');
+      expect((await sent('todo.update')).where((m) => m['auto'] == true), hasLength(5), reason: 'the daily move is sent as automatic, so it is not news');
+      expect((await repo.todo(today))!.day, '2026-11-11');
     });
 
-    test('dated cards show on their day from ticked Kolumns only; late ones are red and never move', () async {
+    test('a late to-do whose due date is removed or changed comes back to the top of today', () async {
+      final p = await repo.createPlanner('Tour');
+      final a = await repo.addTodo(p, const TodoSlot.day('2026-11-10'), 'Late A');
+      final b = await repo.addTodo(p, const TodoSlot.day('2026-11-10'), 'Late B');
+      await repo.addTodo(p, const TodoSlot.day('2026-11-11'), 'Today');
+      for (final id in [a, b]) {
+        await repo.setTodoDue((await repo.todo(id))!, endOfDayMs('2026-11-10'));
+      }
+      await repo.setTodoDue((await repo.todo(a))!, null);
+      await repo.setTodoDue((await repo.todo(b))!, endOfDayMs('2026-11-14'));
+      final d = await data(p);
+      expect(d.entries('2026-11-11').map((e) => e.title).take(2).toSet(), {'Late A', 'Late B'});
+      expect(d.lateItems, isEmpty);
+      expect(d.entries('2026-11-11').first.state, isNot(DueState.late));
+    });
+
+    test('finishing a late to-do keeps "LATE:" (finished late), on the day it was finished', () async {
+      final p = await repo.createPlanner('Tour');
+      final t = await repo.addTodo(p, const TodoSlot.day('2026-11-10'), 'Late');
+      await repo.setTodoDue((await repo.todo(t))!, endOfDayMs('2026-11-10'));
+      await repo.setTodoDone((await repo.todo(t))!, true);
+      final e = (await data(p)).entries('2026-11-11').single;
+      expect(e.done, isTrue);
+      expect(e.state, DueState.lateDone);
+      expect(e.state.showsLate, isTrue);
+    });
+
+    test('due today goes to the top of the day; moving follows his rules', () async {
+      final p = await repo.createPlanner('Tour');
+      await repo.addTodo(p, const TodoSlot.day('2026-11-11'), 'Plain');
+      final due = await repo.addTodo(p, const TodoSlot.day('2026-11-11'), 'Due tonight');
+      await repo.setTodoDue((await repo.todo(due))!, endOfDayMs('2026-11-11'));
+      final d = await data(p);
+      expect(d.entries('2026-11-11').map((e) => e.title), ['Due tonight', 'Plain']);
+      expect(d.entries('2026-11-11').first.state, DueState.dueToday);
+      final open = (await repo.todo(due))!;
+      expect(canMoveTodo(open, const TodoSlot.day('2026-11-10'), today: '2026-11-11'), isFalse, reason: 'unfinished: not to the past');
+      expect(canMoveTodo(open, const TodoSlot.day('2026-11-12'), today: '2026-11-11'), isFalse, reason: 'not past its due day');
+      expect(canMoveTodo(open, const TodoSlot.someday(1), today: '2026-11-11'), isTrue);
+      await repo.setTodoDone(open, true);
+      final fin = (await repo.todo(due))!;
+      expect(canMoveTodo(fin, const TodoSlot.day('2026-11-12'), today: '2026-11-11'), isFalse, reason: 'finished: not to the future');
+      expect(canMoveTodo(fin, const TodoSlot.day('2026-11-02'), today: '2026-11-11'), isTrue);
+      expect(canMoveTodo(fin, const TodoSlot.someday(1), today: '2026-11-11'), isFalse, reason: 'only unfinished ones go to Someday');
+    });
+
+    test('dated cards show only when BOTH agree: the Kolumn allows the planner and the planner has it on', () async {
       final tour = await repo.createBoard('Tour');
       final studio = await repo.createBoard('Studio');
-      final p = await repo.createPlanner('Tour', boardIds: [tour]);
+      final col = await repo.addColumn(tour, 'Laws I intend to break', 1);
+      final p = await repo.createPlanner('Tour', boardIds: [tour, studio]);
       final late = await repo.addCard(tour, 'Confirm hotel block');
       final soon = await repo.addCard(tour, 'Finalize setlist');
       final hidden = await repo.addCard(studio, 'Mix notes');
       final draft = await repo.addCard(tour, 'Secret', draft: true);
+      final secret = await repo.addCard(tour, 'Jaywalk', lane: Lane.column(col));
+      for (final c in [soon, hidden, draft, secret]) {
+        await repo.setCardDue(c, '2026-11-12');
+      }
       await repo.setCardDue(late, '2026-11-09');
-      await repo.setCardDue(soon, '2026-11-12');
-      await repo.setCardDue(hidden, '2026-11-12');
-      await repo.setCardDue(draft, '2026-11-12');
+      expect((await data(p)).entries('2026-11-12'), isEmpty, reason: 'a Kolumn starts at None: no planner shows it');
+      await repo.setBoardPlanners(tour, [p]);
+      await repo.setLanePlanners(tour, col, []);
       await repo.addTodo(p, const TodoSlot.day('2026-11-09'), 'Old to-do');
       expect(await repo.rollOver('2026-11-11'), 1);
       final d = await data(p);
       final mon = d.entries('2026-11-09');
       expect(mon.single.card!.id, late, reason: 'the card stayed; the to-do rolled on');
       expect(mon.single.late, isTrue);
-      expect(d.entries('2026-11-12').map((e) => e.title), ['Finalize setlist']);
-      expect((await repo.card(late))!.dueAt, DateTime.utc(2026, 11, 9, 12).millisecondsSinceEpoch);
-      expect((await sent('card.due')).first, {'name': 'card.due', 'id': late, 'day': '2026-11-09'});
+      expect(d.lateItems.single.card!.id, late);
+      expect(d.entries('2026-11-12').map((e) => e.title), ['Finalize setlist'], reason: 'Studio did not allow it; the narrowed kolumn shows nowhere');
+      expect((await repo.card(late))!.dueAt, endOfDayMs('2026-11-09'));
+      expect((await sent('card.due')).last, {'name': 'card.due', 'id': late, 'dueAt': endOfDayMs('2026-11-09'), 'hasTime': false});
+      await repo.updatePlanner(p, boardIds: []);
+      expect((await data(p)).entries('2026-11-12'), isEmpty, reason: 'the planner can still switch it off');
+      await repo.updatePlanner(p, boardIds: [tour]);
       await repo.moveCard(late, const Lane.done());
+      await repo.setLanePlanners(tour, 'done', null);
       expect((await data(p)).entries('2026-11-09').single.late, isFalse, reason: 'a finished card is not late');
     });
 
@@ -258,6 +339,7 @@ void main() {
       await repo.addTodo(p, const TodoSlot.someday(1), 'Fan Q&A ideas');
       final c = await repo.addCard(b, 'Truck rental');
       await repo.setCardDue(c, '2026-11-13');
+      await repo.setBoardPlanners(b, [p]);
       final d = await data(p);
       expect(d.search('truck').map((e) => e.title), ['Plan the load-in', 'Truck rental']);
       expect(d.search('ideas').single.slotKey, 'someday-1');
@@ -374,6 +456,7 @@ void main() {
       doneAt: doneAt,
       position: 1,
       repeat: repeat,
+      dueHasTime: false,
       createdAt: 0,
       updatedAt: 0,
     );
@@ -433,7 +516,7 @@ void main() {
       createdAt: 0,
       updatedAt: 0,
     );
-    KBoard board(int? days) => KBoard(id: 'b', name: 'B', tidyDays: days, lanes: '{}', allAccess: true, members: '[]', canManage: true, createdAt: 0, updatedAt: 0);
+    KBoard board(int? days) => KBoard(id: 'b', name: 'B', tidyDays: days, lanes: '{}', plannerIds: '[]', allAccess: true, members: '[]', canManage: true, createdAt: 0, updatedAt: 0);
 
     test('counts down from the Kolumn\'s tidy-up time, and warns near the end', () {
       expect(tidyDaysLeft(card(), board(null), 10 * day), 20);

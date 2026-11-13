@@ -65,7 +65,7 @@ void main() {
       expect(activityLine('card_assigned', {'userId': 9, 'name': 'Riley'}, who: 'Jamie', title: 'Plot', me: 7), 'Jamie assigned Riley to Plot');
       expect(activityLine('card_due_set', {'day': '2026-11-13'}, who: 'Jamie', title: 'Plot', me: 7), 'Jamie set Plot due Fri, 13 Nov');
       expect(activityLine('card_auto_later', {'days': 30}, who: '', title: 'Old idea', me: 7), 'Old idea moved to Later on its own after 30 days untouched');
-      final n = KNotification(cardId: 'c', boardId: 'b', creatorId: 8, action: 'mentioned', particulars: '{}', unreadCount: 1, updatedAt: 1);
+      final n = KNotification(cardId: 'c', boardId: 'b', kind: 'card', creatorId: 8, action: 'mentioned', particulars: '{}', unreadCount: 1, updatedAt: 1);
       expect(alertLine(n, who: 'Riley', title: 'Finalize setlist', me: 7), 'Riley mentioned you on Finalize setlist');
     });
   });

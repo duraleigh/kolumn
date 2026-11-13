@@ -746,13 +746,51 @@ class KolumnRepository {
 
   // ---------------------------------------------------------------- time (Phase 5)
 
-  /// A card's due DAY (no times), or null to clear it.
-  Future<void> setCardDue(String cardId, String? day) => db.transaction(() async {
+  /// A card due on a day with no picked time: 11:59 PM that day. Null clears it.
+  Future<void> setCardDue(String cardId, String? day) => setCardDueAt(cardId, day == null ? null : endOfDayMs(day));
+
+  /// A card's due moment (2026-11-13: times again). [hasTime] says whether
+  /// someone picked the time, rather than leaving 11:59 PM.
+  Future<void> setCardDueAt(String cardId, int? dueAt, {bool hasTime = false}) => db.transaction(() async {
     final now = _now();
     await (db.update(db.kCards)..where((c) => c.id.equals(cardId))).write(
-      KCardsCompanion(dueAt: Value(day == null ? null : dueMsOf(day)), dueHasTime: const Value(false), lastActiveAt: Value(now), updatedAt: Value(now)),
+      KCardsCompanion(dueAt: Value(dueAt), dueHasTime: Value(dueAt != null && hasTime), lastActiveAt: Value(now), updatedAt: Value(now)),
     );
-    await _record('card.due', {'id': cardId, 'day': day});
+    await _record('card.due', {'id': cardId, 'dueAt': dueAt, 'hasTime': dueAt != null && hasTime});
+  });
+
+  /// Pinned to the top of its kolumn, for everyone, until unpinned.
+  Future<void> setPinTop(String cardId, bool on) => db.transaction(() async {
+    await (db.update(db.kCards)..where((c) => c.id.equals(cardId))).write(KCardsCompanion(pinnedAt: Value(on ? _now() : null), updatedAt: Value(_now())));
+    await _record('card.pin', {'id': cardId, 'on': on});
+  });
+
+  // ---------------------------------------------------------------- which planners show a Kolumn (2026-11-13)
+
+  /// The planners that may show a Kolumn's cards. Empty: none.
+  Future<void> setBoardPlanners(String boardId, List<String> plannerIds) => db.transaction(() async {
+    await (db.update(db.kBoards)..where((b) => b.id.equals(boardId))).write(KBoardsCompanion(plannerIds: Value(jsonEncode(plannerIds)), updatedAt: Value(_now())));
+    await _record('board.planners', {'id': boardId, 'plannerIds': plannerIds});
+  });
+
+  /// Narrows which planners show one kolumn of a Kolumn. Null: as its Kolumn allows.
+  /// [lane] is 'later', 'todo', 'done', or a kolumn's id.
+  Future<void> setLanePlanners(String boardId, String lane, List<String>? plannerIds) => db.transaction(() async {
+    if (const ['later', 'todo', 'done'].contains(lane)) {
+      await _patchLane(boardId, lane, (one) {
+        if (plannerIds == null) {
+          one.remove('plannerIds');
+        } else {
+          one['plannerIds'] = plannerIds;
+        }
+      });
+      await _record('board.lane', {'id': boardId, 'lane': lane, 'plannerIds': plannerIds});
+    } else {
+      await (db.update(db.kColumns)..where((c) => c.id.equals(lane))).write(
+        KColumnsCompanion(plannerIds: Value(plannerIds == null ? null : jsonEncode(plannerIds)), updatedAt: Value(_now())),
+      );
+      await _record('column.planners', {'id': lane, 'plannerIds': plannerIds});
+    }
   });
 
   /// How long a Kolumn's cards may sit untouched before they move to Later on
@@ -956,9 +994,65 @@ class KolumnRepository {
       await _record('todo.done', {'id': t.id, 'on': done, 'day': day});
       return;
     }
-    await (db.update(db.kTodos)..where((x) => x.id.equals(t.id))).write(KTodosCompanion(doneAt: Value(done ? _now() : null), updatedAt: Value(_now())));
-    await _record('todo.done', {'id': t.id, 'on': done});
+    // A finished to-do lives on the day it was finished (2026-11-13), even if
+    // finished early. Someday to-dos stay in their list.
+    final today = todayKey(DateTime.fromMillisecondsSinceEpoch(_now()));
+    final move = done && t.day != null && t.day != today;
+    final pos = move ? await _nextTodoPosition(t.plannerId, TodoSlot.day(today)) : null;
+    await (db.update(db.kTodos)..where((x) => x.id.equals(t.id))).write(
+      KTodosCompanion(
+        doneAt: Value(done ? _now() : null),
+        day: move ? Value(today) : const Value.absent(),
+        position: Value.absentIfNull(pos),
+        updatedAt: Value(_now()),
+      ),
+    );
+    await _record('todo.done', {'id': t.id, 'on': done, if (move) 'day': today, 'position': ?pos});
   });
+
+  /// A to-do's due moment, or null to remove it. A to-do that was LATE comes
+  /// back to normal at the top of today, whether its date is removed or changed
+  /// (his rules 11 and 12).
+  Future<void> setTodoDue(KTodo t, int? dueAt, {bool hasTime = false}) => db.transaction(() async {
+    final now = _now();
+    final today = todayKey(DateTime.fromMillisecondsSinceEpoch(now));
+    final wasLate = t.doneAt == null && t.repeat == null && t.dueAt != null && now > dueMoment(t.dueAt!, hasTime: t.dueHasTime);
+    final toTop = wasLate && t.day != null;
+    final pos = toTop ? await _topTodoPosition(t.plannerId, today, except: t.id) : null;
+    await (db.update(db.kTodos)..where((x) => x.id.equals(t.id))).write(
+      KTodosCompanion(
+        dueAt: Value(dueAt),
+        dueHasTime: Value(dueAt != null && hasTime),
+        day: toTop ? Value(today) : const Value.absent(),
+        position: Value.absentIfNull(pos),
+        updatedAt: Value(now),
+      ),
+    );
+    await _record('todo.update', {'id': t.id, 'dueAt': dueAt, 'dueHasTime': dueAt != null && hasTime, if (toTop) ...{'day': today, 'list': null}, 'position': ?pos});
+  });
+
+  /// Following a to-do: alerts when it is finished, its due date changes, or it goes late.
+  Future<void> setTodoWatch(String todoId, bool on) => db.transaction(() async {
+    await db.into(db.kTodoWatches).insertOnConflictUpdate(KTodoWatchesCompanion.insert(todoId: todoId, watching: on));
+    await _record('todo.watch', {'id': todoId, 'on': on});
+  });
+
+  Stream<KTodoWatch?> watchTodoWatch(String todoId) => (db.select(db.kTodoWatches)..where((w) => w.todoId.equals(todoId))).watchSingleOrNull();
+
+  Stream<List<KTodoEvent>> watchAllTodoEvents() => (db.select(db.kTodoEvents)..orderBy([(e) => OrderingTerm.desc(e.createdAt)])).watch();
+
+  Stream<List<KTodoEvent>> watchTodoEvents(String todoId) =>
+      (db.select(db.kTodoEvents)
+            ..where((e) => e.todoId.equals(todoId))
+            ..orderBy([(e) => OrderingTerm.asc(e.createdAt)]))
+          .watch();
+
+  /// Above everything on a day.
+  Future<double> _topTodoPosition(String plannerId, String day, {String? except}) async {
+    final rows = await (db.select(db.kTodos)..where((t) => t.plannerId.equals(plannerId) & t.deletedAt.isNull() & t.day.equals(day))).get();
+    final others = rows.where((r) => r.id != except).map((r) => r.position);
+    return others.isEmpty ? 1.0 : others.reduce((a, b) => a < b ? a : b) - 1;
+  }
 
   /// Deletes one day of a repeating to-do; the other days stay.
   Future<void> skipTodoDay(KTodo t, String day) => db.transaction(() async {
@@ -972,13 +1066,16 @@ class KolumnRepository {
     await _record('todo.delete', {'id': id});
   });
 
-  /// Moves every unfinished, non-repeating to-do from an earlier day to
-  /// [today], in planners with that switch on (Tweek's "move unfinished to
-  /// the next day"). Cards never move. Returns how many moved.
+  /// His day rules (2026-11-13), in every planner: an unfinished,
+  /// non-repeating to-do on an earlier day moves to the TOP of [today],
+  /// leaving nothing behind — until it is late; a late to-do stops on its due
+  /// day and stays there. Repeating to-dos and cards never move. Returns how
+  /// many moved.
   Future<int> rollOver(String today) async {
-    final planners = await (db.select(db.kPlanners)..where((p) => p.deletedAt.isNull() & p.rollOver.equals(true))).get();
+    final planners = await (db.select(db.kPlanners)..where((p) => p.deletedAt.isNull())).get();
     if (planners.isEmpty) return 0;
-    final late =
+    final now = _now();
+    final behind =
         await (db.select(db.kTodos)..where(
               (t) =>
                   t.plannerId.isIn(planners.map((p) => p.id).toList()) &
@@ -989,10 +1086,45 @@ class KolumnRepository {
                   t.day.isSmallerThanValue(today),
             ))
             .get();
-    for (final t in late) {
-      await updateTodo(t.id, slot: TodoSlot.day(today));
+    // Kept in their order: the earliest-placed ends up on top.
+    behind.sort((a, b) {
+      final d = a.day!.compareTo(b.day!);
+      return d != 0 ? d : a.position.compareTo(b.position);
+    });
+    var moved = 0;
+    for (final t in behind.reversed) {
+      var to = today;
+      if (t.dueAt != null && now > dueMoment(t.dueAt!, hasTime: t.dueHasTime)) {
+        to = dueDay(t.dueAt!, hasTime: t.dueHasTime); // Late: it stays on its due day.
+        if (to.compareTo(t.day!) <= 0 || to.compareTo(today) > 0) continue;
+      }
+      await db.transaction(() async {
+        final pos = await _topTodoPosition(t.plannerId, to, except: t.id);
+        await (db.update(db.kTodos)..where((x) => x.id.equals(t.id))).write(KTodosCompanion(day: Value(to), position: Value(pos), updatedAt: Value(now)));
+        await _record('todo.update', {'id': t.id, 'day': to, 'list': null, 'position': pos, 'auto': true});
+      });
+      moved++;
     }
-    return late.length;
+    return moved;
+  }
+
+  // ---------------------------------------------------------------- reminders in Alerts (2026-11-13)
+
+  Stream<List<KReminderRead>> watchReminderReads() => db.select(db.kReminderReads).watch();
+
+  /// A reminder that went off was seen (kept on this phone only).
+  Future<void> setReminderRead(String itemId, int at, bool read) async {
+    if (read) {
+      await db.into(db.kReminderReads).insertOnConflictUpdate(KReminderReadsCompanion.insert(itemId: itemId, at: at));
+    } else {
+      await (db.delete(db.kReminderReads)..where((r) => r.itemId.equals(itemId) & r.at.equals(at))).go();
+    }
+  }
+
+  Future<void> readReminders(Iterable<(String, int)> passed) async {
+    for (final (id, at) in passed) {
+      await db.into(db.kReminderReads).insertOnConflictUpdate(KReminderReadsCompanion.insert(itemId: id, at: at));
+    }
   }
 
   Future<String> addTodoStep(String todoId, String content, {bool heading = false}) async {
@@ -1091,6 +1223,8 @@ class KolumnRepository {
         await (db.delete(db.kTodoSteps)..where((x) => x.todoId.isIn(todoIds))).go();
         await (db.delete(db.kTodoFiles)..where((x) => x.todoId.isIn(todoIds))).go();
         await (db.delete(db.kTodoMarks)..where((x) => x.todoId.isIn(todoIds))).go();
+        await (db.delete(db.kTodoEvents)..where((x) => x.plannerId.equals(p.id))).go();
+        await (db.delete(db.kTodoWatches)..where((x) => x.todoId.isIn(todoIds))).go();
         await (db.delete(db.kTodos)..where((x) => x.plannerId.equals(p.id))).go();
         await (db.delete(db.kPlannerPeople)..where((x) => x.plannerId.equals(p.id))).go();
         await (db.delete(db.kPlanners)..where((x) => x.id.equals(p.id))).go();
@@ -1149,6 +1283,8 @@ class KolumnRepository {
               doneAt: Value(i(t['doneAt'])),
               position: Value((t['position'] as num?)?.toDouble() ?? 0),
               repeat: Value(rule == null ? null : jsonEncode(rule)),
+              dueAt: Value(i(t['dueAt'])),
+              dueHasTime: Value(t['dueHasTime'] == true),
               assigneeId: Value(i(t['assigneeId'])),
               creatorId: Value(i(t['creatorId'])),
               createdAt: i(t['createdAt']) ?? 0,
@@ -1217,6 +1353,25 @@ class KolumnRepository {
               uploaded: const Value(true),
             ),
           );
+    }
+    for (final e in list('todoEvents')) {
+      await db
+          .into(db.kTodoEvents)
+          .insertOnConflictUpdate(
+            KTodoEventsCompanion.insert(
+              id: Value(i(e['id']) ?? 0),
+              todoId: e['todoId'] as String,
+              plannerId: e['plannerId'] as String? ?? '',
+              userId: Value(i(e['userId']) ?? 0),
+              action: e['action'] as String? ?? '',
+              particulars: Value(jsonEncode(e['particulars'] ?? const {})),
+              createdAt: i(e['createdAt']) ?? 0,
+            ),
+          );
+    }
+    for (final w in list('todoWatches')) {
+      if (pending.contains(w['todoId'])) continue;
+      await db.into(db.kTodoWatches).insertOnConflictUpdate(KTodoWatchesCompanion.insert(todoId: w['todoId'] as String, watching: w['watching'] == true));
     }
     for (final r in list('reminders')) {
       if (pending.contains(r['itemId'])) continue;
@@ -1315,6 +1470,7 @@ class KolumnRepository {
   });
 
   Future<void> _applyAlerts(Map<String, dynamic> body, Set<String> pending, Set<String> visibleBoards, {required bool replaceAll}) async {
+    final visiblePlanners = ((body['plannerIds'] as List?) ?? const []).cast<String>().toSet();
     if (body['notifications'] == null) return; // A hub from before Phase 6.
     int? i(Object? v) => v == null ? null : (v as num).toInt();
     List<Map<String, dynamic>> list(String k) => ((body[k] as List?) ?? const []).cast<Map<String, dynamic>>();
@@ -1327,6 +1483,7 @@ class KolumnRepository {
             KNotificationsCompanion.insert(
               cardId: n['cardId'] as String,
               boardId: n['boardId'] as String,
+              kind: Value(n['kind'] == 'todo' ? 'todo' : 'card'),
               creatorId: Value(i(n['creatorId']) ?? 0),
               action: n['action'] as String? ?? '',
               particulars: Value(jsonEncode(n['particulars'] ?? const {})),
@@ -1336,8 +1493,11 @@ class KolumnRepository {
             ),
           );
     }
-    // Alerts about Kolumns this person can no longer see go.
-    await (db.delete(db.kNotifications)..where((n) => n.boardId.isNotIn(visibleBoards.toList()))).go();
+    // Alerts about Kolumns (and planners) this person can no longer see go.
+    await (db.delete(db.kNotifications)..where((n) => n.kind.equals('card') & n.boardId.isNotIn(visibleBoards.toList()))).go();
+    if (body['plannerIds'] != null) {
+      await (db.delete(db.kNotifications)..where((n) => n.kind.equals('todo') & n.boardId.isNotIn(visiblePlanners.toList()))).go();
+    }
     for (final w in list('boardWatches')) {
       if (pending.contains(w['boardId'])) continue;
       await db.into(db.kBoardWatches).insertOnConflictUpdate(KBoardWatchesCompanion.insert(boardId: w['boardId'] as String, watching: w['watching'] == true));
@@ -1439,6 +1599,7 @@ class KolumnRepository {
               tidyDays: Value(i(b['tidyDays'])),
               lanes: Value(jsonEncode(b['lanes'] is Map ? b['lanes'] : const {})),
               shareKey: Value(b['shareKey'] as String?),
+              plannerIds: Value(jsonEncode(b['plannerIds'] is List ? b['plannerIds'] : const [])),
               allAccess: Value(b['allAccess'] == true),
               creatorId: Value(i(b['creatorId'])),
               members: Value(jsonEncode(b['members'] ?? const [])),
@@ -1464,6 +1625,7 @@ class KolumnRepository {
               name: c['name'] as String? ?? '',
               color: Value(i(c['color']) ?? 0),
               position: (c['position'] as num?)?.toDouble() ?? 0,
+              plannerIds: Value(c['plannerIds'] is List ? jsonEncode(c['plannerIds']) : null),
               createdAt: i(c['createdAt']) ?? 0,
               updatedAt: i(c['updatedAt']) ?? 0,
               deletedAt: Value(i(c['deletedAt'])),
@@ -1491,6 +1653,7 @@ class KolumnRepository {
               laterAt: Value(i(c['laterAt'])),
               laterReason: Value(c['laterReason'] as String?),
               priorityAt: Value(i(c['priorityAt'])),
+              pinnedAt: Value(i(c['pinnedAt'])),
               dueAt: Value(i(c['dueAt'])),
               dueHasTime: Value(c['dueHasTime'] == true),
               lastActiveAt: i(c['lastActiveAt']) ?? 0,

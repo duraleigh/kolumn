@@ -8,7 +8,7 @@ import 'package:http/http.dart' as http;
 /// practice site with `--dart-define=KOLUMN_SERVER=https://stage5230ca.clayaiken.com`.
 const String kolumnServer = String.fromEnvironment('KOLUMN_SERVER', defaultValue: 'https://clayaiken.com');
 
-const String _ua = 'Kolumn/0.7 (Android)';
+const String _ua = 'Kolumn/0.8 (Android)';
 
 /// Something the hub refused, with the hub's own plain message.
 class HubRefusal implements Exception {
@@ -176,7 +176,7 @@ class HubClient {
 
   Future<Map<String, dynamic>> pull({required int cursor, required List<String> known, List<String> knownPlanners = const []}) => _authed(
     (h) => _http.get(
-      Uri.parse('$_base/kolumn/sync').replace(queryParameters: {'cursor': '$cursor', 'known': known.join(','), 'knownPlanners': knownPlanners.join(',')}),
+      Uri.parse('$_base/kolumn/sync').replace(queryParameters: {'cursor': '$cursor', 'known': known.join(','), 'knownPlanners': knownPlanners.join(','), 'v': '8'}),
       headers: h,
     ),
   );

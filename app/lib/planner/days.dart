@@ -59,7 +59,24 @@ String friendlyDay(String key, {String? today}) {
   return dayLabel(key, today: t);
 }
 
-/// A card's due moment (noon UTC of the day, as the hub keeps it) to its day.
+/// 11:59 PM of a day, on this phone's clock: when something due that day
+/// without a picked time is due (his ruling, 2026-11-13).
+int endOfDayMs(String key) {
+  final d = parseDay(key);
+  return DateTime(d.year, d.month, d.day, 23, 59).millisecondsSinceEpoch;
+}
+
+/// The day something is due. Day-only dates from before 0.8 were kept as noon
+/// UTC of the day; everything since is a real moment, read on this phone's clock.
+String dueDay(int dueAt, {bool hasTime = false}) {
+  if (!hasTime && dueAt % 86400000 == 43200000) return dueDayOf(dueAt);
+  return dayKey(DateTime.fromMillisecondsSinceEpoch(dueAt));
+}
+
+/// The moment something is due: its picked time, or 11:59 PM of its day.
+int dueMoment(int dueAt, {bool hasTime = false}) => hasTime ? dueAt : endOfDayMs(dueDay(dueAt, hasTime: hasTime));
+
+/// A card's due moment (noon UTC of the day, as the hub kept it before 0.8) to its day.
 String dueDayOf(int dueAtMs) {
   final u = DateTime.fromMillisecondsSinceEpoch(dueAtMs, isUtc: true);
   return dayKey(DateTime(u.year, u.month, u.day));

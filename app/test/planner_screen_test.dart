@@ -44,6 +44,7 @@ Future<P> pumpPlanner(WidgetTester tester, Size size, {String theme = 'light'}) 
     await repo.addTodo(planner, const TodoSlot.someday(1), 'Learn the new arrangement');
     final card = await repo.addCard(board, 'Confirm hotel block');
     await repo.setCardDue(card, '2026-11-09');
+    await repo.setBoardPlanners(board, [planner]);
   });
   addTearDown(() => tester.runAsync(db.close));
   final sync = SyncService(repo: repo, hub: HubClient(credentials: MemoryCredentialStore(), server: 'https://hub.invalid'));
@@ -54,6 +55,7 @@ Future<P> pumpPlanner(WidgetTester tester, Size size, {String theme = 'light'}) 
         syncServiceProvider.overrideWithValue(sync),
         syncStatusProvider.overrideWith((ref) => Stream.value(SyncStatus(SyncState.upToDate, lastSynced: DateTime.now()))),
         plannerTodayProvider.overrideWithValue('2026-11-11'),
+        plannerNowProvider.overrideWithValue(() => DateTime(2026, 11, 11, 10).millisecondsSinceEpoch),
       ],
       child: const KolumnApp(),
     ),
