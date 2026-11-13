@@ -190,14 +190,7 @@ class ItemSheetFrameState extends State<ItemSheetFrame> {
         mainAxisSize: widget.wide ? MainAxisSize.min : MainAxisSize.max,
         children: [
           widget.wide ? Flexible(child: list) : Expanded(child: list),
-          Column(
-            key: _footKey,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (_expanded && widget.composer != null) widget.composer!,
-              widget.bar,
-            ],
-          ),
+          Column(key: _footKey, mainAxisSize: MainAxisSize.min, children: [if (_expanded && widget.composer != null) widget.composer!, widget.bar]),
         ],
       ),
     );
@@ -245,9 +238,17 @@ class CaptionLine extends StatelessWidget {
       child: Row(
         children: [
           if (dot != null)
-            Container(width: 10, height: 10, margin: const EdgeInsets.only(right: 8), decoration: BoxDecoration(color: dot, shape: BoxShape.circle))
+            Container(
+              width: 10,
+              height: 10,
+              margin: const EdgeInsets.only(right: 8),
+              decoration: BoxDecoration(color: dot, shape: BoxShape.circle),
+            )
           else
-            Padding(padding: const EdgeInsets.only(right: 8), child: Icon(icon, size: 16, color: c.onSurfaceVariant)),
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: Icon(icon, size: 16, color: c.onSurfaceVariant),
+            ),
           Expanded(
             child: Text(parts.where((p) => p.isNotEmpty).join(' · '), style: TextStyle(fontSize: 14, color: c.onSurfaceVariant)),
           ),
@@ -301,7 +302,10 @@ class ItemPill extends StatelessWidget {
                   onTap: onClear,
                   child: Semantics(
                     label: 'Remove',
-                    child: Padding(padding: EdgeInsets.all(small ? 3 : 4), child: Icon(Icons.close_rounded, size: small ? 14 : 16, color: color)),
+                    child: Padding(
+                      padding: EdgeInsets.all(small ? 3 : 4),
+                      child: Icon(Icons.close_rounded, size: small ? 14 : 16, color: color),
+                    ),
                   ),
                 ),
             ],
@@ -330,7 +334,16 @@ String timeText(DateTime d, BuildContext context) {
 /// The due-date pill, the same on cards and to-dos: "Add a due date";
 /// "Due Fri, 14 Nov"; amber/yellow on its day; red "LATE" once past.
 class DuePill extends StatelessWidget {
-  const DuePill({super.key, required this.dueAt, required this.hasTime, required this.state, required this.readOnly, required this.onPick, required this.onClear, this.today});
+  const DuePill({
+    super.key,
+    required this.dueAt,
+    required this.hasTime,
+    required this.state,
+    required this.readOnly,
+    required this.onPick,
+    required this.onClear,
+    this.today,
+  });
   final int? dueAt;
   final bool hasTime;
   final DueState state;
@@ -387,7 +400,14 @@ class TitleField extends StatelessWidget {
         color: done ? c.onSurfaceVariant : c.onSurface,
         decoration: done ? TextDecoration.lineThrough : null,
       ),
-      decoration: InputDecoration(isCollapsed: true, filled: false, border: InputBorder.none, enabledBorder: InputBorder.none, focusedBorder: InputBorder.none, hintText: hint),
+      decoration: InputDecoration(
+        isCollapsed: true,
+        filled: false,
+        border: InputBorder.none,
+        enabledBorder: InputBorder.none,
+        focusedBorder: InputBorder.none,
+        hintText: hint,
+      ),
     );
   }
 }
@@ -437,7 +457,10 @@ class _NoteFieldState extends State<NoteField> {
                 _editing = true;
                 _focus.requestFocus();
               }),
-        child: SizedBox(width: double.infinity, child: FormattedText(text, style: style, onOpenCard: widget.onOpenCard)),
+        child: SizedBox(
+          width: double.infinity,
+          child: FormattedText(text, style: style, onOpenCard: widget.onOpenCard),
+        ),
       );
     }
     return TextField(
@@ -578,7 +601,10 @@ class AddStepField extends StatelessWidget {
       constraints: const BoxConstraints(minHeight: 44),
       child: Row(
         children: [
-          Padding(padding: const EdgeInsets.only(right: 12), child: Icon(Icons.add_rounded, size: 20, color: c.onSurfaceVariant)),
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: Icon(Icons.add_rounded, size: 20, color: c.onSurfaceVariant),
+          ),
           Expanded(
             child: TextField(
               controller: controller,
@@ -616,14 +642,16 @@ class AttachChips extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(top: 10),
+    // Room between "Add a step" and these, so they don't feel crowded (his ask, 2026-11-13).
+    padding: const EdgeInsets.only(top: 22),
     child: Wrap(
-      spacing: 8,
-      runSpacing: 8,
+      spacing: 6,
+      runSpacing: 6,
       children: [
-        ActionChip(avatar: const Icon(Icons.photo_outlined, size: 18), label: const Text('Photo'), onPressed: onPhoto),
-        ActionChip(avatar: const Icon(Icons.photo_camera_outlined, size: 18), label: const Text('Camera'), onPressed: onCamera),
-        ActionChip(avatar: const Icon(Icons.attach_file_rounded, size: 18), label: const Text('File'), onPressed: onFile),
+        // The same small, quiet pill as the due date, not big chips.
+        ItemPill(small: true, icon: Icons.photo_outlined, text: 'Photo', onTap: onPhoto),
+        ItemPill(small: true, icon: Icons.photo_camera_outlined, text: 'Camera', onTap: onCamera),
+        ItemPill(small: true, icon: Icons.attach_file_rounded, text: 'File', onTap: onFile),
       ],
     ),
   );
@@ -684,7 +712,13 @@ class FileTiles extends StatelessWidget {
                                 children: [
                                   Icon(Icons.description_outlined, color: p.accentText, size: 30),
                                   const SizedBox(height: 6),
-                                  Text(f.filename, maxLines: 2, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center, style: const TextStyle(fontSize: 12)),
+                                  Text(
+                                    f.filename,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    textAlign: TextAlign.center,
+                                    style: const TextStyle(fontSize: 12),
+                                  ),
                                   Text(sizeText(f.size), style: Theme.of(context).textTheme.bodySmall),
                                 ],
                               ),
@@ -865,7 +899,11 @@ Future<DueChoice?> pickDueMoment(
                 ),
                 if (note != null) ...[
                   const SizedBox(height: 10),
-                  Text(note, textAlign: TextAlign.center, style: TextStyle(fontSize: 13, color: c.onSurfaceVariant)),
+                  Text(
+                    note,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 13, color: c.onSurfaceVariant),
+                  ),
                 ],
                 const SizedBox(height: 12),
                 FilledButton(
@@ -928,7 +966,11 @@ Future<String?> pickDayWheel(BuildContext context, {required String title, requi
               ),
               if (note != null) ...[
                 const SizedBox(height: 10),
-                Text(note, textAlign: TextAlign.center, style: TextStyle(fontSize: 13, color: c.onSurfaceVariant)),
+                Text(
+                  note,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 13, color: c.onSurfaceVariant),
+                ),
               ],
               const SizedBox(height: 12),
               FilledButton(

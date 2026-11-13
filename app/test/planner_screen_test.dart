@@ -48,7 +48,10 @@ Future<P> pumpPlanner(WidgetTester tester, Size size, {String theme = 'light'}) 
     await repo.setBoardPlanners(board, [planner]);
   });
   addTearDown(() => tester.runAsync(db.close));
-  final sync = SyncService(repo: repo, hub: HubClient(credentials: MemoryCredentialStore(), server: 'https://hub.invalid'));
+  final sync = SyncService(
+    repo: repo,
+    hub: HubClient(credentials: MemoryCredentialStore(), server: 'https://hub.invalid'),
+  );
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
@@ -208,19 +211,32 @@ void main() {
     await settle(tester);
     expect(find.text('Add a due date'), findsOneWidget);
     final titleField = find.widgetWithText(TextField, 'Rehearsal at the studio');
-    expect(tester.getTopLeft(find.text('Add a due date')).dy, greaterThan(tester.getBottomLeft(titleField).dy - 1), reason: 'the due pill sits under the title');
+    expect(
+      tester.getTopLeft(find.text('Add a due date')).dy,
+      greaterThan(tester.getBottomLeft(titleField).dy - 1),
+      reason: 'the due pill sits under the title',
+    );
     final titleSize = tester.widget<TextField>(titleField).style!.fontSize!;
     final pillSize = tester.widget<Text>(find.text('Add a due date')).style!.fontSize!;
     expect(titleSize, greaterThanOrEqualTo(pillSize * 2), reason: 'the title is much bigger than the pill');
     // No blank space: the bottom row sits just under the last thing on the card.
-    final lastChip = tester.getBottomLeft(find.widgetWithText(ActionChip, 'File')).dy;
+    final lastChip = tester.getBottomLeft(find.widgetWithText(ItemPill, 'File')).dy;
     final bar = tester.getTopLeft(find.byTooltip('Who it\'s for')).dy;
     expect(bar - lastChip, lessThan(70), reason: 'the pop-up opens only as tall as what is on it');
     expect(find.text('Heading'), findsNothing);
-    expect(find.descendant(of: find.byType(ItemSheetFrame), matching: find.byType(CheckCircle)), findsNothing, reason: 'the big check at the bottom marks it done');
+    expect(
+      find.descendant(of: find.byType(ItemSheetFrame), matching: find.byType(CheckCircle)),
+      findsNothing,
+      reason: 'the big check at the bottom marks it done',
+    );
     for (final b in ['Photo', 'Camera', 'File']) {
-      expect(find.widgetWithText(ActionChip, b), findsOneWidget);
+      expect(find.widgetWithText(ItemPill, b), findsOneWidget);
+      expect(tester.widget<Text>(find.text(b)).style!.fontSize, pillSize, reason: 'the same small size as the due pill');
     }
+    // A clear gap between "Add a step" and the photo, camera and file buttons.
+    final stepBottom = tester.getBottomLeft(find.widgetWithText(TextField, 'Add a step')).dy;
+    final photoTop = tester.getTopLeft(find.widgetWithText(ItemPill, 'Photo')).dy;
+    expect(photoTop - stepBottom, greaterThanOrEqualTo(20), reason: 'the buttons are not crowded under Add a step');
     // "Add a step" and the title stretch to the same right edge as the note.
     final note = tester.getTopRight(find.widgetWithText(TextField, 'Add a note'));
     final step = tester.getTopRight(find.widgetWithText(TextField, 'Add a step'));
@@ -324,7 +340,12 @@ void main() {
       ProviderScope(
         overrides: [
           repositoryProvider.overrideWithValue(p.repo),
-          syncServiceProvider.overrideWithValue(SyncService(repo: p.repo, hub: HubClient(credentials: MemoryCredentialStore(), server: 'https://hub.invalid'))),
+          syncServiceProvider.overrideWithValue(
+            SyncService(
+              repo: p.repo,
+              hub: HubClient(credentials: MemoryCredentialStore(), server: 'https://hub.invalid'),
+            ),
+          ),
           syncStatusProvider.overrideWith((ref) => Stream.value(SyncStatus(SyncState.upToDate, lastSynced: DateTime.now()))),
           plannerTodayProvider.overrideWithValue('2026-11-11'),
         ],
