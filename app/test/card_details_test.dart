@@ -238,7 +238,7 @@ void main() {
       await tester.tap(find.text('Pin to the top of its kolumn'));
       await settle(tester);
       expect((await tester.runAsync(() => repo.card(card)))!.pinnedAt, isNotNull);
-      expect(find.textContaining('pinned to the top'), findsOneWidget);
+      expect(find.textContaining('pinned to the top'), findsNothing, reason: 'no line above the title');
       await tester.tap(find.byTooltip('More'));
       await settle(tester);
       await tester.tap(find.text('Follow'));

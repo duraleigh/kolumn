@@ -198,7 +198,7 @@ void main() {
     expect(find.byTooltip('Repeat'), findsOneWidget);
     expect(find.byTooltip('Reminder'), findsOneWidget);
     expect(find.byTooltip('Who it\'s for'), findsOneWidget);
-    expect(find.textContaining('Tomorrow'), findsOneWidget);
+    expect(find.textContaining('Tomorrow'), findsNothing, reason: 'no line above the title (his ask, 2026-11-13)');
     expect(tester.takeException(), isNull);
   });
 
@@ -207,6 +207,15 @@ void main() {
     await tester.tap(find.text('Rehearsal at the studio'));
     await settle(tester);
     expect(find.text('Add a due date'), findsOneWidget);
+    final titleField = find.widgetWithText(TextField, 'Rehearsal at the studio');
+    expect(tester.getTopLeft(find.text('Add a due date')).dy, greaterThan(tester.getBottomLeft(titleField).dy - 1), reason: 'the due pill sits under the title');
+    final titleSize = tester.widget<TextField>(titleField).style!.fontSize!;
+    final pillSize = tester.widget<Text>(find.text('Add a due date')).style!.fontSize!;
+    expect(titleSize, greaterThanOrEqualTo(pillSize * 2), reason: 'the title is much bigger than the pill');
+    // No blank space: the bottom row sits just under the last thing on the card.
+    final lastChip = tester.getBottomLeft(find.widgetWithText(ActionChip, 'File')).dy;
+    final bar = tester.getTopLeft(find.byTooltip('Who it\'s for')).dy;
+    expect(bar - lastChip, lessThan(70), reason: 'the pop-up opens only as tall as what is on it');
     expect(find.text('Heading'), findsNothing);
     expect(find.descendant(of: find.byType(ItemSheetFrame), matching: find.byType(CheckCircle)), findsNothing, reason: 'the big check at the bottom marks it done');
     for (final b in ['Photo', 'Camera', 'File']) {

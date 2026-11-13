@@ -368,20 +368,15 @@ class _TodoSheetState extends ConsumerState<_TodoSheet> {
       _repo.setTodoDone(t, !done, day: widget.day);
     }
 
-    final caption = <String>[
-      planner?.name ?? '',
-      t.day == null ? 'Someday' : (rule != null && widget.day != null ? friendlyDay(widget.day!, today: today) : friendlyDay(t.day!, today: today)),
-      if (rule != null) rule.describe(t.day!),
-      if (reminder != null) 'reminder ${_reminderText(reminder, today)}',
-    ];
 
     return ItemSheetFrame(
       wide: widget.wide,
       main: [
-        CaptionLine(parts: caption),
+        // The title first, the due pill under it (his layout, 2026-11-13).
+        TitleField(controller: _title, readOnly: readOnly, onChanged: _changed, done: done, hint: 'To-do'),
         if (rule == null)
           Padding(
-            padding: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.only(top: 10),
             child: Align(
               alignment: Alignment.centerLeft,
               child: DuePill(
@@ -395,7 +390,6 @@ class _TodoSheetState extends ConsumerState<_TodoSheet> {
               ),
             ),
           ),
-        TitleField(controller: _title, readOnly: readOnly, onChanged: _changed, done: done, hint: 'To-do'),
         if (t.assigneeId != null) ...[
           const SizedBox(height: 10),
           Row(

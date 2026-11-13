@@ -55,7 +55,6 @@ class ItemSheetFrame extends StatefulWidget {
   final List<Widget> Function(BuildContext)? more;
   final Widget? composer;
 
-  static const double startSize = 0.72;
   static const double fullSize = 0.96;
 
   /// The frame around [context], to open or close its slide-up part.
@@ -69,7 +68,19 @@ class ItemSheetFrameState extends State<ItemSheetFrame> {
   final _sheet = DraggableScrollableController();
   final _wideScroll = ScrollController();
   final _moreKey = GlobalKey();
+  final _footKey = GlobalKey();
+  ScrollController? _scroll;
+  double _room = 0;
   bool _expanded = false;
+  bool _moving = false;
+
+  /// The height (as a share of the screen) that fits what is on the card:
+  /// where it opens, and where it settles back to (his ask, 2026-11-13: no
+  /// blank space at the bottom).
+  double? _fit;
+
+  static const double _least = 0.15;
+  static const double _most = 0.92;
 
   bool get expanded => _expanded;
 
@@ -77,8 +88,10 @@ class ItemSheetFrameState extends State<ItemSheetFrame> {
   void initState() {
     super.initState();
     _sheet.addListener(() {
-      final open = _sheet.size > 0.88;
-      if (open != _expanded && widget.more != null) setState(() => _expanded = open);
+      if (widget.more == null || _moving || !_sheet.isAttached) return;
+      // Pulled all the way up: the comments and activity show; pulled back down: they hide.
+      if (!_expanded && _sheet.size > ItemSheetFrame.fullSize - 0.02) setState(() => _expanded = true);
+      if (_expanded && _fit != null && _sheet.size < _fit! + 0.02) setState(() => _expanded = false);
     });
   }
 
@@ -89,16 +102,48 @@ class ItemSheetFrameState extends State<ItemSheetFrame> {
     super.dispose();
   }
 
+  /// After each frame: grow the sheet to fit what is on it (only while it is
+  /// at its fitted height, so a sheet someone moved stays where they put it).
+  void _fitToContent() {
+    if (!mounted || widget.wide || _expanded || !_sheet.isAttached || _room <= 0) return;
+    final sc = _scroll;
+    if (sc == null || !sc.hasClients) return;
+    // A to-do has nothing hidden, so it always springs back to its fit.
+    final atFit = widget.more == null || _fit == null || (_sheet.size - _fit!).abs() < 0.004;
+    if (!atFit) return;
+    // Everything in the scrolling part, plus the bottom bar: the height that fits.
+    final content = sc.position.maxScrollExtent + sc.position.viewportDimension;
+    final foot = (_footKey.currentContext?.findRenderObject() as RenderBox?)?.size.height ?? 0;
+    if (sc.position.maxScrollExtent < 0.5 && _fit != null) return;
+    final want = ((content + foot) / _room).clamp(_least + 0.03, _most);
+    if (sc.position.maxScrollExtent < 0.5 && want < _sheet.size) {
+      // Already fits: nothing to grow.
+      if (_fit == null) setState(() => _fit = _sheet.size);
+      return;
+    }
+    if ((want - _sheet.size).abs() < 0.002) return;
+    // Raise the limit first (a to-do cannot go past its fit), then move.
+    setState(() => _fit = want);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _sheet.isAttached) _sheet.jumpTo(want);
+    });
+  }
+
   /// Slides the sheet up to show the hidden part, or back down.
   Future<void> toggle() async {
     if (widget.more == null) return;
     if (widget.wide) {
       setState(() => _expanded = !_expanded);
-    } else if (_expanded) {
-      await _sheet.animateTo(ItemSheetFrame.startSize, duration: const Duration(milliseconds: 320), curve: Curves.easeOutCubic);
     } else {
-      setState(() => _expanded = true);
-      await _sheet.animateTo(ItemSheetFrame.fullSize, duration: const Duration(milliseconds: 420), curve: Curves.easeOutCubic);
+      _moving = true;
+      if (_expanded) {
+        setState(() => _expanded = false);
+        await _sheet.animateTo(_fit ?? 0.5, duration: const Duration(milliseconds: 320), curve: Curves.easeOutCubic);
+      } else {
+        setState(() => _expanded = true);
+        await _sheet.animateTo(ItemSheetFrame.fullSize, duration: const Duration(milliseconds: 420), curve: Curves.easeOutCubic);
+      }
+      _moving = false;
     }
     if (_expanded) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -110,41 +155,49 @@ class ItemSheetFrameState extends State<ItemSheetFrame> {
 
   Widget _body(BuildContext context, ScrollController scroll) {
     final c = context.colors;
+    final list = ListView(
+      controller: scroll,
+      shrinkWrap: widget.wide,
+      padding: const EdgeInsets.fromLTRB(22, 0, 22, 12),
+      children: [
+        // The top edge: hold it and pull up to see more (or down to close).
+        Semantics(
+          label: 'Pull up for more',
+          child: Center(
+            child: Container(
+              margin: const EdgeInsets.only(top: 10, bottom: 14),
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(color: c.onSurfaceVariant.withValues(alpha: 0.4), borderRadius: BorderRadius.circular(2)),
+            ),
+          ),
+        ),
+        ...widget.main,
+        if (_expanded && widget.more != null) ...[
+          const SizedBox(height: 18),
+          Divider(key: _moreKey, height: 1, color: c.outlineVariant),
+          const SizedBox(height: 14),
+          ...widget.more!(context),
+        ],
+      ],
+    );
     return Material(
       color: Theme.of(context).bottomSheetTheme.backgroundColor ?? c.surfaceContainerLow,
       borderRadius: widget.wide ? null : const BorderRadius.vertical(top: Radius.circular(KShapes.sheet)),
       clipBehavior: Clip.antiAlias,
       child: Column(
+        // On a computer the panel is as tall as what is on it.
+        mainAxisSize: widget.wide ? MainAxisSize.min : MainAxisSize.max,
         children: [
-          Expanded(
-            child: ListView(
-              controller: scroll,
-              padding: const EdgeInsets.fromLTRB(22, 0, 22, 12),
-              children: [
-                // The top edge: hold it and pull up to see more (or down to close).
-                Semantics(
-                  label: 'Pull up for more',
-                  child: Center(
-                    child: Container(
-                      margin: const EdgeInsets.only(top: 10, bottom: 12),
-                      width: 36,
-                      height: 4,
-                      decoration: BoxDecoration(color: c.onSurfaceVariant.withValues(alpha: 0.4), borderRadius: BorderRadius.circular(2)),
-                    ),
-                  ),
-                ),
-                ...widget.main,
-                if (_expanded && widget.more != null) ...[
-                  const SizedBox(height: 18),
-                  Divider(key: _moreKey, height: 1, color: c.outlineVariant),
-                  const SizedBox(height: 14),
-                  ...widget.more!(context),
-                ],
-              ],
-            ),
+          widget.wide ? Flexible(child: list) : Expanded(child: list),
+          Column(
+            key: _footKey,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (_expanded && widget.composer != null) widget.composer!,
+              widget.bar,
+            ],
           ),
-          if (_expanded && widget.composer != null) widget.composer!,
-          widget.bar,
         ],
       ),
     );
@@ -153,15 +206,24 @@ class ItemSheetFrameState extends State<ItemSheetFrame> {
   @override
   Widget build(BuildContext context) {
     if (widget.wide) return _body(context, _wideScroll);
-    return DraggableScrollableSheet(
-      controller: _sheet,
-      expand: false,
-      initialChildSize: ItemSheetFrame.startSize,
-      minChildSize: 0.3,
-      maxChildSize: ItemSheetFrame.fullSize,
-      snap: true,
-      snapSizes: const [ItemSheetFrame.startSize],
-      builder: (context, scroll) => _body(context, scroll),
+    WidgetsBinding.instance.addPostFrameCallback((_) => _fitToContent());
+    return LayoutBuilder(
+      builder: (context, box) {
+        _room = box.maxHeight;
+        return DraggableScrollableSheet(
+          controller: _sheet,
+          expand: false,
+          // Opens small, then grows to fit what is on it in the first frame.
+          initialChildSize: _least + 0.03,
+          minChildSize: _least,
+          // A to-do has nothing more to show: it cannot be pulled past its fit.
+          maxChildSize: widget.more != null ? ItemSheetFrame.fullSize : (_fit ?? _most).clamp(_least + 0.03, ItemSheetFrame.fullSize),
+          builder: (context, scroll) {
+            _scroll = scroll;
+            return _body(context, scroll);
+          },
+        );
+      },
     );
   }
 }
@@ -197,7 +259,7 @@ class CaptionLine extends StatelessWidget {
 
 /// A round button: the due date, and anything else that sits in that row.
 class ItemPill extends StatelessWidget {
-  const ItemPill({super.key, required this.text, this.icon, this.onTap, this.onClear, this.bg, this.fg, this.bold = false});
+  const ItemPill({super.key, required this.text, this.icon, this.onTap, this.onClear, this.bg, this.fg, this.bold = false, this.small = false});
   final String text;
   final IconData? icon;
   final VoidCallback? onTap;
@@ -206,10 +268,14 @@ class ItemPill extends StatelessWidget {
   final Color? fg;
   final bool bold;
 
+  /// The quieter size used under a title (his ask, 2026-11-13: not imposing).
+  final bool small;
+
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final color = fg ?? c.onSurface;
+    final color = fg ?? (small ? c.onSurfaceVariant : c.onSurface);
+    final size = small ? 13.0 : 14.0;
     return Material(
       color: bg ?? context.palette.chip,
       shape: const StadiumBorder(),
@@ -217,16 +283,16 @@ class ItemPill extends StatelessWidget {
         customBorder: const StadiumBorder(),
         onTap: onTap,
         child: Padding(
-          padding: EdgeInsets.fromLTRB(12, 8, onClear == null ? 14 : 4, 8),
+          padding: small ? EdgeInsets.fromLTRB(9, 4, onClear == null ? 11 : 2, 4) : EdgeInsets.fromLTRB(12, 8, onClear == null ? 14 : 4, 8),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              if (icon != null) ...[Icon(icon, size: 17, color: color), const SizedBox(width: 6)],
+              if (icon != null) ...[Icon(icon, size: small ? 14 : 17, color: color), SizedBox(width: small ? 5 : 6)],
               Flexible(
                 child: Text(
                   text,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 14, fontWeight: bold ? FontWeight.w800 : FontWeight.w600, color: color),
+                  style: TextStyle(fontSize: size, fontWeight: bold ? FontWeight.w800 : (small ? FontWeight.w500 : FontWeight.w600), color: color),
                 ),
               ),
               if (onClear != null)
@@ -235,7 +301,7 @@ class ItemPill extends StatelessWidget {
                   onTap: onClear,
                   child: Semantics(
                     label: 'Remove',
-                    child: Padding(padding: const EdgeInsets.all(4), child: Icon(Icons.close_rounded, size: 16, color: color)),
+                    child: Padding(padding: EdgeInsets.all(small ? 3 : 4), child: Icon(Icons.close_rounded, size: small ? 14 : 16, color: color)),
                   ),
                 ),
             ],
@@ -277,12 +343,13 @@ class DuePill extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = context.palette;
     if (dueAt == null) {
-      return ItemPill(icon: Icons.event_outlined, text: readOnly ? 'No due date' : 'Add a due date', onTap: readOnly ? null : onPick);
+      return ItemPill(small: true, icon: Icons.event_outlined, text: readOnly ? 'No due date' : 'Add a due date', onTap: readOnly ? null : onPick);
     }
     final when = dueText(dueAt!, hasTime: hasTime, context: context, today: today);
     final late = state == DueState.late;
     final todayDue = state == DueState.dueToday;
     return ItemPill(
+      small: true,
       icon: late ? Icons.error_outline_rounded : Icons.event_outlined,
       text: late ? 'LATE · due $when' : 'Due $when',
       bold: late,
@@ -313,10 +380,10 @@ class TitleField extends StatelessWidget {
       maxLines: null,
       textCapitalization: TextCapitalization.sentences,
       style: TextStyle(
-        fontSize: 23,
-        fontWeight: FontWeight.w700,
-        letterSpacing: -0.4,
-        height: 1.2,
+        fontSize: 30,
+        fontWeight: FontWeight.w800,
+        letterSpacing: -0.6,
+        height: 1.15,
         color: done ? c.onSurfaceVariant : c.onSurface,
         decoration: done ? TextDecoration.lineThrough : null,
       ),

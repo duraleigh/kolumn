@@ -322,10 +322,10 @@ class _CardSheetState extends ConsumerState<CardSheet> {
               child: AspectRatio(aspectRatio: 16 / 9, child: HubPicture(fileId: card.coverId!)),
             ),
           ),
-        // The card's number lives here, not on the card face (his ask, 2026-11-12).
-        CaptionLine(dot: info.color, parts: [card.synced ? 'Card #${card.number}' : 'New card', board?.name ?? '', info.name, if (card.pinnedAt != null) 'pinned to the top']),
+        // The title first, the due pill under it (his layout, 2026-11-13).
+        TitleField(controller: _title, readOnly: readOnly, onChanged: _changed, hint: 'Card title'),
         Padding(
-          padding: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.only(top: 10),
           child: Align(
             alignment: Alignment.centerLeft,
             child: DuePill(
@@ -341,7 +341,7 @@ class _CardSheetState extends ConsumerState<CardSheet> {
         ),
         if (left != null && tidyWarning(card, board, now))
           Padding(
-            padding: const EdgeInsets.only(bottom: 10),
+            padding: const EdgeInsets.only(top: 8),
             child: Text(
               left <= 1
                   ? 'Nobody has touched this card in a while. It moves to ${laneLook(board, 'later').name} tomorrow unless someone does.'
@@ -349,7 +349,6 @@ class _CardSheetState extends ConsumerState<CardSheet> {
               style: TextStyle(fontSize: 13, color: c.onSurfaceVariant),
             ),
           ),
-        TitleField(controller: _title, readOnly: readOnly, onChanged: _changed, hint: 'Card title'),
         if (assigned.isNotEmpty) ...[
           const SizedBox(height: 10),
           Wrap(
@@ -394,6 +393,14 @@ class _CardSheetState extends ConsumerState<CardSheet> {
       ],
       // Pulled up (or the pen): comments and activity, with a box to write in.
       more: (context) => [
+        // The card's number shows only once the card is slid up (his ask, 2026-11-12).
+        Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: Text(
+            [card.synced ? 'Card #${card.number}' : 'New card', info.name, if (card.pinnedAt != null) 'pinned to the top'].join(' · '),
+            style: TextStyle(fontSize: 13, color: c.onSurfaceVariant),
+          ),
+        ),
         _Reactions(cardId: card.id, commentId: null, readOnly: readOnly),
         const SizedBox(height: 16),
         _CommentsSection(cardId: card.id, readOnly: readOnly, onOpenCard: _openCard),
