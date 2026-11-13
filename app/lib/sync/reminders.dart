@@ -44,7 +44,7 @@ List<DueReminder> upcomingReminders({
     if (r.kind == 'card') {
       final c = cards[r.itemId];
       if (c == null || c.deletedAt != null || c.closedAt != null || !when.isAfter(now)) continue;
-      out.add(DueReminder('card:${c.id}', when, c.title, c.dueAt == null ? 'Card #${c.number}' : 'Due ${friendlyDay(dueDayOf(c.dueAt!), today: dayKey(now))}'));
+      out.add(DueReminder('card:${c.id}', when, c.title, c.dueAt == null ? 'Card #${c.number}' : 'Due ${friendlyDay(dueDay(c.dueAt!, hasTime: c.dueHasTime), today: dayKey(now))}'));
       continue;
     }
     final t = todos[r.itemId];
@@ -162,13 +162,14 @@ class ReminderService {
     final me = await repo.meId();
     final names = {for (final p in await repo.watchPeople().first) p.id: p.name};
     for (final n in fresh.take(5)) {
-      final card = await repo.card(n.cardId);
-      if (card == null) continue;
+      // A card's alert, or (since 0.8) a to-do's.
+      final title = n.kind == 'todo' ? (await repo.todo(n.cardId))?.title : (await repo.card(n.cardId))?.title;
+      if (title == null) continue;
       try {
         await _plugin.show(
           id: 'alert:${n.cardId}'.hashCode & 0x7fffffff,
-          title: card.title,
-          body: alertLine(n, who: names[n.creatorId] ?? 'Someone', title: card.title, me: me),
+          title: title,
+          body: alertLine(n, who: n.creatorId == 0 ? 'Kolumn' : (names[n.creatorId] ?? 'Someone'), title: title, me: me),
           notificationDetails: const NotificationDetails(android: _alertsChannel),
         );
       } catch (_) {

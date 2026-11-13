@@ -33,7 +33,7 @@ Future<void> settle(WidgetTester tester) async {
 
 /// The app signed in as Clay (7), with Riley (8) on the team, a Kolumn with
 /// some history today, and two alerts.
-Future<H> pumpApp(WidgetTester tester, Size size, {String start = 'kolumns'}) async {
+Future<H> pumpApp(WidgetTester tester, Size size, {String start = 'kolumns', Future<void> Function(KolumnRepository repo, String board)? extra}) async {
   tester.view.devicePixelRatio = 3;
   tester.view.physicalSize = size * 3;
   addTearDown(tester.view.reset);
@@ -76,6 +76,7 @@ Future<H> pumpApp(WidgetTester tester, Size size, {String start = 'kolumns'}) as
       ],
     });
     await repo.removeOutbox((await repo.pendingOutbox()).map((e) => e.mutationId));
+    if (extra != null) await extra(repo, board);
   });
   addTearDown(() => tester.runAsync(db.close));
   final sync = SyncService(repo: repo, hub: HubClient(credentials: MemoryCredentialStore(), server: 'https://hub.invalid'));
@@ -141,6 +142,57 @@ void main() {
     expect(find.text('All caught up'), findsOneWidget);
     final names = (await tester.runAsync(() => h.repo.pendingOutbox()))!.map((e) => e.name).toList();
     expect(names, ['notification.read', 'notification.readall']);
+  });
+
+  testWidgets('the Planner in Activity and Alerts: to-do history, a to-do alert, a reminder that went off', (tester) async {
+    await pumpApp(
+      tester,
+      phone,
+      extra: (repo, board) async {
+        final planner = await repo.createPlanner('Tour planner');
+        final todo = await repo.addTodo(planner, TodoSlot.day(DateTime.now().toIso8601String().substring(0, 10)), 'Call the venue');
+        final now = DateTime.now().millisecondsSinceEpoch;
+        await repo.removeOutbox((await repo.pendingOutbox()).map((e) => e.mutationId));
+        await repo.applyPull({
+          'cursor': 2,
+          'boardIds': [board],
+          'plannerIds': [planner],
+          'people': [
+            {'id': 7, 'name': 'Clay Aiken'},
+            {'id': 8, 'name': 'Riley Stone'},
+          ],
+          'todoEvents': [
+            {'id': 1, 'todoId': todo, 'plannerId': planner, 'userId': 8, 'action': 'todo_done', 'particulars': {'late': true}, 'createdAt': now - 2000},
+          ],
+          'notifications': [
+            {'cardId': todo, 'boardId': planner, 'kind': 'todo', 'creatorId': 8, 'action': 'todo_done', 'particulars': {}, 'unreadCount': 1, 'updatedAt': now - 1000},
+          ],
+        });
+        await repo.removeOutbox((await repo.pendingOutbox()).map((e) => e.mutationId));
+        await repo.setReminder(todo, 'todo', now - 60000);
+      },
+    );
+    await settle(tester);
+    await tester.tap(find.text('Activity'));
+    await settle(tester);
+    await tester.tap(find.textContaining('Done'));
+    await settle(tester);
+    expect(find.text('Riley Stone finished Call the venue, late'), findsOneWidget);
+    expect(find.textContaining('Planner · Tour planner'), findsOneWidget);
+    await tester.tap(find.text('Alerts').last);
+    await settle(tester);
+    expect(find.text('4 new'), findsOneWidget, reason: 'two card alerts, the to-do alert, the reminder');
+    expect(find.text('Reminder: Call the venue'), findsOneWidget);
+    await tester.tap(find.text('Reminder: Call the venue'));
+    await settle(tester);
+    expect(find.text('Add a due date'), findsOneWidget, reason: 'the to-do opened');
+    Navigator.of(tester.element(find.text('Add a due date'))).pop();
+    await settle(tester);
+    expect(find.text('3 new'), findsOneWidget);
+    await tester.tap(find.text('Mark all read'));
+    await settle(tester);
+    expect(find.text('All caught up'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('Find: words in a comment find the card; a filter narrows it; a view is saved', (tester) async {

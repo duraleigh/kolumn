@@ -16,6 +16,7 @@ import '../theme/tokens.dart';
 import '../ui/sheets.dart';
 import 'card_face.dart';
 import 'lane_info.dart';
+import 'show_in_planners.dart';
 
 /// Widths of the board's pieces, in logical pixels.
 abstract final class BoardMetrics {
@@ -895,6 +896,8 @@ class _LaneHeader extends ConsumerWidget {
                   case 'left':
                   case 'right':
                     await repo.moveLane(boardId, info.lane, v == 'left' ? -1 : 1);
+                  case 'planners':
+                    await showLanePlanners(context, ref, boardId: boardId, lane: col?.id ?? kind!, laneName: info.name);
                   case 'delete':
                     final board = ref.read(boardsProvider).value?.where((b) => b.id == boardId).firstOrNull;
                     final columns = ref.read(columnsProvider(boardId)).value ?? const <KColumn>[];
@@ -927,6 +930,8 @@ class _LaneHeader extends ConsumerWidget {
                 const PopupMenuItem(value: 'edit', child: Text('Rename or recolor')),
                 if (laneIndex > 0) const PopupMenuItem(value: 'left', child: Text('Move left')),
                 if (laneIndex < laneCount - 1) const PopupMenuItem(value: 'right', child: Text('Move right')),
+                if (ref.read(boardsProvider).value?.where((b) => b.id == boardId).firstOrNull?.canManage ?? false)
+                  const PopupMenuItem(value: 'planners', child: Text('Show in planners')),
                 const PopupMenuItem(value: 'delete', child: Text('Delete kolumn')),
               ],
             )

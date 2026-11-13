@@ -161,7 +161,7 @@ void main() {
       boards = {for (final b in await repo.watchBoards().first) b.id: b};
     });
 
-    test('words in the title, notes, a comment, a checklist, a tag, or the card number', () async {
+    test('words in the title, notes, a comment, a checklist, or the card number (not tags, since 0.8)', () async {
       final a = await repo.addCard(tour, 'Book the van');
       final b = await repo.addCard(tour, 'Load-in');
       await repo.editCard(b, description: 'Ask the venue for the van dock');
@@ -173,8 +173,8 @@ void main() {
         d: CardText(steps: ['Count the VAN stock']),
         e: CardText(tags: ['vanlife']),
       };
-      // Title first, then a tag, then notes and checklists (latest first), then comments.
-      expect(await find(const CardFilter(terms: 'van'), text: text), ['Book the van', 'Hotel', 'Merch', 'Load-in', 'Mix notes']);
+      // Title first, then notes and checklists (latest first), then comments. Tags are not searched.
+      expect(await find(const CardFilter(terms: 'van'), text: text), ['Book the van', 'Merch', 'Load-in', 'Mix notes']);
       final found = applyFilter(const CardFilter(terms: 'van'), cards: await repo.watchAllCards().first, text: text, boards: boards, me: 7, now: DateTime(2026, 11, 11));
       expect(found.first.card.id, a, reason: 'a title match comes first');
       expect(found.firstWhere((x) => x.card.id == c).snippet, contains('@Clay bring the van'), reason: 'mentions read as names');
@@ -195,7 +195,7 @@ void main() {
       expect(await find(const CardFilter(status: 'all')), hasLength(4));
     });
 
-    test('Kolumns, people, who added it, tags; drafts are only their maker\'s', () async {
+    test('Kolumns, people, who added it; drafts are only their maker\'s', () async {
       final a = await repo.addCard(tour, 'Tour card');
       await repo.addCard(studio, 'Studio card');
       await repo.addCard(tour, 'My draft', draft: true);
@@ -205,7 +205,7 @@ void main() {
       expect(await find(const CardFilter(assignees: {'me'}), text: text), ['Tour card']);
       expect((await find(const CardFilter(assignees: {'none'}), text: text)).toSet(), {'Studio card', 'My draft'});
       expect(await find(const CardFilter(creators: {9})), ['Tour card']);
-      expect(await find(const CardFilter(tags: {'venue'}), text: text), ['Tour card']);
+      expect((await find(const CardFilter(tags: {'venue'}), text: text)).toSet(), {'Tour card', 'Studio card', 'My draft'}, reason: 'a tag filter saved before 0.8 no longer narrows');
       final others = applyFilter(const CardFilter(), cards: await repo.watchAllCards().first, text: const {}, boards: boards, me: 99, now: DateTime(2026, 11, 11));
       expect(others.map((x) => x.card.title), isNot(contains('My draft')));
     });

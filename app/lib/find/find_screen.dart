@@ -13,7 +13,7 @@ import '../ui/sheets.dart';
 import 'card_filter.dart';
 
 /// Finding cards across every Kolumn, from what is on the phone (so it works
-/// with no signal): words in titles, notes, comments, checklists and tags,
+/// with no signal): words in titles, notes, comments and checklists,
 /// narrowed by filters, and kept as saved views.
 class FindScreen extends ConsumerStatefulWidget {
   const FindScreen({super.key, this.initial = const CardFilter()});
@@ -160,11 +160,7 @@ class _FindScreenState extends ConsumerState<FindScreen> {
     for (final x in ref.watch(allStepsProvider).value ?? const <KStep>[]) {
       of(x.cardId).steps.add(x.content);
     }
-    final allTags = <String>{};
-    for (final x in ref.watch(allTagsProvider).value ?? const <KTag>[]) {
-      of(x.cardId).tags.add(x.tag);
-      allTags.add(x.tag);
-    }
+    // Tags are shown and searched nowhere now (his ruling, 2026-11-13).
     for (final x in ref.watch(allAssigneesProvider).value ?? const <KAssignee>[]) {
       of(x.cardId).assignees.add(x.userId);
     }
@@ -209,10 +205,6 @@ class _FindScreenState extends ConsumerState<FindScreen> {
           if (v != null) _set(_f.copyWith(creators: v));
         },
       ),
-      chip(many(_f.tags, 'Any tag', (t) => '#$t'), _f.tags.isNotEmpty, () async {
-        final v = await _chooseMany('Tags', [for (final t in allTags.toList()..sort()) (t, '#$t')], _f.tags);
-        if (v != null) _set(_f.copyWith(tags: v));
-      }),
       chip(_f.added == null ? 'Added any time' : 'Added ${CardFilter.windows[_f.added]!.toLowerCase()}', _f.added != null, () async {
         final v = await _choose<String>('Added', [('', 'Any time'), for (final e in CardFilter.windows.entries) (e.key, e.value)], _f.added ?? '');
         if (v != null) _set(v.isEmpty ? _f.copyWith(clearAdded: true) : _f.copyWith(added: v));

@@ -12,7 +12,9 @@ import '../data/tidy.dart';
 import '../state/providers.dart';
 import '../sync/hub_client.dart';
 import '../theme/tokens.dart';
+import '../planner/planner_model.dart';
 import '../ui/sheets.dart';
+import 'show_in_planners.dart';
 
 /// Everything about one Kolumn in one place (Phase 7): its name, who can see
 /// it, its view-only link, its tidy-up time, alerts, exporting, deleting.
@@ -81,6 +83,12 @@ class _KolumnSettings extends ConsumerWidget {
                 title: const Text('View-only link'),
                 subtitle: Text(b.shareKey == null ? 'Off' : 'On: anyone with the link sees the cards'),
                 onTap: () => showShareSheet(context, ref, b.id),
+              ),
+              ListTile(
+                leading: const Icon(Icons.calendar_month_outlined),
+                title: const Text('Show in planners'),
+                subtitle: Text(plannersLabel(b, ref.watch(plannersProvider).value ?? const <KPlanner>[])),
+                onTap: () => showKolumnPlanners(context, ref, b.id),
               ),
               ListTile(
                 leading: const Icon(Icons.hourglass_bottom_rounded),
@@ -165,7 +173,7 @@ Future<void> showShareSheet(BuildContext context, WidgetRef ref, String boardId)
               Text('View-only link', style: Theme.of(context).textTheme.titleLarge),
               const SizedBox(height: 6),
               Text(
-                'Anyone with the link can see this Kolumn\'s cards, without signing in. They see titles, Priority, due days and tags only: never notes, comments, people, files or drafts.',
+                'Anyone with the link can see this Kolumn\'s cards, without signing in. They see titles, Priority and due dates only: never notes, comments, people, files or drafts.',
                 style: TextStyle(color: c.onSurfaceVariant),
               ),
               const SizedBox(height: 12),

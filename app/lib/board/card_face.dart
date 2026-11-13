@@ -2,16 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/database.dart';
+import '../data/due.dart';
 import '../data/lane_looks.dart';
 import '../data/tidy.dart';
-import '../planner/days.dart';
 import '../planner/planner_model.dart';
 import '../state/providers.dart';
 import '../theme/tokens.dart';
 import '../ui/bits.dart';
+import '../ui/item_sheet.dart';
 
 /// How a card looks on the board, in the drag ghost, and in lists: its cover
-/// picture, title, Priority, tags, the people on it, and small counts.
+/// picture, title, Priority, its due date, the people on it, and small counts.
+/// Due today: the title in amber (yellow on dark); late: the card turns red
+/// with white words and a bold "LATE:" in front, as in the Planner (his rule,
+/// 2026-11-13). No tags (his ruling, 2026-11-13).
 class CardFace extends ConsumerWidget {
   const CardFace({super.key, required this.card, this.lifted = false, this.onTap});
 
@@ -29,8 +33,9 @@ class CardFace extends ConsumerWidget {
     final done = card.closedAt != null;
     final shadows = lifted ? p.liftShadow : p.cardShadow;
     final today = ref.watch(plannerTodayProvider);
-    final dueDay = card.dueAt == null ? null : dueDayOf(card.dueAt!);
-    final late = dueDay != null && !done && dueDay.compareTo(today) < 0;
+    final state = dueState(dueAt: card.dueAt, hasTime: card.dueHasTime, doneAt: card.closedAt, now: ref.watch(plannerNowProvider)());
+    final late = state == DueState.late;
+    final dueToday = state == DueState.dueToday;
     KBoard? board;
     for (final b in ref.watch(boardsProvider).value ?? const <KBoard>[]) {
       if (b.id == card.boardId) board = b;
@@ -39,23 +44,22 @@ class CardFace extends ConsumerWidget {
     final tidyLeft = tidyWarning(card, board, now) ? tidyDaysLeft(card, board, now) : null;
     final meta = <Widget>[
       if (priority) _Pill(text: 'Priority', bg: c.primaryContainer, fg: c.onPrimaryContainer),
-      if (dueDay != null)
+      if (card.dueAt != null)
         _Count(
-          icon: Icons.event_outlined,
-          text: late ? 'Late · ${dayHeading(dueDay)}' : friendlyDay(dueDay, today: today),
-          bg: late ? p.dangerBg : null,
-          fg: late ? p.dangerText : null,
+          icon: late ? Icons.error_outline_rounded : Icons.event_outlined,
+          text: dueText(card.dueAt!, hasTime: card.dueHasTime, context: context, today: today),
+          bg: late ? p.lateRowText.withValues(alpha: 0.18) : null,
+          fg: late ? p.lateRowText : (dueToday ? p.dueToday : null),
         ),
       if (ref.watch(reminderMapProvider).containsKey(card.id)) const _Count(icon: Icons.notifications_none_rounded, text: ''),
       if (tidyLeft != null) _Count(icon: Icons.hourglass_bottom_rounded, text: tidyLeft <= 1 ? 'To ${laneLook(board, 'later').name} soon' : 'To ${laneLook(board, 'later').name} in ${tidyLeft}d'),
       if (x != null && x.steps > 0) _Count(icon: Icons.check_box_outlined, text: '${x.stepsDone}/${x.steps}'),
       if (x != null && x.comments > 0) _Count(icon: Icons.chat_bubble_outline_rounded, text: '${x.comments}'),
       if (x != null && x.files > 0) _Count(icon: Icons.attach_file_rounded, text: '${x.files}'),
-      for (final tag in (x?.tags ?? const <String>[]).take(3)) _Pill(text: tag, bg: p.chip, fg: c.onSurfaceVariant),
     ];
     return Container(
       decoration: BoxDecoration(
-        color: p.card,
+        color: late ? p.lateRow : p.card,
         borderRadius: BorderRadius.circular(KShapes.card),
         boxShadow: shadows,
         border: priority || lifted ? Border.all(color: c.primary, width: 2) : null,
@@ -79,21 +83,34 @@ class CardFace extends ConsumerWidget {
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        if (card.pinnedAt != null) ...[
+                          Padding(
+                            padding: const EdgeInsets.only(top: 2),
+                            child: Semantics(label: 'Pinned to the top', child: Icon(Icons.push_pin_rounded, size: 16, color: late ? p.lateRowText : p.accentText)),
+                          ),
+                          const SizedBox(width: 5),
+                        ],
                         if (priority) ...[
                           Padding(
                             padding: const EdgeInsets.only(top: 1),
-                            child: Icon(Icons.star_rounded, size: 18, color: p.accentText),
+                            child: Icon(Icons.star_rounded, size: 18, color: late ? p.lateRowText : p.accentText),
                           ),
                           const SizedBox(width: 6),
                         ],
                         Expanded(
-                          child: Text(
-                            card.title,
+                          child: Text.rich(
+                            TextSpan(
+                              children: [
+                                if (state.showsLate) TextSpan(text: 'LATE: ', style: TextStyle(fontWeight: late ? FontWeight.w800 : null)),
+                                TextSpan(text: card.title),
+                              ],
+                            ),
                             style: t.bodyLarge!.copyWith(
                               fontSize: 15,
                               height: 1.35,
+                              fontWeight: late || dueToday ? FontWeight.w600 : null,
                               decoration: done ? TextDecoration.lineThrough : null,
-                              color: done ? c.onSurfaceVariant : c.onSurface,
+                              color: late ? p.lateRowText : (done ? c.onSurfaceVariant : (dueToday ? p.dueToday : c.onSurface)),
                             ),
                           ),
                         ),

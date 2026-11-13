@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -8,6 +6,7 @@ import '../data/database.dart';
 import '../find/find_screen.dart';
 import '../planner/days.dart';
 import '../planner/planner_model.dart';
+import '../planner/todo_sheet.dart';
 import '../state/providers.dart';
 import '../theme/tokens.dart';
 import '../ui/app_header.dart';
@@ -15,7 +14,8 @@ import '../ui/bits.dart';
 import 'activity_model.dart';
 
 /// Fizzy's home: what the team did, one day at a time, as Added, Updated
-/// and Done. Works from what is on the phone, so it works offline too.
+/// and Done — on Kolumns and, since 0.8, in planners (each planner's only to
+/// the people in it). Works from what is on the phone, so it works offline too.
 class ActivityScreen extends ConsumerStatefulWidget {
   const ActivityScreen({super.key});
 
@@ -36,15 +36,24 @@ class _ActivityScreenState extends ConsumerState<ActivityScreen> {
     final events = ref.watch(allEventsProvider).value ?? const <KEvent>[];
     final cards = {for (final c in ref.watch(allCardsProvider).value ?? const <KCard>[]) c.id: c};
     final boards = ref.watch(boardsProvider).value ?? const <KBoard>[];
+    final planners = ref.watch(plannersProvider).value ?? const <KPlanner>[];
     final names = ref.watch(peopleNamesProvider);
     final me = ref.watch(meIdProvider).value;
-    final a = activityOn(day, events, cards, boards: _boards);
+    final all = activityItems(
+      events: events,
+      cards: cards,
+      todoEvents: ref.watch(allTodoEventsProvider).value ?? const <KTodoEvent>[],
+      todos: {for (final t in ref.watch(allTodosProvider).value ?? const <KTodo>[]) t.id: t},
+      only: _boards,
+    );
+    final a = itemsOn(day, all);
     // Open on the busiest group the first time, as Fizzy's columns all show at once.
-    if (!_picked && a.events.isNotEmpty) {
+    if (!_picked && a.items.isNotEmpty) {
       _group = ActivityGroup.values.reduce((x, y) => a.of(y).length > a.of(x).length ? y : x);
     }
     final shown = a.of(_group);
-    final earlier = previousActiveDay(day, events, cards, boards: _boards);
+    final earlier = previousItemsDay(day, all);
+    final sourceNames = {for (final b in boards) b.id: b.name, for (final p in planners) p.id: p.name};
     final c = context.colors;
     final p = context.palette;
     final t = Theme.of(context).textTheme;
@@ -58,8 +67,8 @@ class _ActivityScreenState extends ConsumerState<ActivityScreen> {
     }
 
     final boardLabel = _boards.isEmpty
-        ? 'All Kolumns'
-        : (_boards.length == 1 ? (boards.where((b) => b.id == _boards.first).firstOrNull?.name ?? '1 Kolumn') : '${_boards.length} Kolumns');
+        ? (planners.isEmpty ? 'All Kolumns' : 'All Kolumns and planners')
+        : (_boards.length == 1 ? (sourceNames[_boards.first] ?? '1 chosen') : '${_boards.length} chosen');
 
     return Scaffold(
       body: SafeArea(
@@ -89,7 +98,7 @@ class _ActivityScreenState extends ConsumerState<ActivityScreen> {
                         avatar: const Icon(Icons.view_kanban_outlined, size: 18),
                         label: Text(boardLabel),
                         onPressed: () async {
-                          final picked = await _pickBoards(context, boards, _boards);
+                          final picked = await _pickBoards(context, boards, planners, _boards);
                           if (picked != null) setState(() => _boards = picked);
                         },
                       ),
@@ -153,19 +162,19 @@ class _ActivityScreenState extends ConsumerState<ActivityScreen> {
                       Padding(
                         padding: const EdgeInsets.symmetric(vertical: 30),
                         child: Text(
-                          a.events.isEmpty ? 'Nothing happened on this day.' : 'Nothing in this group on this day.',
+                          a.items.isEmpty ? 'Nothing happened on this day.' : 'Nothing in this group on this day.',
                           textAlign: TextAlign.center,
                           style: t.bodyMedium!.copyWith(color: c.onSurfaceVariant),
                         ),
                       ),
                     for (final e in shown)
                       _EventCard(
-                        event: e,
-                        card: cards[e.cardId]!,
+                        item: e,
                         who: e.userId == me ? 'You' : (names[e.userId] ?? 'Someone'),
                         name: names[e.userId] ?? '?',
                         me: me,
-                        boardName: boards.length > 1 ? boards.where((b) => b.id == cards[e.cardId]!.boardId).firstOrNull?.name : null,
+                        names: names,
+                        sourceName: boards.length + planners.length > 1 ? sourceNames[e.sourceId] : null,
                       ),
                   ],
                 ),
@@ -178,7 +187,7 @@ class _ActivityScreenState extends ConsumerState<ActivityScreen> {
   }
 }
 
-Future<Set<String>?> _pickBoards(BuildContext context, List<KBoard> boards, Set<String> current) {
+Future<Set<String>?> _pickBoards(BuildContext context, List<KBoard> boards, List<KPlanner> planners, Set<String> current) {
   var picked = {...current};
   return showModalBottomSheet<Set<String>>(
     context: context,
@@ -194,12 +203,20 @@ Future<Set<String>?> _pickBoards(BuildContext context, List<KBoard> boards, Set<
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
               child: Text('Show activity from', style: Theme.of(context).textTheme.titleLarge),
             ),
-            CheckboxListTile(title: const Text('All Kolumns'), value: picked.isEmpty, onChanged: (_) => set(() => picked = {})),
+            CheckboxListTile(title: Text(planners.isEmpty ? 'All Kolumns' : 'All Kolumns and planners'), value: picked.isEmpty, onChanged: (_) => set(() => picked = {})),
             for (final b in boards)
               CheckboxListTile(
+                secondary: const Icon(Icons.view_kanban_outlined),
                 title: Text(b.name),
                 value: picked.contains(b.id),
                 onChanged: (on) => set(() => on == true ? picked.add(b.id) : picked.remove(b.id)),
+              ),
+            for (final p in planners)
+              CheckboxListTile(
+                secondary: const Icon(Icons.calendar_today_outlined),
+                title: Text(p.name),
+                value: picked.contains(p.id),
+                onChanged: (on) => set(() => on == true ? picked.add(p.id) : picked.remove(p.id)),
               ),
             Padding(
               padding: const EdgeInsets.all(16),
@@ -280,25 +297,19 @@ class _GroupTab extends StatelessWidget {
   }
 }
 
-class _EventCard extends StatelessWidget {
-  const _EventCard({required this.event, required this.card, required this.who, required this.name, required this.me, this.boardName});
-  final KEvent event;
-  final KCard card;
+class _EventCard extends ConsumerWidget {
+  const _EventCard({required this.item, required this.who, required this.name, required this.me, required this.names, this.sourceName});
+  final ActivityItem item;
   final String who;
   final String name;
   final int? me;
-  final String? boardName;
+  final Map<int, String> names;
+  final String? sourceName;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final p = context.palette;
-    Map<String, dynamic> parts;
-    try {
-      parts = (jsonDecode(event.particulars) as Map).cast<String, dynamic>();
-    } catch (_) {
-      parts = const {};
-    }
-    final text = activityLine(event.action, parts, who: who, title: card.title, me: me);
+    final text = activityLine(item.action, item.particulars, who: who, title: item.title, me: me, names: names);
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Material(
@@ -306,16 +317,24 @@ class _EventCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(18),
         child: InkWell(
           borderRadius: BorderRadius.circular(18),
-          onTap: () => showCardSheet(context, card.id),
+          onTap: () => item.todo ? showTodoSheet(context, ref, todoId: item.itemId) : showCardSheet(context, item.itemId),
           child: Container(
             decoration: BoxDecoration(borderRadius: BorderRadius.circular(18), boxShadow: p.cardShadow),
             padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                event.userId == 0
-                    ? CircleAvatar(radius: 16, backgroundColor: p.chip, child: Icon(Icons.hourglass_bottom_rounded, size: 16, color: context.colors.onSurfaceVariant))
-                    : PersonAvatar(id: event.userId, name: name, size: 32),
+                item.userId == 0
+                    ? CircleAvatar(
+                        radius: 16,
+                        backgroundColor: item.action == 'todo_late' ? p.lateRow : p.chip,
+                        child: Icon(
+                          item.action == 'todo_late' ? Icons.error_outline_rounded : Icons.hourglass_bottom_rounded,
+                          size: 16,
+                          color: item.action == 'todo_late' ? p.lateRowText : context.colors.onSurfaceVariant,
+                        ),
+                      )
+                    : PersonAvatar(id: item.userId, name: name, size: 32),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
@@ -324,7 +343,7 @@ class _EventCard extends StatelessWidget {
                       Text(text, style: const TextStyle(fontSize: 14, height: 1.4)),
                       const SizedBox(height: 3),
                       Text(
-                        [clockTime(event.createdAt), ?boardName].join(' · '),
+                        [clockTime(item.createdAt), if (item.todo) 'Planner', ?sourceName].join(' · '),
                         style: TextStyle(fontSize: 12, color: context.colors.onSurfaceVariant),
                       ),
                     ],

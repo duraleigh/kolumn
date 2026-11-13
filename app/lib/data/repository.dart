@@ -767,6 +767,18 @@ class KolumnRepository {
 
   // ---------------------------------------------------------------- which planners show a Kolumn (2026-11-13)
 
+  /// Everyone in each planner on this phone (its maker, and the people it is shared with).
+  Future<Map<String, Set<int>>> plannerMembers() async {
+    final out = <String, Set<int>>{};
+    for (final p in await (db.select(db.kPlanners)..where((p) => p.deletedAt.isNull())).get()) {
+      out[p.id] = {?p.creatorId};
+    }
+    for (final x in await (db.select(db.kPlannerPeople)..where((x) => x.deletedAt.isNull())).get()) {
+      out[x.plannerId]?.add(x.userId);
+    }
+    return out;
+  }
+
   /// The planners that may show a Kolumn's cards. Empty: none.
   Future<void> setBoardPlanners(String boardId, List<String> plannerIds) => db.transaction(() async {
     await (db.update(db.kBoards)..where((b) => b.id.equals(boardId))).write(KBoardsCompanion(plannerIds: Value(jsonEncode(plannerIds)), updatedAt: Value(_now())));

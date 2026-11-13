@@ -5,9 +5,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 
+import '../activity/activity_model.dart';
 import '../data/database.dart';
 import '../data/lanes.dart';
 import '../data/repository.dart';
+import '../planner/planner_model.dart';
 import '../sync/sync_service.dart';
 
 /// Replaced in main() (and in tests) with the real repository.
@@ -151,8 +153,29 @@ final viewsProvider = StreamProvider<List<KView>>((ref) => ref.watch(repositoryP
 final allEventsProvider = StreamProvider<List<KEvent>>((ref) => ref.watch(repositoryProvider).watchAllEvents());
 final allColumnsProvider = StreamProvider<List<KColumn>>((ref) => ref.watch(repositoryProvider).watchAllColumns());
 
-/// How many alerts are waiting to be read (for the badge).
-final unreadAlertsProvider = Provider<int>((ref) => (ref.watch(notificationsProvider).value ?? const <KNotification>[]).where((n) => n.readAt == null).length);
+// 2026-11-13: the Planner in Activity and Alerts.
+final allTodosProvider = StreamProvider<List<KTodo>>((ref) => ref.watch(repositoryProvider).watchAllTodos());
+final allTodoEventsProvider = StreamProvider<List<KTodoEvent>>((ref) => ref.watch(repositoryProvider).watchAllTodoEvents());
+final reminderReadsProvider = StreamProvider<List<KReminderRead>>((ref) => ref.watch(repositoryProvider).watchReminderReads());
+
+/// Reminders that have gone off, for the Alerts tab.
+final passedRemindersProvider = Provider<List<PassedReminder>>((ref) {
+  final now = DateTime.fromMillisecondsSinceEpoch(ref.watch(plannerNowProvider)());
+  return passedReminders(
+    reminders: ref.watch(remindersProvider).value ?? const <KReminder>[],
+    cards: {for (final c in ref.watch(allCardsProvider).value ?? const <KCard>[]) c.id: c},
+    todos: {for (final t in ref.watch(allTodosProvider).value ?? const <KTodo>[]) t.id: t},
+    read: {for (final r in ref.watch(reminderReadsProvider).value ?? const <KReminderRead>[]) (r.itemId, r.at)},
+    now: now,
+  );
+});
+
+/// How many alerts are waiting to be read (for the badge): alerts, and reminders that went off.
+final unreadAlertsProvider = Provider<int>(
+  (ref) =>
+      (ref.watch(notificationsProvider).value ?? const <KNotification>[]).where((n) => n.readAt == null).length +
+      ref.watch(passedRemindersProvider).where((r) => !r.read).length,
+);
 
 /// Whether this person follows a Kolumn: their own choice, or (if they never
 /// chose) yes for a Kolumn they made.

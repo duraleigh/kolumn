@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../card/card_screen.dart';
+import '../planner/todo_sheet.dart';
 import '../data/database.dart';
 import '../planner/days.dart';
 import '../state/providers.dart';
@@ -10,8 +11,9 @@ import '../ui/app_header.dart';
 import '../ui/bits.dart';
 import 'activity_model.dart';
 
-/// The bell: what concerns this person, newest first, one line per card.
-/// Opening one marks it read.
+/// The bell: what concerns this person, newest first, one line per card or
+/// to-do, and (since 0.8) their reminders once they go off. Opening one marks
+/// it read.
 class AlertsScreen extends ConsumerWidget {
   const AlertsScreen({super.key});
 
@@ -19,8 +21,18 @@ class AlertsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final all = ref.watch(notificationsProvider).value ?? const <KNotification>[];
     final cards = {for (final c in ref.watch(allCardsProvider).value ?? const <KCard>[]) c.id: c};
-    final alerts = all.where((n) => cards[n.cardId]?.deletedAt == null && cards.containsKey(n.cardId)).toList();
-    final unread = alerts.where((n) => n.readAt == null).length;
+    final todos = {for (final t in ref.watch(allTodosProvider).value ?? const <KTodo>[]) t.id: t};
+    String? titleOf(KNotification n) => n.kind == 'todo'
+        ? (todos[n.cardId]?.deletedAt == null ? todos[n.cardId]?.title : null)
+        : (cards[n.cardId]?.deletedAt == null ? cards[n.cardId]?.title : null);
+    final reminders = ref.watch(passedRemindersProvider);
+    // One list, newest first: alerts, and reminders that went off.
+    final rows = <(int, Object)>[
+      for (final n in all)
+        if (titleOf(n) != null) (n.updatedAt, n),
+      for (final r in reminders) (r.at, r),
+    ]..sort((a, b) => b.$1.compareTo(a.$1));
+    final unread = all.where((n) => n.readAt == null && titleOf(n) != null).length + reminders.where((r) => !r.read).length;
     final names = ref.watch(peopleNamesProvider);
     final me = ref.watch(meIdProvider).value;
     final repo = ref.read(repositoryProvider);
@@ -49,21 +61,28 @@ class AlertsScreen extends ConsumerWidget {
                   Expanded(
                     child: Text(unread == 0 ? 'All caught up' : '$unread new', style: t.bodyMedium!.copyWith(color: c.onSurfaceVariant)),
                   ),
-                  if (unread > 0) TextButton(onPressed: repo.readAllAlerts, child: const Text('Mark all read')),
+                  if (unread > 0)
+                    TextButton(
+                      onPressed: () async {
+                        await repo.readAllAlerts();
+                        await repo.readReminders([for (final r in reminders) if (!r.read) (r.itemId, r.at)]);
+                      },
+                      child: const Text('Mark all read'),
+                    ),
                 ],
               ),
             ),
             Expanded(
               child: RefreshIndicator(
                 onRefresh: () => ref.read(syncServiceProvider).syncNow(),
-                child: alerts.isEmpty
+                child: rows.isEmpty
                     ? ListView(
                         physics: const AlwaysScrollableScrollPhysics(),
                         children: [
                           Padding(
                             padding: const EdgeInsets.fromLTRB(32, 40, 32, 0),
                             child: Text(
-                              'Nothing yet. You\'ll be told here when someone assigns you a card, mentions you, comments on a card you follow, or changes a Kolumn you follow.',
+                              'Nothing yet. You\'ll be told here when someone assigns you a card or a to-do, mentions you, comments on a card you follow, changes a Kolumn you follow, or a to-do you follow is finished, changes its due date or goes late. Your reminders show here too.',
                               textAlign: TextAlign.center,
                               style: t.bodyMedium!.copyWith(color: c.onSurfaceVariant),
                             ),
@@ -73,20 +92,35 @@ class AlertsScreen extends ConsumerWidget {
                     : ListView.builder(
                         physics: const AlwaysScrollableScrollPhysics(),
                         padding: const EdgeInsets.fromLTRB(14, 4, 14, 24),
-                        itemCount: alerts.length,
+                        itemCount: rows.length,
                         itemBuilder: (context, i) {
-                          final n = alerts[i];
-                          final card = cards[n.cardId]!;
+                          final row = rows[i].$2;
+                          if (row is PassedReminder) {
+                            return _AlertRow(
+                              text: 'Reminder: ${row.title}',
+                              when: _when(row.at),
+                              more: row.todo ? 'Planner' : null,
+                              icon: Icons.notifications_active_outlined,
+                              unread: !row.read,
+                              onTap: () {
+                                if (!row.read) repo.setReminderRead(row.itemId, row.at, true);
+                                row.todo ? showTodoSheet(context, ref, todoId: row.itemId) : showCardSheet(context, row.itemId);
+                              },
+                              onLongPress: () => repo.setReminderRead(row.itemId, row.at, !row.read),
+                            );
+                          }
+                          final n = row as KNotification;
                           return _AlertRow(
-                            text: alertLine(n, who: n.creatorId == me ? 'You' : (names[n.creatorId] ?? 'Someone'), title: card.title, me: me),
+                            text: alertLine(n, who: n.creatorId == 0 ? 'Kolumn' : (n.creatorId == me ? 'You' : (names[n.creatorId] ?? 'Someone')), title: titleOf(n)!, me: me),
                             when: _when(n.updatedAt),
-                            more: n.unreadCount > 1 ? '${n.unreadCount} updates' : null,
+                            more: [if (n.unreadCount > 1) '${n.unreadCount} updates', if (n.kind == 'todo') 'Planner'].join(' · ').ifEmptyNull,
                             avatarId: n.creatorId,
                             avatarName: names[n.creatorId] ?? '?',
+                            icon: n.creatorId == 0 ? Icons.error_outline_rounded : null,
                             unread: n.readAt == null,
                             onTap: () {
                               if (n.readAt == null) repo.setAlertRead(n.cardId, true);
-                              showCardSheet(context, card.id);
+                              n.kind == 'todo' ? showTodoSheet(context, ref, todoId: n.cardId) : showCardSheet(context, n.cardId);
                             },
                             onLongPress: () => repo.setAlertRead(n.cardId, n.readAt == null),
                           );
@@ -110,13 +144,18 @@ String _when(int ms) {
   return dayLabel(day, today: today);
 }
 
+extension on String {
+  String? get ifEmptyNull => isEmpty ? null : this;
+}
+
 class _AlertRow extends StatelessWidget {
   const _AlertRow({
     required this.text,
     required this.when,
     required this.more,
-    required this.avatarId,
-    required this.avatarName,
+    this.avatarId = 0,
+    this.avatarName = '',
+    this.icon,
     required this.unread,
     required this.onTap,
     required this.onLongPress,
@@ -126,6 +165,9 @@ class _AlertRow extends StatelessWidget {
   final String? more;
   final int avatarId;
   final String avatarName;
+
+  /// Shown instead of a face: a reminder, or something Kolumn noticed itself.
+  final IconData? icon;
   final bool unread;
   final VoidCallback onTap;
   final VoidCallback onLongPress;
@@ -152,7 +194,9 @@ class _AlertRow extends StatelessWidget {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  PersonAvatar(id: avatarId, name: avatarName, size: 32),
+                  icon != null
+                      ? CircleAvatar(radius: 16, backgroundColor: p.chip, child: Icon(icon, size: 17, color: c.onSurface))
+                      : PersonAvatar(id: avatarId, name: avatarName, size: 32),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(

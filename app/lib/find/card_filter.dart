@@ -50,7 +50,7 @@ class CardFilter {
   };
   static const sorts = {'latest': 'Latest activity', 'newest': 'Newest first', 'oldest': 'Oldest first'};
 
-  bool get isPlain => boards.isEmpty && status == 'open' && assignees.isEmpty && creators.isEmpty && tags.isEmpty && added == null && done == null && sort == 'latest';
+  bool get isPlain => boards.isEmpty && status == 'open' && assignees.isEmpty && creators.isEmpty && added == null && done == null && sort == 'latest';
 
   CardFilter copyWith({
     String? terms,
@@ -188,7 +188,7 @@ List<FoundCard> applyFilter(
       if (!ok) continue;
     }
     if (f.creators.isNotEmpty && !f.creators.contains(c.creatorId)) continue;
-    if (f.tags.isNotEmpty && !f.tags.any(t.tags.contains)) continue;
+    // (A tag filter saved before 0.8 is ignored: tags are shown nowhere now.)
     if (!inWin(addedWin, c.createdAt)) continue;
     if (!inWin(doneWin, c.closedAt)) continue;
 
@@ -210,9 +210,6 @@ List<FoundCard> applyFilter(
       } else if (t.steps.map(hit).nonNulls.firstOrNull case final s?) {
         where = 'step';
         snippet = s;
-      } else if (t.tags.any((x) => x.contains(q.replaceFirst('#', '')))) {
-        where = 'tag';
-        snippet = '#${t.tags.firstWhere((x) => x.contains(q.replaceFirst('#', '')))}';
       } else {
         continue;
       }
