@@ -15,6 +15,7 @@ import 'package:kolumn/data/database.dart';
 import 'package:kolumn/data/export.dart';
 import 'package:kolumn/data/lanes.dart';
 import 'package:kolumn/data/repository.dart';
+import 'package:kolumn/planner/days.dart';
 import 'package:kolumn/planner/repeat.dart';
 import 'package:kolumn/sync/hub_client.dart';
 import 'package:kolumn/sync/sync_service.dart';
@@ -121,7 +122,7 @@ void main() {
     expect(bTodos.firstWhere((t) => t.id == todo).note, 'Truck at 2');
     expect((await pb.repo.watchTodoSteps(todo).first).single.content, 'Print the stage plot');
     expect(await pb.sync.hub.downloadFile(plotId), plot.readAsBytesSync(), reason: 'B fetches exactly the picture A added to the to-do');
-    expect((await pb.repo.card(card))!.dueAt, DateTime.utc(2026, 11, 13, 12).millisecondsSinceEpoch, reason: 'the due day reached B');
+    expect((await pb.repo.card(card))!.dueAt, endOfDayMs('2026-11-13'), reason: 'the due date (11:59 PM of its day) reached B');
     expect((await pb.repo.watchReminders().first).where((r) => r.itemId == todo), isEmpty, reason: 'A\'s reminder is A\'s alone');
     plot.deleteSync();
 
@@ -132,6 +133,37 @@ void main() {
     await pa.sync.syncNow();
     expect((await pa.repo.todo(todo))!.doneAt, isNotNull);
     expect((await pa.repo.watchTodoMarks().first).where((m) => m.todoId == warm && m.day == '2026-11-10' && m.mark == 'done'), hasLength(1));
+
+    // 0.8 (2026-11-13): A made the to-do, so A follows it and hears B finished it.
+    final doneAlert = (await pa.repo.watchNotifications().first).where((n) => n.cardId == todo).single;
+    expect([doneAlert.kind, doneAlert.action], ['todo', 'todo_done'], reason: 'a follower hears a to-do was finished');
+    expect((await pa.repo.todo(todo))!.day, todayKey(), reason: 'a finished to-do lives on the day it was finished');
+    expect((await pa.repo.watchAllTodoEvents().first).map((e) => e.action), containsAll(['todo_created', 'todo_done']), reason: 'to-do history for Activity');
+    // A gives B a to-do with a due date; B hears, follows it, and sees the due date.
+    final given = await pa.repo.addTodo(planner, TodoSlot.day(todayKey()), 'Confirm the hotel');
+    await pa.repo.setTodoDue((await pa.repo.todo(given))!, endOfDayMs(addDays(todayKey(), 2)));
+    await pa.repo.updateTodo(given, assigneeId: meB);
+    await pa.sync.syncNow();
+    await pb.sync.syncNow();
+    expect((await pb.repo.watchNotifications().first).where((n) => n.cardId == given).single.action, 'todo_assigned');
+    expect((await pb.repo.watchTodoWatch(given).first)?.watching, isTrue, reason: 'the person it is for follows it');
+    expect((await pb.repo.todo(given))!.dueAt, endOfDayMs(addDays(todayKey(), 2)));
+    // B changes the due date; A (its maker) hears.
+    await pb.repo.setTodoDue((await pb.repo.todo(given))!, endOfDayMs(addDays(todayKey(), 3)));
+    await pb.sync.syncNow();
+    await pa.sync.syncNow();
+    expect((await pa.repo.watchNotifications().first).where((n) => n.cardId == given).single.action, 'todo_due_changed');
+    // A card with a due TIME, pinned to the top, and the Kolumn shown in this planner: B sees it all.
+    final at = DateTime(2026, 11, 20, 15, 30).millisecondsSinceEpoch;
+    await pa.repo.setCardDueAt(card, at, hasTime: true);
+    await pa.repo.setPinTop(card, true);
+    await pa.repo.setBoardPlanners(board, [planner]);
+    await pa.sync.syncNow();
+    await pb.sync.syncNow();
+    final bc = (await pb.repo.card(card))!;
+    expect([bc.dueAt, bc.dueHasTime, bc.pinnedAt != null], [at, true, true]);
+    final bb = (await (pb.db.select(pb.db.kBoards)..where((x) => x.id.equals(board))).getSingle());
+    expect(jsonDecode(bb.plannerIds), [planner], reason: 'B\'s phone knows the Kolumn allows this planner');
 
     // A takes B out: the planner leaves B's phone.
     await pa.repo.setPlannerPeople(planner, {});
