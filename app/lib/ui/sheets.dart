@@ -12,6 +12,7 @@ import '../data/tidy.dart';
 import '../data/lanes.dart';
 import '../state/providers.dart';
 import '../theme/tokens.dart';
+import '../version.dart';
 
 Future<bool> confirm(BuildContext context, {required String title, required String body, required String action}) async {
   final ok = await showDialog<bool>(
@@ -503,7 +504,7 @@ class _SettingsSheet extends ConsumerWidget {
             ),
             const SizedBox(height: 14),
             Text(
-              'Kolumn 0.7, test version. Kolumns and planners are shared through the hub and saved on this phone, so they work without a connection.',
+              'Kolumn $kolumnVersion, test version. Kolumns and planners are shared through the hub and saved on this phone, so they work without a connection.',
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ],
